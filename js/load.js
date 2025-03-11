@@ -107,23 +107,18 @@ export function createNodesAndConnections(nodes, connections) {
 }
 
 // --- Module-level state ---
-let selectedPatchData = null
-let selectedPatchSourceInfo = null
 let defaultPatchesCache = null
 
 // --- DOM Elements (will be populated by autowire) ---
 let loadModal
-let loadConfirmBtn
 let localPatchListEl
 let defaultsPatchListEl
 let patchFileUploadEl
-let clearWorkspaceCheckbox
 let copyUploadToPatchesCheckbox
 let uploadSvsBtn
 let filesystemTab
 let loadCancelBtnFooter
 let folderListEl
-let clearCheckboxLabelEl
 
 // --- Tab state ---
 let activeTab = 'default'
@@ -174,12 +169,7 @@ function createLoadModal(){
 
 			<!-- Footer Actions -->
 			<div class="load-modal-footer">
-				<label class="load-modal-checkbox-label">
-					<input type="checkbox" id="clear-workspace-checkbox" checked data-el="clearWorkspaceCheckbox">
-					<span data-el="clearCheckboxLabelEl">Clear this workspace on load</span>
-				</label>
 				<div class="load-modal-actions">
-					<button disabled data-el="loadConfirmBtn" class="load-btn-primary">Open</button>
 					<button class="load-btn-secondary" data-el="loadCancelBtnFooter">Cancel</button>
 				</div>
 			</div>
@@ -204,17 +194,14 @@ export function initLoad(){
     // Assign autowired elements to our module-level variables
     ; ({
         loadModal,
-        loadConfirmBtn,
         localPatchListEl,
         defaultsPatchListEl,
         patchFileUploadEl,
-        clearWorkspaceCheckbox,
         copyUploadToPatchesCheckbox,
         uploadSvsBtn,
         filesystemTab,
         loadCancelBtnFooter,
-        folderListEl,
-        clearCheckboxLabelEl
+        folderListEl
     } = loadElements)
 
 
@@ -238,20 +225,7 @@ export function initLoad(){
         if(e.target === loadModal){loadModal.style.display = 'none'}
     })
 
-    loadConfirmBtn.addEventListener('click', handleLoad)
-
     patchFileUploadEl.addEventListener('change', handleFileUpload)
-
-    // Initialize checkbox from localStorage and add change listener
-    const savedClearWorkspace = localStorage.getItem('silvia_clear_workspace_on_load')
-    clearWorkspaceCheckbox.checked = savedClearWorkspace !== 'false' // Default to true
-
-    clearWorkspaceCheckbox.addEventListener('change', () => {
-        localStorage.setItem('silvia_clear_workspace_on_load', clearWorkspaceCheckbox.checked)
-        updateLoadModalText()
-    })
-
-    updateLoadModalText()
     
     // Close on escape
     document.addEventListener('escape-pressed', () => {
@@ -259,16 +233,6 @@ export function initLoad(){
             loadModal.style.display = 'none'
         }
     })
-}
-
-function updateLoadModalText(){
-    // Update the clear checkbox label based on currently selected patch
-    if (clearCheckboxLabelEl) {
-        const isCompound = (selectedPatchData?.workspaceTree?.workspaces?.length || 0) > 1
-        clearCheckboxLabelEl.textContent = isCompound
-            ? 'Clear all workspaces on load'
-            : 'Clear this workspace on load'
-    }
 }
 
 function setupTabFunctionality(){
@@ -363,15 +327,7 @@ function setupFilesystemTab() {
 
 function openLoadModal(){
     populateLoadModal()
-    updateLoadModalText()
     loadModal.style.display = 'flex'
-}
-
-function handleLoad(){
-    if(selectedPatchData){
-        deserializeWorkspace(selectedPatchData, clearWorkspaceCheckbox.checked, selectedPatchSourceInfo)
-        loadModal.style.display = 'none'
-    }
 }
 
 function handleFileUpload(event){
@@ -382,28 +338,17 @@ function handleFileUpload(event){
     reader.onload = async (e) => {
         try {
             const patchData = JSON.parse(e.target.result)
-            deserializeWorkspace(patchData, clearWorkspaceCheckbox.checked)
 
-            // Copy to saves and set source on the new workspace
+            // Copy to saves first so we can set sourceInfo on the new workspace
+            let sourceInfo = null
             if(copyUploadToPatchesCheckbox.checked){
-                const sourceInfo = await copyPatchToStorage(patchData)
-                if(sourceInfo){
-                    // Set source so Ctrl+S can quick-save back to this file
-                    const isCompound = (patchData.workspaceTree?.workspaces?.length || 0) > 1
-                    if (!isCompound) {
-                        const activeWs = WorkspaceManager.getActiveWorkspace()
-                        if (activeWs) {
-                            WorkspaceManager.setSource(activeWs.id, sourceInfo)
-                            window.workspaceTabBar?.render()
-                        }
-                    }
-                    // Refresh the patches list if we're on the filesystem tab
-                    if(activeTab === 'filesystem') {
-                        populateLoadModal()
-                    }
+                sourceInfo = await copyPatchToStorage(patchData)
+                if(sourceInfo && activeTab === 'filesystem') {
+                    populateLoadModal()
                 }
             }
 
+            loadPatchAsNewWorkspace(patchData, sourceInfo)
             loadModal.style.display = 'none'
         } catch(error){
             alert('Failed to parse file. Is it a valid .svs file?')
@@ -415,11 +360,6 @@ function handleFileUpload(event){
 }
 
 async function populateLoadModal(){
-    // Clear previous state
-    selectedPatchData = null
-    selectedPatchSourceInfo = null
-    loadConfirmBtn.disabled = true
-
     // Clear and set loading states
     if(localPatchListEl) {
         localPatchListEl.innerHTML = ''
@@ -510,8 +450,8 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
         <div class="patch-card-description">${patchDescription}</div>
         ${patchFile ? `<div class="patch-card-meta">${modifiedDate} · ${fileSize}</div>` : ''}
         <div class="patch-card-actions">
-            <button class="patch-load-btn" title="Open">Open</button>
-            <button class="patch-new-ws-btn" title="Open as new workspace">+New</button>
+            <button class="patch-new-ws-btn" title="Open in new tab">Open</button>
+            <button class="patch-load-btn" title="Add to current workspace">Add In</button>
             <button class="patch-download-btn" title="Download .svs file">↓</button>
             ${isDefaultPatch ? '' : `<button class="patch-delete-btn" title="Delete">×</button>`}
         </div>
@@ -520,35 +460,21 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
     item.appendChild(previewDiv)
     item.appendChild(infoDiv)
 
-    // Load button - loads into current workspace
+    // Add In button - merges into current workspace without clearing or changing source
     const loadBtn = item.querySelector('.patch-load-btn')
     loadBtn.addEventListener('click', (e) => {
         e.stopPropagation()
-        selectedPatchData = patch
-        const sourceInfo = buildSourceInfo(patch, patchFile, isDefaultPatch)
-        deserializeWorkspace(patch, clearWorkspaceCheckbox.checked, sourceInfo)
+        deserializeWorkspace(patch, false, null)
         loadModal.style.display = 'none'
     })
 
-    // New workspace button - creates new workspace and loads patch there
+    // Open button - opens in new tab with source tracking
     const newWsBtn = item.querySelector('.patch-new-ws-btn')
     newWsBtn.addEventListener('click', (e) => {
         e.stopPropagation()
-        loadPatchAsNewWorkspace(patch)
+        const sourceInfo = buildSourceInfo(patch, patchFile, isDefaultPatch)
+        loadPatchAsNewWorkspace(patch, sourceInfo)
         loadModal.style.display = 'none'
-    })
-
-    // Also allow clicking the card itself to select (but not load immediately)
-    item.addEventListener('click', () => {
-        const currentSelection = loadModal.querySelector('.patch-card.selected')
-        if(currentSelection){
-            currentSelection.classList.remove('selected')
-        }
-        item.classList.add('selected')
-        selectedPatchData = patch
-        selectedPatchSourceInfo = buildSourceInfo(patch, patchFile, isDefaultPatch)
-        loadConfirmBtn.disabled = false
-        updateLoadModalText()
     })
 
     const downloadBtn = item.querySelector('.patch-download-btn')
@@ -604,7 +530,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
  * For compound patches (multiple workspaces), creates all workspaces and maps visibility.
  * For single-workspace patches, creates one new workspace (legacy behavior).
  */
-function loadPatchAsNewWorkspace(patchData) {
+function loadPatchAsNewWorkspace(patchData, sourceInfo = null) {
     try {
         const validation = PatchValidator.validate(patchData)
         if (validation.errors.length > 0) {
@@ -670,6 +596,12 @@ function loadPatchAsNewWorkspace(patchData) {
         }
 
         WorkspaceManager.setActive(activeNewId)
+
+        // Set source tracking for quick-save
+        if (sourceInfo) {
+            WorkspaceManager.setSource(activeNewId, sourceInfo)
+        }
+
         SNode.updateVisibility()
         SNode.nodes.forEach(node => node.updatePortPoints())
         Connection.redrawAllConnections()

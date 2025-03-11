@@ -37,7 +37,6 @@ let thumbPrevBtn
 let thumbNextBtn
 let saveFeedbackEl
 let saveMessageEl
-let patchJsonOutputEl
 let downloadLinkContainerEl
 let subfolderSelectEl
 let allWorkspacesCheckbox
@@ -96,11 +95,7 @@ function createSaveModal(){
 			</div>
 			<div class="save-feedback" style="display: none;" data-el="saveFeedbackEl">
 				<p data-el="saveMessageEl"></p>
-				<div class="form-group" data-el="downloadLinkContainerEl"></div>
-				<div class="form-group">
-					<label>File JSON</label>
-					<textarea rows="5" readonly data-el="patchJsonOutputEl"></textarea>
-				</div>
+				<div data-el="downloadLinkContainerEl"></div>
 			</div>
 		</div>
 	</div>`
@@ -131,7 +126,6 @@ export function initSave(){
         thumbNextBtn,
         saveFeedbackEl,
         saveMessageEl,
-        patchJsonOutputEl,
         downloadLinkContainerEl,
         subfolderSelectEl,
         allWorkspacesCheckbox,
@@ -211,12 +205,17 @@ function refreshThumbnailSources() {
 }
 
 export async function openSaveModal(){
+    // Reset to form state (undo success state if previous save completed)
+    saveModal.querySelector('.save-modal-body').style.display = ''
+    saveFeedbackEl.style.display = 'none'
+    saveConfirmBtn.style.display = ''
+    saveCancelBtn.textContent = 'Cancel'
+
     // Default name to current workspace name
     const activeWs = WorkspaceManager.getActiveWorkspace()
     patchNameEl.value = activeWs?.name || ''
     patchAuthorEl.value = activeWs?.source?.author || ''
     patchDescriptionEl.value = activeWs?.source?.description || ''
-    saveFeedbackEl.style.display = 'none'
     patchThumbnailPreviewEl.style.display = 'none'
 
     // Hide "all workspaces" checkbox if only one workspace open
@@ -395,19 +394,14 @@ async function handleSaveNew(){
             // Save to saves/ directory in Electron
             const savedPath = await window.electronAPI.savePatchFile(patch, safeFilename, selectedFolder)
 
-            // Show feedback for Electron
             try {
                 const workspacePath = await window.electronAPI.getWorkspacePath()
-                const relativePath = savedPath.replace(workspacePath, './saves')
-                saveMessageEl.textContent = `Saved to: ${relativePath}`
+                const relativePath = savedPath.replace(workspacePath, '.')
+                saveMessageEl.textContent = `Saved to ${relativePath}`
             } catch {
-                saveMessageEl.textContent = `Saved to: ${savedPath}`
+                saveMessageEl.textContent = `Saved to ${savedPath}`
             }
-            patchJsonOutputEl.value = patchJsonString
-            saveFeedbackEl.style.display = 'block'
-
-            // No download link needed in Electron mode
-            downloadLinkContainerEl.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">Saved to saves directory.</p>'
+            downloadLinkContainerEl.innerHTML = ''
 
         } catch (error) {
             console.error('Failed to save file:', error)
@@ -419,13 +413,10 @@ async function handleSaveNew(){
         const saved = savePatchToLocalStorage(patch)
         if (!saved) return
 
-        // Show feedback
-        saveMessageEl.textContent = "Saved to your browser's local storage."
-        patchJsonOutputEl.value = patchJsonString
-        saveFeedbackEl.style.display = 'block'
+        saveMessageEl.textContent = "Saved to local storage."
 
-        // Create and add download link
-        downloadLinkContainerEl.innerHTML = '' // Clear previous link
+        // Provide download link
+        downloadLinkContainerEl.innerHTML = ''
         const blob = new Blob([patchJsonString], {type: 'application/json'})
         const url = URL.createObjectURL(blob)
         const downloadLink = document.createElement('a')
@@ -435,6 +426,13 @@ async function handleSaveNew(){
         downloadLink.classList.add('patch-download-link')
         downloadLinkContainerEl.appendChild(downloadLink)
     }
+
+    // Switch to success state: hide form, show feedback
+    saveModal.querySelector('.save-modal-body').style.display = 'none'
+    saveFeedbackEl.style.display = 'block'
+    saveConfirmBtn.style.display = 'none'
+    allWorkspacesCheckbox.parentElement.style.display = 'none'
+    saveCancelBtn.textContent = 'Done'
 
     // Rename the active tab and set source (single-workspace saves only)
     if (!allWorkspacesCheckbox.checked) {
