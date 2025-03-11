@@ -120,7 +120,8 @@
 }
 
 /* ===== MODAL BUTTONS ===== */
-.modal-actions button {
+.modal-actions button,
+.save-modal-footer button {
     font-family: monospace;
     background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
     color: var(--text-primary);
@@ -131,23 +132,27 @@
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.modal-actions button:hover {
+.modal-actions button:hover,
+.save-modal-footer button:hover {
     background: var(--bg-hover);
     border-color: var(--primary-muted);
 }
 
-.modal-actions button:disabled {
+.modal-actions button:disabled,
+.save-modal-footer button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
     background: var(--bg-primary);
 }
 
-.modal-actions button.cancel-btn {
+.modal-actions button.cancel-btn,
+.save-modal-footer button.cancel-btn {
     background: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 15%);
     border-color: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 25%);
 }
 
-.modal-actions button.cancel-btn:hover {
+.modal-actions button.cancel-btn:hover,
+.save-modal-footer button.cancel-btn:hover {
     background: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 20%);
     border-color: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-strong), 35%);
 }
