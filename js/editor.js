@@ -31,13 +31,19 @@ document.addEventListener('keydown', (e) => {
     if(activeEl.tagName === 'TEXTAREA'){return}
     if(activeEl.contentEditable === 'true'){return}
     if(e.key.toLowerCase() === 'h'){
-        editor.style.display = editor.style.display === 'none' ? 'block' : 'none'
+        const hidden = editor.style.visibility === 'hidden'
+        editor.style.visibility = hidden ? '' : 'hidden'
+        editor.style.pointerEvents = hidden ? '' : 'none'
     }
     if(e.key.toLowerCase() === 'f'){
-        if(!document.fullscreenElement){
-            document.documentElement.requestFullscreen()
+        if(window.electronAPI?.toggleFullscreen){
+            window.electronAPI.toggleFullscreen()
         } else {
-            document.exitFullscreen()
+            if(!document.fullscreenElement){
+                document.documentElement.requestFullscreen()
+            } else {
+                document.exitFullscreen()
+            }
         }
     }
 })
