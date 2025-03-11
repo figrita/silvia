@@ -809,13 +809,48 @@ export const AssetManager = {
                 }
             }
 
+            // Create drop overlay (hidden until drag)
+            const dropOverlay = document.createElement('div')
+            dropOverlay.className = 'asset-drop-overlay'
+            dropOverlay.innerHTML = `<div class="asset-drop-overlay-inner">${iconHtml('upload', 32)}<span>Drop files to upload</span></div>`
+
             // Assemble the window
             windowEl.appendChild(header)
             windowEl.appendChild(tabBar)
             windowEl.appendChild(filterBar)
             windowEl.appendChild(mainContainer)
+            windowEl.appendChild(dropOverlay)
             overlay.appendChild(windowEl)
             document.body.appendChild(overlay)
+
+            // Drag-and-drop upload on the whole window
+            let dragCounter = 0
+
+            windowEl.addEventListener('dragenter', (e) => {
+                e.preventDefault()
+                dragCounter++
+                if (dragCounter === 1) windowEl.classList.add('asset-drop-active')
+            })
+
+            windowEl.addEventListener('dragover', (e) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'copy'
+            })
+
+            windowEl.addEventListener('dragleave', (e) => {
+                e.preventDefault()
+                dragCounter--
+                if (dragCounter === 0) windowEl.classList.remove('asset-drop-active')
+            })
+
+            windowEl.addEventListener('drop', async (e) => {
+                e.preventDefault()
+                dragCounter = 0
+                windowEl.classList.remove('asset-drop-active')
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    await handleFileUpload(Array.from(e.dataTransfer.files), activeTab)
+                }
+            })
 
             // Load initial content
             await loadTabContent(activeTab)

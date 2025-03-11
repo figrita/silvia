@@ -55,42 +55,47 @@
 }
 
 .asset-upload-btn {
-    padding: 8px 16px;
-    background: var(--primary-color);
-    border: none;
-    border-radius: 2px;
-    color: white;
+    padding: 4px 12px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    color: var(--text-primary);
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 12px;
+    font-family: monospace;
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    transition: background 0.15s ease, border-color 0.15s ease;
 
     svg { stroke-width: 2.5; }
 }
 
 .asset-upload-btn:hover {
-    background: var(--primary-dark);
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
 }
 
 .asset-close-btn {
-    padding: 8px 16px;
-    background: var(--bg-interactive);
-    border: 1px solid var(--border-normal);
-    border-radius: 2px;
+    padding: 4px 12px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
     color: var(--text-primary);
     cursor: pointer;
-    font-size: 14px;
+    font-size: 12px;
+    font-family: monospace;
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    transition: background 0.15s ease, border-color 0.15s ease;
 
     svg { stroke-width: 2.5; }
 }
 
 .asset-close-btn:hover {
     background: var(--bg-hover);
+    border-color: var(--primary-muted);
 }
 
 /* Tab Bar */
@@ -101,13 +106,14 @@
 }
 
 .asset-tab {
-    padding: 8px 16px;
+    padding: 4px 12px;
     border: none;
     background: transparent;
     color: var(--text-primary);
     cursor: pointer;
-    font-size: 14px;
-    border-bottom: 3px solid transparent;
+    font-size: 12px;
+    font-family: monospace;
+    border-bottom: 2px solid transparent;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -177,9 +183,10 @@
     align-items: center;
     gap: 4px;
     padding: 2px 6px;
-    background: var(--primary-color);
-    color: white;
-    border-radius: 2px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 18%);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
     font-size: 11px;
     font-family: monospace;
     white-space: nowrap;
@@ -195,7 +202,7 @@
 .filter-tag-item button {
     background: none;
     border: none;
-    color: white;
+    color: var(--text-secondary);
     cursor: pointer;
     font-size: 12px;
     font-weight: bold;
@@ -209,7 +216,7 @@
 }
 
 .filter-tag-item button:hover {
-    background: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 /* Main Container */
@@ -358,9 +365,10 @@
     align-items: center;
     gap: 4px;
     padding: 2px 6px;
-    background: var(--primary-color);
-    color: white;
-    border-radius: 2px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 18%);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
     font-size: 11px;
     font-family: monospace;
     white-space: nowrap;
@@ -376,7 +384,7 @@
 .tag-item button {
     background: none;
     border: none;
-    color: white;
+    color: var(--text-secondary);
     cursor: pointer;
     font-size: 12px;
     font-weight: bold;
@@ -390,7 +398,7 @@
 }
 
 .tag-item button:hover {
-    background: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 .asset-edit-filepath {
@@ -412,30 +420,35 @@
 
 .asset-edit-save-btn {
     flex: 1;
-    padding: 8px 12px;
-    background: var(--primary-color);
-    border: none;
-    border-radius: 2px;
-    color: white;
-    font-weight: 600;
+    padding: 4px 12px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: monospace;
     cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .asset-edit-save-btn:hover {
-    background: var(--primary-dark);
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
 }
 
 .asset-edit-cancel-btn {
-    padding: 8px 16px;
-    background: var(--bg-interactive);
-    border: 1px solid var(--border-normal);
-    border-radius: 2px;
-    color: var(--text-secondary);
+    padding: 4px 12px;
+    background: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 15%);
+    border: 1px solid hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 25%);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: monospace;
     cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .asset-edit-cancel-btn:hover {
-    background: var(--bg-hover);
+    background: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 20%);
+    border-color: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-strong), 35%);
 }
 
 /* Asset Grid */
@@ -505,15 +518,17 @@
     position: absolute;
     top: 4px;
     right: 4px;
-    background: var(--bg-interactive);
-    border: 1px solid var(--border-normal);
-    border-radius: 2px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
     color: var(--text-secondary);
     cursor: pointer;
     padding: 2px 6px;
     font-size: 0.8rem;
+    font-family: monospace;
     opacity: 0;
     z-index: 10;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .asset-card:hover .asset-card-delete-btn {
@@ -551,24 +566,26 @@
 }
 
 .asset-empty-upload-btn {
-    padding: 12px 24px;
-    background: var(--primary-color);
-    border: none;
-    border-radius: 2px;
-    color: white;
+    padding: 4px 12px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    color: var(--text-primary);
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 12px;
+    font-family: monospace;
     margin-top: 8px;
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    transition: background 0.15s ease, border-color 0.15s ease;
 
     svg { stroke-width: 2.5; }
 }
 
 .asset-empty-upload-btn:hover {
-    background: var(--primary-dark);
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
 }
 
 /* Loading State */
@@ -583,4 +600,37 @@
     color: var(--text-muted);
     margin: 8px 0 0 0;
     font-size: 12px;
+}
+
+/* Drop Overlay */
+.asset-drop-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: hsla(var(--theme-hue), var(--theme-sat-norm), 5%, 0.9);
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.global-asset-manager-window.asset-drop-active {
+    position: relative;
+}
+
+.global-asset-manager-window.asset-drop-active .asset-drop-overlay {
+    display: flex;
+}
+
+.asset-drop-overlay-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 40px 64px;
+    border: 2px dashed var(--border-normal);
+    border-radius: 2px;
+    color: var(--text-secondary);
+    font-family: monospace;
+    font-size: 14px;
 }
