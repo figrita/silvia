@@ -4,21 +4,11 @@
 
 import {addVersionToPatch, PATCH_VERSION} from './version.js'
 import {iconHtml} from './icons.js'
-
-// Import the regular patches function for saving (to avoid duplication)
-function getRegularPatchesFromLocalStorage(){
-    try {
-        const patches = localStorage.getItem('silvia_patches')
-        return patches ? JSON.parse(patches) : []
-    } catch(e){
-        console.error('Could not load regular patches from local storage:', e)
-        return []
-    }
-}
 import {autowire, StringToFragment} from './utils.js'
 import {SNode} from './snode.js'
 import {Connection} from './connections.js'
 import {WorkspaceManager} from './workspaceManager.js'
+import {getRegularPatchesFromLocalStorage} from './load.js'
 
 // --- Module-level state ---
 let thumbnailOutputIndex = 0
@@ -226,7 +216,7 @@ export async function openSaveModal(){
 
     // Handle subfolder dropdown for Electron mode
     const electronOnlyField = saveModal.querySelector('.electron-only-field')
-    if (typeof window !== 'undefined' && window.electronAPI) {
+    if (window.electronAPI) {
         // Show subfolder dropdown in Electron mode
         electronOnlyField.style.display = 'block'
         await populateSubfolderDropdown()
@@ -335,7 +325,7 @@ function generateThumbnail(outputNode){
 
 async function checkPatchNameExists(patchName){
     // Check if running in Electron mode
-    if (typeof window !== 'undefined' && window.electronAPI) {
+    if (window.electronAPI) {
         try {
             // Check if patch file with this name exists in workspace
             const patchFiles = await window.electronAPI.listPatchFiles()
@@ -383,10 +373,8 @@ async function handleSaveNew(){
     addVersionToPatch(patch) // Add version number
 
     const safeFilename = patchNameEl.value.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'workspace'
-    const patchJsonString = JSON.stringify(patch, null, 2)
 
-    // Check if running in Electron mode
-    if (typeof window !== 'undefined' && window.electronAPI) {
+    if (window.electronAPI) {
         try {
             // Get selected subfolder (empty string means Root)
             const selectedFolder = subfolderSelectEl.value || null
@@ -417,6 +405,7 @@ async function handleSaveNew(){
 
         // Provide download link
         downloadLinkContainerEl.innerHTML = ''
+        const patchJsonString = JSON.stringify(patch, null, 2)
         const blob = new Blob([patchJsonString], {type: 'application/json'})
         const url = URL.createObjectURL(blob)
         const downloadLink = document.createElement('a')
@@ -439,7 +428,7 @@ async function handleSaveNew(){
         const activeWs = WorkspaceManager.getActiveWorkspace()
         if (activeWs) {
             WorkspaceManager.rename(activeWs.id, patchNameEl.value)
-            const source = (typeof window !== 'undefined' && window.electronAPI)
+            const source = (window.electronAPI)
                 ? { type: 'electron', filename: safeFilename, folder: subfolderSelectEl.value || null, author: patchAuthorEl.value, description: patchDescriptionEl.value }
                 : { type: 'localStorage', author: patchAuthorEl.value, description: patchDescriptionEl.value }
             WorkspaceManager.setSource(activeWs.id, source)

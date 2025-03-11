@@ -122,6 +122,7 @@ export class WorkspaceManager {
         const ws = this.workspaces.get(workspaceId)
         if (!ws) return false
         ws.name = newName
+        document.dispatchEvent(new CustomEvent('workspace-renamed'))
         return true
     }
 

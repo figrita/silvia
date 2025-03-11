@@ -116,14 +116,12 @@ let defaultsPatchListEl
 let patchFileUploadEl
 let copyUploadToPatchesCheckbox
 let uploadSvsBtn
-let filesystemTab
 let loadCancelBtnFooter
 let folderListEl
 
 // --- Tab state ---
 let activeTab = 'default'
 let selectedFolder = null
-let patchFolders = []
 
 function createLoadModal(){
     const html = `
@@ -183,7 +181,7 @@ function createLoadModal(){
 }
 
 /**
- * Initializes the entire patcher system, hooks up event listeners.
+ * Initializes the Open modal, hooks up event listeners.
  */
 export function initLoad(){
     // Initialize the patch validator with allowed node types
@@ -199,7 +197,6 @@ export function initLoad(){
         patchFileUploadEl,
         copyUploadToPatchesCheckbox,
         uploadSvsBtn,
-        filesystemTab,
         loadCancelBtnFooter,
         folderListEl
     } = loadElements)
@@ -276,7 +273,7 @@ function setupFilesystemTab() {
     const filesystemTab = loadModal.querySelector('[data-tab="filesystem"]')
     const filesystemContentContainer = document.getElementById('filesystem-content-container')
 
-    if (typeof window !== 'undefined' && window.electronAPI) {
+    if (window.electronAPI) {
         // Electron mode: Use filesystem layout with sidebar
         filesystemTab.innerHTML = 'Filesystem'
 
@@ -348,7 +345,10 @@ function handleFileUpload(event){
                 }
             }
 
-            loadPatchAsNewWorkspace(patchData, sourceInfo)
+            const newWs = WorkspaceManager.create()
+            WorkspaceManager.setActive(newWs.id)
+            deserializeWorkspace(patchData, true, sourceInfo)
+            WorkspaceManager.rename(newWs.id, patchData?.meta?.name || file.name.replace(/\.svs$|\.json$/i, '') || 'Untitled')
             loadModal.style.display = 'none'
         } catch(error){
             alert('Failed to parse file. Is it a valid .svs file?')
@@ -369,7 +369,7 @@ async function populateLoadModal(){
     }
 
     // Check if running in Electron mode
-    if (typeof window !== 'undefined' && window.electronAPI) {
+    if (window.electronAPI) {
         // Electron mode: Load folders and patches with sidebar
         try {
             // Load folders and initial patches
@@ -386,15 +386,15 @@ async function populateLoadModal(){
     } else {
         // Web mode: Load all patches from localStorage in simple grid
         try {
-            const allPatches = getPatchesFromLocalStorage()
+            const allPatches = getRegularPatchesFromLocalStorage()
 
             if(allPatches.length === 0){
                 localPatchListEl.innerHTML = '<p>No saved workspaces in local storage.</p>'
             } else {
                 localPatchListEl.innerHTML = ''
                 // Add all patches (workspace restores and regular patches)
-                allPatches.forEach((patch, index) => {
-                    const item = createPatchListItem(patch, index, null, false)
+                allPatches.forEach(patch => {
+                    const item = createPatchListItem(patch)
                     localPatchListEl.appendChild(item)
                 })
             }
@@ -408,7 +408,7 @@ async function populateLoadModal(){
     await loadDefaultPatches()
 }
 
-function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = false, isDefaultPatch = false){
+function createPatchListItem(patch, patchFile = null, isDefaultPatch = false){
     const item = document.createElement('div')
     item.className = 'patch-card'
     const meta = patch.meta || {}
@@ -464,16 +464,21 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
     const loadBtn = item.querySelector('.patch-load-btn')
     loadBtn.addEventListener('click', (e) => {
         e.stopPropagation()
-        deserializeWorkspace(patch, false, null)
+        deserializeWorkspace(patch, false, null, false)
         loadModal.style.display = 'none'
     })
 
-    // Open button - opens in new tab with source tracking
+    // Open button - opens in a fresh new tab with source tracking
     const newWsBtn = item.querySelector('.patch-new-ws-btn')
     newWsBtn.addEventListener('click', (e) => {
         e.stopPropagation()
         const sourceInfo = buildSourceInfo(patch, patchFile, isDefaultPatch)
-        loadPatchAsNewWorkspace(patch, sourceInfo)
+        const newWs = WorkspaceManager.create()
+        WorkspaceManager.setActive(newWs.id)
+        deserializeWorkspace(patch, true, sourceInfo)
+        // Use canonical name: filesystem filename (may have been renamed on disk) or card display name
+        const canonicalName = patchFile ? patchFile.filename.replace(/\.svs$/, '') : patchName
+        WorkspaceManager.rename(newWs.id, canonicalName)
         loadModal.style.display = 'none'
     })
 
@@ -501,7 +506,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
             const confirmMessage = `Are you sure you want to delete "${patchName}"? This action cannot be undone.`
             if(confirm(confirmMessage)){
                 // Check if running in Electron mode
-                if (typeof window !== 'undefined' && window.electronAPI && patchFile) {
+                if (window.electronAPI && patchFile) {
                     try {
                         const success = await window.electronAPI.deletePatchFile(patchFile.filename)
                         if (success) {
@@ -515,7 +520,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                     }
                 } else {
                     // Web mode: delete from localStorage
-                    deletePatchFromLocalStorage(patchIndex, patch)
+                    deletePatchFromLocalStorage(patch)
                     populateLoadModal() // Refresh the list
                 }
             }
@@ -526,127 +531,31 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
 }
 
 /**
- * Load a patch as new workspace(s).
- * For compound patches (multiple workspaces), creates all workspaces and maps visibility.
- * For single-workspace patches, creates one new workspace (legacy behavior).
+ * Unified patch loading function.
+ * @param {Object} patchData - The .svs patch data
+ * @param {boolean} shouldClearWorkspace - true: clear current workspace(s) and reuse active tab.
+ *   false: create new workspace tab(s) for the loaded patch.
+ * @param {Object|null} sourceInfo - Source tracking for quick-save (Ctrl+S). Null skips.
+ * @param {boolean} activate - Whether to switch to the loaded workspace's tab.
  */
-function loadPatchAsNewWorkspace(patchData, sourceInfo = null) {
-    try {
-        const validation = PatchValidator.validate(patchData)
-        if (validation.errors.length > 0) {
-            console.warn('Patch validation warnings:', validation.errors)
-        }
-        patchData = validation.sanitized
-
-        if (!patchData?.nodes) {
-            throw new Error('Patch data is invalid or missing "nodes" array.')
-        }
-
-        const savedWorkspaces = patchData.workspaceTree?.workspaces || []
-        const isCompound = savedWorkspaces.length > 1
-
-        // Build workspace ID map: old saved IDs → new created IDs
-        const idMap = new Map()
-        let activeNewId = null
-        let nodes
-
-        if (isCompound) {
-            // Compound patch: create all workspaces
-            savedWorkspaces.forEach(ws => {
-                const newWs = WorkspaceManager.create(ws.name)
-                idMap.set(ws.id, newWs.id)
-            })
-            // Determine which to activate
-            const savedActiveId = patchData.workspaceTree?.activeWorkspaceId
-            activeNewId = idMap.get(savedActiveId) || idMap.values().next().value
-
-            // Remap node workspace visibility on shallow copies to avoid mutating cached patchData
-            nodes = patchData.nodes.map(n => ({...n}))
-            nodes.forEach(n => {
-                if (n.workspaceVisibility && Array.isArray(n.workspaceVisibility)) {
-                    n.workspaceVisibility = n.workspaceVisibility
-                        .map(id => idMap.get(id))
-                        .filter(id => id !== undefined)
-                }
-                if (!n.workspaceVisibility || n.workspaceVisibility.length === 0) {
-                    n.workspaceVisibility = [activeNewId]
-                }
-            })
-        } else {
-            // Single-workspace patch: legacy behavior
-            const workspaceName = patchData.meta?.name || 'Imported Workspace'
-            const newWorkspace = WorkspaceManager.create(workspaceName)
-            activeNewId = newWorkspace.id
-            nodes = patchData.nodes.map(n => ({...n, workspaceVisibility: [newWorkspace.id]}))
-        }
-
-        const {nodeMap, errors} = createNodesAndConnections(nodes, patchData.connections)
-
-        if (nodeMap.size === 0) {
-            WorkspaceManager.delete(activeNewId)
-            alert('Import failed: no nodes could be created.')
-            return
-        }
-
-        if (patchData.editorWidth) {
-            const nodeRoot = document.getElementById('node-root')
-            if (patchData.editorWidth > (nodeRoot?.offsetWidth || 0)) {
-                setWorkspaceWidth(patchData.editorWidth)
+export function deserializeWorkspace(patchData, shouldClearWorkspace = true, sourceInfo = null, activate = true){
+    /**** v0 migration: normalize old field names and add workspaceTree ****/
+    if (Array.isArray(patchData?.nodes)) {
+        patchData.nodes.forEach(n => {
+            if (n.layerVisibility && !n.workspaceVisibility) {
+                n.workspaceVisibility = n.layerVisibility
+                delete n.layerVisibility
             }
-        }
-
-        WorkspaceManager.setActive(activeNewId)
-
-        // Set source tracking for quick-save
-        if (sourceInfo) {
-            WorkspaceManager.setSource(activeNewId, sourceInfo)
-        }
-
-        SNode.updateVisibility()
-        SNode.nodes.forEach(node => node.updatePortPoints())
-        Connection.redrawAllConnections()
-
-        if (errors.length > 0) {
-            console.warn('Import errors:', errors)
-            alert(`Imported with ${errors.length} errors. Check console.`)
-        }
-
-        window.workspaceTabBar?.render()
-
-    } catch (error) {
-        console.error('Failed to import patch:', error)
-        alert(`Import failed: ${error.message}`)
+        })
     }
-}
-
-/**
- * Clear all workspaces and all nodes across the entire session.
- * Used when loading a compound patch with "clear all" enabled.
- */
-function clearAllWorkspaces() {
-    // Destroy all nodes (across all workspaces)
-    const allOutputs = [...SNode.nodes].filter(n => n.slug === 'output')
-    allOutputs.forEach(n => n.isDestroyed = true)
-
-    const allNodes = [...SNode.nodes]
-    allNodes.forEach(n => n.destroy())
-
-    Connection.redrawAllConnections()
-
-    // Reset workspace width and scroll
-    const editor = document.getElementById('editor')
-    if (editor) {
-        setWorkspaceWidth(editor.getBoundingClientRect().width)
-        editor.scrollLeft = 0
+    if (!patchData?.workspaceTree) {
+        patchData.workspaceTree = {
+            activeWorkspaceId: 1,
+            workspaces: [{ id: 1, name: patchData?.meta?.name || 'Untitled' }]
+        }
     }
-
-    // Delete all workspaces (reset creates a fresh default one)
-    WorkspaceManager.reset()
-}
-
-export function deserializeWorkspace(patchData, shouldClearWorkspace = true, sourceInfo = null){
+    /****/
     try {
-        // Validate and sanitize
         const validation = PatchValidator.validate(patchData)
         if (validation.errors.length > 0) {
             console.warn('Patch validation warnings:', validation.errors)
@@ -655,46 +564,42 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true, sou
 
         if (!patchData?.nodes) {
             throw new Error('Patch data is invalid or missing "nodes" array.')
-        }
-
-        if (patchData.version) {
         }
 
         const isCompound = (patchData.workspaceTree?.workspaces?.length || 0) > 1
 
         if (shouldClearWorkspace) {
-            if (isCompound) {
-                // Compound patch: clear ALL workspaces and nodes
-                clearAllWorkspaces()
-            } else {
-                clearWorkspace()
-            }
-            // Clear stale source so loading a new patch doesn't overwrite
-            // the previous file on Ctrl+S. Re-set later if sourceInfo is provided.
+            clearWorkspace()
             const activeWs = WorkspaceManager.getActiveWorkspace()
             if (activeWs) WorkspaceManager.setSource(activeWs.id, null)
         }
 
-        // Build workspace ID mapping (old IDs → new IDs)
-        const workspaceIdMap = buildWorkspaceIdMap(patchData, shouldClearWorkspace)
+        const {idMap, targetActiveId} = buildWorkspaceIdMap(patchData, shouldClearWorkspace)
 
         // Remap workspace visibility on shallow copies to avoid mutating cached patchData
         const nodes = patchData.nodes.map(n => ({...n}))
+        const fallbackWsId = targetActiveId || WorkspaceManager.getActiveWorkspace()?.id
         nodes.forEach(nodeData => {
             if (nodeData.workspaceVisibility && Array.isArray(nodeData.workspaceVisibility)) {
                 nodeData.workspaceVisibility = nodeData.workspaceVisibility
-                    .map(id => workspaceIdMap.get(id))
+                    .map(id => idMap.get(id))
                     .filter(id => id !== undefined)
                 if (nodeData.workspaceVisibility.length === 0) {
-                    nodeData.workspaceVisibility = [WorkspaceManager.getActiveWorkspace()?.id]
+                    nodeData.workspaceVisibility = [fallbackWsId]
                 }
+            } else {
+                // Legacy nodes without workspaceVisibility
+                nodeData.workspaceVisibility = [fallbackWsId]
             }
         })
 
-        // Create nodes and connections
-        const {errors, failedIds} = createNodesAndConnections(nodes, patchData.connections)
+        const {nodeMap, errors} = createNodesAndConnections(nodes, patchData.connections)
 
-        // Restore editor width
+        if (nodeMap.size === 0) {
+            alert('Load failed: no nodes could be created.')
+            return
+        }
+
         if (patchData.editorWidth) {
             const currentWidth = document.getElementById('editor')?.getBoundingClientRect().width || 0
             if (shouldClearWorkspace || patchData.editorWidth > currentWidth) {
@@ -702,24 +607,23 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true, sou
             }
         }
 
-        // Update visuals
-        SNode.updateVisibility()
-        SNode.nodes.forEach(node => node.updatePortPoints())
-        Connection.redrawAllConnections()
-
-        // Re-render tab bar to reflect name changes and new workspaces
-        window.workspaceTabBar?.render()
+        if (activate && targetActiveId) {
+            WorkspaceManager.setActive(targetActiveId)
+        }
 
         // Set source on the active workspace (single-workspace loads only)
         if (sourceInfo && !isCompound) {
             const activeWs = WorkspaceManager.getActiveWorkspace()
             if (activeWs) {
                 WorkspaceManager.setSource(activeWs.id, sourceInfo)
-                window.workspaceTabBar?.render()
             }
         }
 
-        // Report results
+        SNode.updateVisibility()
+        SNode.nodes.forEach(node => node.updatePortPoints())
+        Connection.redrawAllConnections()
+        window.workspaceTabBar?.render()
+
         if (errors.length > 0) {
             console.warn('Load errors:', errors)
             alert(`Loaded with ${errors.length} errors. Check console.`)
@@ -734,53 +638,45 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true, sou
 /**
  * Build workspace ID mapping from patch data.
  * Maps saved workspace IDs to current workspace IDs.
+ * When shouldClearWorkspace is true, reuses the active workspace for the first saved workspace
+ * and creates new workspaces for the rest.
+ * When false, maps all saved workspaces to the active workspace (Add In behavior).
+ * @returns {{idMap: Map, targetActiveId: *}} - ID map and the workspace to activate
  */
 function buildWorkspaceIdMap(patchData, shouldClearWorkspace) {
     const idMap = new Map()
     const activeWs = WorkspaceManager.getActiveWorkspace()
+    let targetActiveId = null
 
-    // Get workspaces from patch (various formats)
     const savedWorkspaces = patchData.workspaceTree?.workspaces
         || patchData.workspaces
         || []
 
     if (savedWorkspaces.length > 0) {
-        const first = savedWorkspaces[0]
-
-        if (shouldClearWorkspace && activeWs && first) {
-            // Reuse active workspace for first saved workspace
-            WorkspaceManager.rename(activeWs.id, first.name || 'Workspace 1')
-            idMap.set(first.id, activeWs.id)
-        }
-
-        savedWorkspaces.forEach(ws => {
-            if (idMap.has(ws.id)) return
-            const newWs = WorkspaceManager.create(ws.name)
-            idMap.set(ws.id, newWs.id)
-        })
-
-        // Set active workspace
-        const activeId = patchData.workspaceTree?.activeWorkspaceId ?? patchData.activeWorkspaceId
-        if (shouldClearWorkspace && activeId) {
-            const mapped = idMap.get(activeId)
-            if (mapped) WorkspaceManager.setActive(mapped)
-        }
-
-    } else {
-        // Legacy patch with no workspace data - use active workspace
-        if (activeWs) {
-            idMap.set(1, activeWs.id)
-            // Rename active tab to the loaded file's name
-            if (shouldClearWorkspace && patchData.meta?.name) {
-                WorkspaceManager.rename(activeWs.id, patchData.meta.name)
+        if (shouldClearWorkspace) {
+            // Load into active workspace: reuse it for the first, create new for the rest
+            const first = savedWorkspaces[0]
+            if (activeWs && first) {
+                idMap.set(first.id, activeWs.id)
             }
+            savedWorkspaces.forEach(ws => {
+                if (idMap.has(ws.id)) return
+                const newWs = WorkspaceManager.create(ws.name)
+                idMap.set(ws.id, newWs.id)
+            })
+            const activeId = patchData.workspaceTree?.activeWorkspaceId ?? patchData.activeWorkspaceId
+            targetActiveId = (activeId && idMap.get(activeId)) || idMap.values().next().value || null
+        } else {
+            // Add In: map all saved workspaces to the active workspace
+            savedWorkspaces.forEach(ws => idMap.set(ws.id, activeWs.id))
+            targetActiveId = activeWs?.id || null
         }
     }
 
-    return idMap
+    return {idMap, targetActiveId}
 }
 
-function getRegularPatchesFromLocalStorage(){
+export function getRegularPatchesFromLocalStorage(){
     try {
         const patches = localStorage.getItem('silvia_patches')
         return patches ? JSON.parse(patches) : []
@@ -790,27 +686,12 @@ function getRegularPatchesFromLocalStorage(){
     }
 }
 
-function getPatchesFromLocalStorage(){
-    try {
-        const regularPatches = getRegularPatchesFromLocalStorage()
-
-        // Note: Legacy workspace restores (silvia_workspace_1, silvia_workspace_2) are no longer
-        // displayed here. They are automatically migrated to the new session format on startup.
-        // The session is now saved/loaded as a single unit through main.js.
-
-        // Return regular patches only
-        return regularPatches
-    } catch(e){
-        console.error('Could not load patches from local storage:', e)
-        return []
-    }
-}
 
 async function copyPatchToStorage(patchData){
     const meta = patchData.meta || {}
     try {
         // Check if running in Electron mode
-        if (typeof window !== 'undefined' && window.electronAPI) {
+        if (window.electronAPI) {
             // Electron mode: save to saves/ folder (Root)
             const patchName = meta.name || 'Untitled'
             const safeFilename = patchName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'patch'
@@ -846,7 +727,7 @@ async function copyPatchToStorage(patchData){
     }
 }
 
-function deletePatchFromLocalStorage(indexToDelete, patchToDelete){
+function deletePatchFromLocalStorage(patchToDelete){
     try {
         // Get only the regular patches (not workspace restores)
         const regularPatches = getRegularPatchesFromLocalStorage()
@@ -904,8 +785,8 @@ function populateDefaultPatches(patches){
 
     defaultsPatchListEl.innerHTML = ''
 
-    patches.forEach((patch, index) => {
-        const item = createPatchListItem(patch, index, null, false, true)
+    patches.forEach(patch => {
+        const item = createPatchListItem(patch, null, true)
         defaultsPatchListEl.appendChild(item)
     })
 }
@@ -978,7 +859,6 @@ async function loadPatchFolders(){
             folderListEl.appendChild(folderItem)
         })
 
-        patchFolders = allFolders
     } catch (error) {
         console.error('Failed to load patch folders:', error)
         folderListEl.innerHTML = '<p style="padding: 8px; color: var(--text-muted); font-size: 11px;">Failed to load folders.</p>'
@@ -999,8 +879,8 @@ async function loadPatchesForFolder(folderName) {
         }
 
         // The API already returns filtered patches for the specific folder, no need to filter again
-        patchFiles.forEach((patchFile, index) => {
-            const item = createPatchListItem(patchFile.data, index, patchFile, false)
+        patchFiles.forEach(patchFile => {
+            const item = createPatchListItem(patchFile.data, patchFile)
             localPatchListEl.appendChild(item)
         })
     } catch (error) {
