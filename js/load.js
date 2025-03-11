@@ -345,10 +345,8 @@ function handleFileUpload(event){
                 }
             }
 
-            const newWs = WorkspaceManager.create()
-            WorkspaceManager.setActive(newWs.id)
-            deserializeWorkspace(patchData, true, sourceInfo)
-            WorkspaceManager.rename(newWs.id, patchData?.meta?.name || file.name.replace(/\.svs$|\.json$/i, '') || 'Untitled')
+            const name = patchData?.meta?.name || file.name.replace(/\.svs$|\.json$/i, '') || 'Untitled'
+            openPatch(patchData, sourceInfo, name)
             loadModal.style.display = 'none'
         } catch(error){
             alert('Failed to parse file. Is it a valid .svs file?')
@@ -451,7 +449,7 @@ function createPatchListItem(patch, patchFile = null, isDefaultPatch = false){
         ${patchFile ? `<div class="patch-card-meta">${modifiedDate} · ${fileSize}</div>` : ''}
         <div class="patch-card-actions">
             <button class="patch-new-ws-btn" title="Open in new tab">Open</button>
-            <button class="patch-load-btn" title="Add to current workspace">Add In</button>
+            ${wsCount <= 1 ? `<button class="patch-load-btn" title="Add to current workspace">Add In</button>` : ''}
             <button class="patch-download-btn" title="Download .svs file">↓</button>
             ${isDefaultPatch ? '' : `<button class="patch-delete-btn" title="Delete">×</button>`}
         </div>
@@ -460,25 +458,23 @@ function createPatchListItem(patch, patchFile = null, isDefaultPatch = false){
     item.appendChild(previewDiv)
     item.appendChild(infoDiv)
 
-    // Add In button - merges into current workspace without clearing or changing source
+    // Add In button - merges into current workspace (single-workspace patches only)
     const loadBtn = item.querySelector('.patch-load-btn')
-    loadBtn.addEventListener('click', (e) => {
-        e.stopPropagation()
-        deserializeWorkspace(patch, false, null, false)
-        loadModal.style.display = 'none'
-    })
+    if (loadBtn) {
+        loadBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            deserializeWorkspace(patch, false, null, false)
+            loadModal.style.display = 'none'
+        })
+    }
 
     // Open button - opens in a fresh new tab with source tracking
     const newWsBtn = item.querySelector('.patch-new-ws-btn')
     newWsBtn.addEventListener('click', (e) => {
         e.stopPropagation()
         const sourceInfo = buildSourceInfo(patch, patchFile, isDefaultPatch)
-        const newWs = WorkspaceManager.create()
-        WorkspaceManager.setActive(newWs.id)
-        deserializeWorkspace(patch, true, sourceInfo)
-        // Use canonical name: filesystem filename (may have been renamed on disk) or card display name
         const canonicalName = patchFile ? patchFile.filename.replace(/\.svs$/, '') : patchName
-        WorkspaceManager.rename(newWs.id, canonicalName)
+        openPatch(patch, sourceInfo, canonicalName)
         loadModal.style.display = 'none'
     })
 
@@ -528,6 +524,18 @@ function createPatchListItem(patch, patchFile = null, isDefaultPatch = false){
     }
 
     return item
+}
+
+/**
+ * Open a patch in a new workspace tab.
+ * Handles the full lifecycle: create workspace, activate, deserialize, rename.
+ * For loading into an existing workspace (startup, Add In), use deserializeWorkspace directly.
+ */
+export function openPatch(patchData, sourceInfo = null, name = 'Untitled') {
+    const newWs = WorkspaceManager.create()
+    WorkspaceManager.setActive(newWs.id)
+    deserializeWorkspace(patchData, true, sourceInfo)
+    WorkspaceManager.rename(newWs.id, name)
 }
 
 /**
