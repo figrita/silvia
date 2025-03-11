@@ -196,6 +196,29 @@ function createWindow() {
     return win
 }
 
+// IPC: toggle fullscreen via Electron native API (preserves menu bar on Linux)
+ipcMain.on('toggle-fullscreen', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) win.setFullScreen(!win.isFullScreen())
+})
+
+// IPC: session quickload save/load (stored in workspace root, not saves/)
+const SESSION_FILE = 'session.svs'
+
+ipcMain.handle('save-session', async (event, sessionData) => {
+    const wsPath = getWorkspacePath()
+    const sessionPath = path.join(wsPath, SESSION_FILE)
+    await fs.writeFile(sessionPath, JSON.stringify(sessionData, null, 2))
+    return sessionPath
+})
+
+ipcMain.handle('load-session', async () => {
+    const wsPath = getWorkspacePath()
+    const sessionPath = path.join(wsPath, SESSION_FILE)
+    const content = await fs.readFile(sessionPath, 'utf8')
+    return JSON.parse(content)
+})
+
 // IPC: toggle Save menu item visibility
 ipcMain.on('set-save-visible', (event, visible) => {
     const menu = Menu.getApplicationMenu()
@@ -505,11 +528,6 @@ ipcMain.handle('list-patch-files', async (event, folderName = null) => {
 
                 for (const file of files) {
                     if (file.endsWith('.svs')) {
-                        // Exclude workspace files from the patch list
-                        if (file === 'workspace_1.svs' || file === 'workspace_2.svs') {
-                            continue
-                        }
-
                         try {
                             const patchPath = path.join(patchesDir, file)
                             const stats = await fs.stat(patchPath)

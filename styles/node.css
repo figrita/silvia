@@ -228,7 +228,9 @@ body.s-number-scrubbing .node .input-control s-color {
                 .sampling-cost-warning {
                     color: #f59e0b;
                     cursor: help;
-                    margin-left: 0.25rem;
+                    margin-left: 4px;
+                    display: inline-flex;
+                    vertical-align: middle;
                 }
 
                 .input-control {

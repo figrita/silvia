@@ -51,11 +51,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Note: Window close handling now uses standard beforeunload events
 
+    // Session quickload (stored in workspace root, not saves/)
+    saveSession: (sessionData) => ipcRenderer.invoke('save-session', sessionData),
+    loadSession: () => ipcRenderer.invoke('load-session'),
+
     // Menu control
     setSaveVisible: (visible) => ipcRenderer.send('set-save-visible', visible),
 
     // Environment info
     isElectron: true,
+
+    // Fullscreen
+    toggleFullscreen: () => ipcRenderer.send('toggle-fullscreen'),
 
     // External link handling
     openExternal: (url) => ipcRenderer.invoke('open-external', url)

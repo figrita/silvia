@@ -116,7 +116,7 @@ async function saveSession() {
         // Check if running in Electron mode
         if (typeof window !== 'undefined' && window.electronAPI) {
             try {
-                await window.electronAPI.savePatchFile(session, SESSION_FILENAME)
+                await window.electronAPI.saveSession(session)
                 console.log('Session saved to file')
             } catch (error) {
                 console.warn('Could not save session to file, falling back to localStorage:', error)
@@ -144,7 +144,7 @@ async function loadSession() {
         // Check if running in Electron mode
         if (typeof window !== 'undefined' && window.electronAPI) {
             try {
-                sessionData = await window.electronAPI.loadPatchFile(`${SESSION_FILENAME}.svs`)
+                sessionData = await window.electronAPI.loadSession()
                 console.log('Session loaded from file')
             } catch (error) {
                 console.log('No saved session file found, checking localStorage')

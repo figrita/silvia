@@ -217,6 +217,11 @@ export function initLoad(){
     // Tab functionality
     setupTabFunctionality()
 
+    // In Electron mode, default to Filesystem tab (user's saved files)
+    if (window.electronAPI) {
+        switchToTab('filesystem')
+    }
+
     // Close modals on overlay click
     loadModal.addEventListener('click', (e) => {
         if(e.target === loadModal){loadModal.style.display = 'none'}
@@ -473,8 +478,7 @@ function createPatchListItem(patch, patchFile = null, isDefaultPatch = false){
     newWsBtn.addEventListener('click', (e) => {
         e.stopPropagation()
         const sourceInfo = buildSourceInfo(patch, patchFile, isDefaultPatch)
-        const canonicalName = patchFile ? patchFile.filename.replace(/\.svs$/, '') : patchName
-        openPatch(patch, sourceInfo, canonicalName)
+        openPatch(patch, sourceInfo, patchName)
         loadModal.style.display = 'none'
     })
 
@@ -832,8 +836,9 @@ async function loadPatchFolders(){
             return
         }
 
-        // Set default selected folder if none is selected
-        if (selectedFolder === null && allFolders.length > 0) {
+        // Validate selectedFolder still exists, otherwise pick the first
+        const folderStillExists = allFolders.some(f => f.name === selectedFolder)
+        if (!folderStillExists && allFolders.length > 0) {
             selectedFolder = allFolders[0].name
         }
 
