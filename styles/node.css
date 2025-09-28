@@ -1288,6 +1288,17 @@ body.hide-port-borders .port {
     min-height: 0;
 }
 
+/* Override scrolling for filesystem tab to enable independent sidebar/content scrolling */
+#filesystem-tab-content {
+    overflow: hidden;
+    height: 100%;
+}
+
+#filesystem-content-container {
+    height: 100%;
+    overflow: hidden;
+}
+
 .load-tab-content {
     display: block;
 }
@@ -1470,6 +1481,7 @@ body.hide-port-borders .port {
 .filesystem-layout {
     display: flex;
     height: 100%;
+    min-height: 500px; /* Ensure minimum height for scrolling to work */
     gap: 16px;
 }
 
@@ -1481,17 +1493,24 @@ body.hide-port-borders .port {
     padding: 16px;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    overflow: hidden;
 }
 
 .filesystem-content {
     flex: 1;
     min-width: 0;
+    height: 100%;
+    overflow: auto;
 }
 
 .folder-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .folder-item {
