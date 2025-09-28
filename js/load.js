@@ -70,18 +70,8 @@ function createLoadModal(){
 						</div>
 					</div>
 					<div class="load-tab-content load-tab-content-hidden" id="filesystem-tab-content">
-						<div class="filesystem-layout">
-							<div class="filesystem-sidebar">
-								<h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-secondary); font-weight: 600;">Folders</h4>
-								<div class="folder-list" data-el="folderListEl">
-									<p>Loading folders...</p>
-								</div>
-							</div>
-							<div class="filesystem-content">
-								<div class="patch-grid" data-el="localPatchListEl">
-									<p>Loading your patches...</p>
-								</div>
-							</div>
+						<div id="filesystem-content-container">
+							<!-- Content will be dynamically populated based on web vs electron -->
 						</div>
 					</div>
 				</div>
@@ -142,6 +132,9 @@ export function initLoad(){
     uploadSvsBtn.addEventListener('click', () => {
         patchFileUploadEl.click()
     })
+
+    // Setup filesystem tab content based on environment
+    setupFilesystemTab()
 
     // Tab functionality
     setupTabFunctionality()
@@ -216,6 +209,53 @@ function switchToTab(tabType){
     }
 }
 
+function setupFilesystemTab() {
+    const filesystemTab = loadModal.querySelector('[data-tab="filesystem"]')
+    const filesystemContentContainer = document.getElementById('filesystem-content-container')
+
+    if (typeof window !== 'undefined' && window.electronAPI) {
+        // Electron mode: Use filesystem layout with sidebar
+        filesystemTab.innerHTML = '<span class="load-tab-icon">💾</span>Filesystem Patches'
+
+        filesystemContentContainer.innerHTML = `
+            <div class="filesystem-layout">
+                <div class="filesystem-sidebar">
+                    <h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-secondary); font-weight: 600;">Folders</h4>
+                    <div class="folder-list" data-el="folderListEl">
+                        <p>Loading folders...</p>
+                    </div>
+                </div>
+                <div class="filesystem-content">
+                    <div class="patch-grid" data-el="localPatchListEl">
+                        <p>Loading your patches...</p>
+                    </div>
+                </div>
+            </div>
+        `
+    } else {
+        // Web mode: Simple grid layout without sidebar
+        filesystemTab.innerHTML = '<span class="load-tab-icon">💾</span>Local Storage'
+
+        filesystemContentContainer.innerHTML = `
+            <div class="patch-grid" data-el="localPatchListEl">
+                <p>Loading your patches...</p>
+            </div>
+        `
+    }
+
+    // Re-autowire the new elements
+    const containerEl = document.getElementById('filesystem-content-container')
+    const newLocalPatchListEl = containerEl.querySelector('[data-el="localPatchListEl"]')
+    const newFolderListEl = containerEl.querySelector('[data-el="folderListEl"]')
+
+    if (newLocalPatchListEl) {
+        localPatchListEl = newLocalPatchListEl
+    }
+    if (newFolderListEl) {
+        folderListEl = newFolderListEl
+    }
+}
+
 
 function openLoadModal(){
     populateLoadModal()
@@ -276,12 +316,7 @@ async function populateLoadModal(){
 
     // Check if running in Electron mode
     if (typeof window !== 'undefined' && window.electronAPI) {
-        // Update tab text for Electron mode
-        const filesystemTab = loadModal.querySelector('[data-tab="filesystem"]')
-        if (filesystemTab) {
-            filesystemTab.innerHTML = '<span class="load-tab-icon">💾</span>Filesystem Patches'
-        }
-
+        // Electron mode: Load folders and patches with sidebar
         try {
             // Load folders and initial patches
             await loadPatchFolders()
@@ -295,17 +330,23 @@ async function populateLoadModal(){
             localPatchListEl.innerHTML = '<p>Failed to load patches from workspace.</p>'
         }
     } else {
-        // Web mode: use localStorage
-        const allPatches = getPatchesFromLocalStorage()
+        // Web mode: Load all patches from localStorage in simple grid
+        try {
+            const allPatches = getPatchesFromLocalStorage()
 
-        if(allPatches.length === 0){
-            localPatchListEl.innerHTML = '<p>No patches saved in local storage.</p>'
-        } else {
-            // Add all patches (workspace restores and regular patches)
-            allPatches.forEach((patch, index) => {
-                const item = createPatchListItem(patch, index, null, false)
-                localPatchListEl.appendChild(item)
-            })
+            if(allPatches.length === 0){
+                localPatchListEl.innerHTML = '<p>No patches saved in local storage.</p>'
+            } else {
+                localPatchListEl.innerHTML = ''
+                // Add all patches (workspace restores and regular patches)
+                allPatches.forEach((patch, index) => {
+                    const item = createPatchListItem(patch, index, null, false)
+                    localPatchListEl.appendChild(item)
+                })
+            }
+        } catch (error) {
+            console.error('Failed to load patches from local storage:', error)
+            localPatchListEl.innerHTML = '<p>Failed to load patches from local storage.</p>'
         }
     }
 
