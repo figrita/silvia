@@ -7,6 +7,7 @@ import {nodeList} from './registry.js'
 
 // --- Module-level state ---
 let selectedPatchData = null
+let defaultPatchesCache = null
 
 // --- DOM Elements (will be populated by autowire) ---
 let loadModal
@@ -228,7 +229,7 @@ async function handleLoadFromJson(){
 async function populateLoadModal(){
     // Clear previous state
     localPatchListEl.innerHTML = ''
-    defaultsPatchListEl.innerHTML = '<p>No default patches available.</p>'
+    defaultsPatchListEl.innerHTML = '<p>Loading default patches...</p>'
     patchJsonInputEl.value = ''
     selectedPatchData = null
     loadConfirmBtn.disabled = true
@@ -290,6 +291,9 @@ async function populateLoadModal(){
             })
         }
     }
+
+    // Load default patches (both web and Electron modes)
+    await loadDefaultPatches()
 }
 
 function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = false){
@@ -675,4 +679,50 @@ function deletePatchFromLocalStorage(indexToDelete, patchToDelete){
     } catch(e){
         console.error('Could not delete patch from local storage:', e)
     }
+}
+
+async function loadDefaultPatches(){
+    try {
+        // Use cached default patches if available
+        if(defaultPatchesCache){
+            populateDefaultPatches(defaultPatchesCache)
+            return
+        }
+
+        // Dynamically import the defaults module
+        const defaultsModule = await import('./defaults.js')
+        const patches = await defaultsModule.loadDefaultPatches()
+
+        // Cache the patches
+        defaultPatchesCache = patches
+
+        // Populate the UI
+        populateDefaultPatches(patches)
+    } catch(error){
+        console.warn('Could not load default patches:', error)
+        defaultsPatchListEl.innerHTML = '<p>Could not load default patches.</p>'
+    }
+}
+
+function populateDefaultPatches(patches){
+    if(!patches || patches.length === 0){
+        defaultsPatchListEl.innerHTML = '<p>No default patches available.</p>'
+        return
+    }
+
+    defaultsPatchListEl.innerHTML = ''
+
+    patches.forEach((patch, index) => {
+        const item = createPatchListItem(patch, index, null, false)
+        item.addEventListener('click', () => {
+            const currentSelection = loadModal.querySelector('.patch-item.selected')
+            if(currentSelection){
+                currentSelection.classList.remove('selected')
+            }
+            item.classList.add('selected')
+            selectedPatchData = patch
+            loadConfirmBtn.disabled = false
+        })
+        defaultsPatchListEl.appendChild(item)
+    })
 }
