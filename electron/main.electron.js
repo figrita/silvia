@@ -510,44 +510,197 @@ ipcMain.handle('save-patch-file', async (event, patchData, filename) => {
     }
 })
 
-ipcMain.handle('list-patch-files', async (event) => {
+ipcMain.handle('list-patch-files', async (event, folderName = null) => {
     try {
         const wsPath = getWorkspacePath()
-        
         const patchesDir = path.join(wsPath, 'patches')
-        
+
         try {
-            const files = await fs.readdir(patchesDir)
-            const patches = []
-            
-            for (const file of files) {
-                if (file.endsWith('.svs')) {
-                    try {
-                        const patchPath = path.join(patchesDir, file)
-                        const stats = await fs.stat(patchPath)
-                        const content = await fs.readFile(patchPath, 'utf8')
-                        const patchData = JSON.parse(content)
-                        
-                        patches.push({
-                            filename: file,
-                            path: patchPath,
-                            data: patchData,
-                            modified: stats.mtime.toISOString(),
-                            size: stats.size
-                        })
-                    } catch (err) {
-                        console.warn(`Skipping invalid patch file ${file}:`, err.message)
+            if (folderName === null) {
+                // List patches in root directory only
+                const files = await fs.readdir(patchesDir)
+                const patches = []
+
+                for (const file of files) {
+                    if (file.endsWith('.svs')) {
+                        try {
+                            const patchPath = path.join(patchesDir, file)
+                            const stats = await fs.stat(patchPath)
+                            const content = await fs.readFile(patchPath, 'utf8')
+                            const patchData = JSON.parse(content)
+
+                            patches.push({
+                                filename: file,
+                                path: patchPath,
+                                folder: null,
+                                data: patchData,
+                                modified: stats.mtime.toISOString(),
+                                size: stats.size
+                            })
+                        } catch (err) {
+                            console.warn(`Skipping invalid patch file ${file}:`, err.message)
+                        }
                     }
                 }
+
+                return patches.sort((a, b) => new Date(b.modified) - new Date(a.modified))
+            } else if (folderName) {
+                // List patches in a specific subfolder
+                const folderPath = path.join(patchesDir, folderName)
+                const files = await fs.readdir(folderPath)
+                const patches = []
+
+                for (const file of files) {
+                    if (file.endsWith('.svs')) {
+                        try {
+                            const patchPath = path.join(folderPath, file)
+                            const stats = await fs.stat(patchPath)
+                            const content = await fs.readFile(patchPath, 'utf8')
+                            const patchData = JSON.parse(content)
+
+                            patches.push({
+                                filename: file,
+                                path: patchPath,
+                                folder: folderName,
+                                data: patchData,
+                                modified: stats.mtime.toISOString(),
+                                size: stats.size
+                            })
+                        } catch (err) {
+                            console.warn(`Skipping invalid patch file ${file}:`, err.message)
+                        }
+                    }
+                }
+
+                return patches.sort((a, b) => new Date(b.modified) - new Date(a.modified))
+            } else {
+                // List all patches from root patches directory and subfolders
+                const items = await fs.readdir(patchesDir, { withFileTypes: true })
+                const patches = []
+
+                for (const item of items) {
+                    if (item.isFile() && item.name.endsWith('.svs')) {
+                        // Root level patch file
+                        try {
+                            const patchPath = path.join(patchesDir, item.name)
+                            const stats = await fs.stat(patchPath)
+                            const content = await fs.readFile(patchPath, 'utf8')
+                            const patchData = JSON.parse(content)
+
+                            patches.push({
+                                filename: item.name,
+                                path: patchPath,
+                                folder: null,
+                                data: patchData,
+                                modified: stats.mtime.toISOString(),
+                                size: stats.size
+                            })
+                        } catch (err) {
+                            console.warn(`Skipping invalid patch file ${item.name}:`, err.message)
+                        }
+                    } else if (item.isDirectory()) {
+                        // Subfolder - scan for patches
+                        try {
+                            const subfolderPath = path.join(patchesDir, item.name)
+                            const subFiles = await fs.readdir(subfolderPath)
+
+                            for (const subFile of subFiles) {
+                                if (subFile.endsWith('.svs')) {
+                                    try {
+                                        const patchPath = path.join(subfolderPath, subFile)
+                                        const stats = await fs.stat(patchPath)
+                                        const content = await fs.readFile(patchPath, 'utf8')
+                                        const patchData = JSON.parse(content)
+
+                                        patches.push({
+                                            filename: subFile,
+                                            path: patchPath,
+                                            folder: item.name,
+                                            data: patchData,
+                                            modified: stats.mtime.toISOString(),
+                                            size: stats.size
+                                        })
+                                    } catch (err) {
+                                        console.warn(`Skipping invalid patch file ${item.name}/${subFile}:`, err.message)
+                                    }
+                                }
+                            }
+                        } catch (err) {
+                            console.warn(`Failed to read subfolder ${item.name}:`, err.message)
+                        }
+                    }
+                }
+
+                return patches.sort((a, b) => new Date(b.modified) - new Date(a.modified))
             }
-            
-            // Sort by modification time, newest first
-            return patches.sort((a, b) => new Date(b.modified) - new Date(a.modified))
         } catch {
             return []
         }
     } catch (error) {
         console.error('Failed to list patch files:', error)
+        return []
+    }
+})
+
+// List patch folders
+ipcMain.handle('list-patch-folders', async (event) => {
+    try {
+        const wsPath = getWorkspacePath()
+        const patchesDir = path.join(wsPath, 'patches')
+
+        try {
+            const items = await fs.readdir(patchesDir, { withFileTypes: true })
+            const folders = []
+
+            // Count patches in root directory
+            let rootPatchCount = 0
+            for (const item of items) {
+                if (item.isFile() && item.name.endsWith('.svs')) {
+                    rootPatchCount++
+                }
+            }
+
+            // Add root folder if it has patches
+            if (rootPatchCount > 0) {
+                folders.push({
+                    name: null, // null indicates root folder
+                    displayName: 'Root',
+                    patchCount: rootPatchCount
+                })
+            }
+
+            // Add subfolders
+            for (const item of items) {
+                if (item.isDirectory()) {
+                    try {
+                        const subfolderPath = path.join(patchesDir, item.name)
+                        const subFiles = await fs.readdir(subfolderPath)
+                        const patchCount = subFiles.filter(file => file.endsWith('.svs')).length
+
+                        if (patchCount > 0) {
+                            folders.push({
+                                name: item.name,
+                                displayName: item.name,
+                                patchCount: patchCount
+                            })
+                        }
+                    } catch (err) {
+                        console.warn(`Failed to read subfolder ${item.name}:`, err.message)
+                    }
+                }
+            }
+
+            return folders.sort((a, b) => {
+                // Root folder first, then alphabetical
+                if (a.name === null) return -1
+                if (b.name === null) return 1
+                return a.name.localeCompare(b.name)
+            })
+        } catch {
+            return []
+        }
+    } catch (error) {
+        console.error('Failed to list patch folders:', error)
         return []
     }
 })

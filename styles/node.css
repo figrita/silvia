@@ -1298,7 +1298,7 @@ body.hide-port-borders .port {
 
 .patch-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 16px;
     padding: 0;
 }
@@ -1320,7 +1320,7 @@ body.hide-port-borders .port {
     transition: all 0.15s ease;
     display: flex;
     flex-direction: column;
-    height: 200px;
+    height: 250px;
     position: relative;
 }
 
@@ -1350,7 +1350,7 @@ body.hide-port-borders .port {
 
 .patch-card-preview {
     width: 100%;
-    height: 120px;
+    height: 154px;
     background: var(--bg-secondary);
     display: flex;
     align-items: center;
@@ -1464,6 +1464,78 @@ body.hide-port-borders .port {
 .load-btn-secondary:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+}
+
+/* Filesystem Layout */
+.filesystem-layout {
+    display: flex;
+    height: 100%;
+    gap: 16px;
+}
+
+.filesystem-sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.filesystem-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.folder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.folder-item {
+    padding: 8px 12px;
+    background: var(--bg-interactive);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 12px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.folder-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
+}
+
+.folder-item.selected {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.folder-item-icon {
+    font-size: 14px;
+}
+
+.folder-item-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.folder-item-count {
+    font-size: 10px;
+    opacity: 0.7;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 6px;
+    border-radius: 10px;
 }
 
 /* ===== CLOSE CONFIRMATION MODAL ===== */
