@@ -1,0 +1,109 @@
+{
+  "name": "silvia",
+  "version": "0.1.0",
+  "description": "A browser-based modular video synthesizer",
+  "main": "electron/main.electron.js",
+  "homepage": ".",
+  "author": "Silvia Team",
+  "license": "AGPL-3.0",
+  "scripts": {
+    "start": "electron .",
+    "web": "python -m http.server 8080",
+    "build": "electron-builder --win --mac --linux",
+    "build-win": "electron-builder --win",
+    "build-mac": "electron-builder --mac", 
+    "build-linux": "electron-builder --linux",
+    "build-all": "electron-builder --win --mac --linux"
+  },
+  "keywords": [
+    "video",
+    "synthesizer",
+    "glsl",
+    "shaders",
+    "graphics",
+    "modular",
+    "electron",
+    "browser"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/figrita/silvia.git"
+  },
+  "bugs": {
+    "url": "https://github.com/figrita/silvia/issues"
+  },
+  "devDependencies": {
+    "electron": "^37.4.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.silvia.app",
+    "productName": "Silvia",
+    "copyright": "Copyright © 2024 Silvia Team",
+    "files": [
+      "**/*",
+      "!node_modules",
+      "!dist",
+      "!*.md",
+      "!.git*"
+    ],
+    "win": {
+      "target": {
+        "target": "dir",
+        "arch": ["x64"]
+      },
+      "icon": "assets/icons/android-chrome-512x512.png",
+      "forceCodeSigning": false,
+      "fileAssociations": [
+        {
+          "ext": "svs",
+          "name": "Silvia Patch File",
+          "description": "Silvia Video Synthesizer Patch",
+          "mimeType": "application/x-silvia-patch",
+          "icon": "assets/icons/android-chrome-512x512.png"
+        }
+      ]
+    },
+    "mac": {
+      "target": {
+        "target": "dir",
+        "arch": ["x64", "arm64"]
+      },
+      "icon": "assets/icons/android-chrome-512x512.png",
+      "category": "public.app-category.graphics-design",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": null,
+      "entitlementsInherit": null,
+      "fileAssociations": [
+        {
+          "ext": "svs",
+          "name": "Silvia Patch File",
+          "description": "Silvia Video Synthesizer Patch",
+          "icon": "assets/icons/android-chrome-512x512.png"
+        }
+      ]
+    },
+    "linux": {
+      "target": {
+        "target": "dir",
+        "arch": ["x64"]
+      },
+      "icon": "assets/icons/android-chrome-512x512.png",
+      "category": "AudioVideo",
+      "fileAssociations": [
+        {
+          "ext": "svs",
+          "name": "Silvia Patch File",
+          "description": "Silvia Video Synthesizer Patch",
+          "mimeType": "application/x-silvia-patch",
+          "icon": "assets/icons/android-chrome-512x512.png"
+        }
+      ]
+    },
+    "directories": {
+      "output": "dist",
+      "buildResources": "."
+    }
+  }
+}

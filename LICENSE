@@ -1,0 +1,33 @@
+GNU AFFERO GENERAL PUBLIC LICENSE
+Version 3, 19 November 2007
+
+Copyright (C) 2025 Silvia Team
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+THIRD-PARTY COMPONENTS:
+
+This project includes the following third-party components:
+
+nodes/debug.js - WTFPL licensed code from Shadertoy:
+- Nikos Papadopoulos (4rknova) - 2015 WTFPL   
+- FlyGuy's shader
+
+nodes/prideflag.js - CC0 licensed code:
+- From Godot Shaders community (author: jtad)
+
+modern-normalize - MIT licensed CSS normalization:
+- Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+
+See individual files for specific license attributions.

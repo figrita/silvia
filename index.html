@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+
+   ^   
+  / \  
+ /   \ 
+/     \
+|  |  |
+|  |  |_________ _              _________ _______ 
+\  \  /\__   __/( \    |\     /|\__   __/(  ___  )
+ \  \/    ) (   | (    | )   ( |   ) (   | (   ) |
+ /\  \    | |   | |    | |   | |   | |   | (___) |
+/  \  \   | |   | |    ( (   ) )   | |   |  ___  |
+|  |  |   | |   | |     \ \_/ /    | |   | (   ) |
+|  |  |___) (___| (____/\\   /  ___) (___| )   ( |
+\     /\_______/(_______/ \_/   \_______/|/     \|
+ \   / 
+  \ /  
+   v   
+                                                            
+    Sup nerd!
+    There should be no tracking or analytics in this app.
+    If you find any, please open an issue on GitHub.
+
+    You'll find the source is NOT minified!
+    No build step, no react, just good old vanilla javascript and html5.
+
+    Copyright (C) 2025 Silvia Team
+    
+    Silvia is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+    https://www.gnu.org/licenses/agpl-3.0.en.html
+
+
+-->
+<head>
+    <meta charset="UTF-8" />
+    <title>Silvia</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="referrer" content="no-referrer">
+
+    <meta name="title" content="Silvia" />
+    <meta name="description" content="FOSS modular video synthesizer for live performance and visual experimentation." />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://silvia.app/" />
+    <meta property="og:title" content="Silvia" />
+    <meta property="og:description" content="FOSS modular video synthesizer for live performance and visual experimentation." />
+    <meta property="og:image" content="https://silvia.app/assets/images/woahsplash.png" />
+
+    <!-- X (Twitter) -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://silvia.app/" />
+    <meta property="twitter:title" content="Silvia" />
+    <meta property="twitter:description" content="FOSS modular video synthesizer for live performance and visual experimentation." />
+    <meta property="twitter:image" content="https://silvia.app/assets/images/woahsplash.png" />
+
+    <link href="lib/modern-normalize.min.css" rel="stylesheet" />
+    <style>
+        body {
+            /* initial dark background to prevent white flash on load */
+            background: #1a1a1a;
+        }
+    </style>
+
+    <link rel="stylesheet" href="styles/main.css">
+
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icons/favicon-16x16.png">
+    <link rel="manifest" href="site.webmanifest">
+
+    <script src="lib/gifler.min.js"></script>
+</head>
+
+<body>
+    <div id="editor">
+        <div id="workspace-selector">
+            <button id="workspace-toggle-btn" title="Switch Workspace">Workspace 1</button>
+        </div>
+        <div id="workspace-controls">
+            <button id="workspace-extend-btn" title="Extend Workspace Width">↦</button>
+            <button id="workspace-crop-btn" title="Crop Workspace Width">⇤</button>
+        </div>
+        <div id="node-root"></div>
+        <svg id="connection-root"></svg>
+        <div class="floating-btn-container">
+            <button id="nodes-menu-btn" class="floating-btn">🗃️ Nodes</button>
+            <button id="save-patch-btn" class="floating-btn">Save Patch</button>
+            <button id="load-patch-btn" class="floating-btn">Load Patch</button>
+            <button id="save-workspaces-btn" class="floating-btn">
+                <span class="btn-icon">💾</span>
+                <span class="btn-text">Save Workspaces</span>
+            </button>
+            <button id="asset-manager-btn" class="floating-btn" style="display: none;" title="Asset Manager (Ctrl+Shift+A)">📂 Assets</button>
+            <button id="clear-workspace-btn" class="floating-btn">Clear</button>
+            <button id="projector-btn" class="floating-btn">Projector</button>
+            <button id="settings-btn" class="floating-btn">Settings</button>
+            <button id="about-btn" class="floating-btn"><img src="assets/icons/favicon-16x16.png" style="vertical-align: text-bottom;"> About</button>
+            <button id="howto-btn" class="floating-btn">📘 How To</button>
+        </div>
+    </div>
+    <div id="modal-container"></div>
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>

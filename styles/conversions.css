@@ -1,0 +1,120 @@
+/* styles/conversions.css - Type conversion menu and indicator styles */
+
+/* Port convertible indicator - shows when a port can be connected with conversion */
+.port.convertible {
+    position: relative;
+}
+
+.port.convertible::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border: 1px dotted var(--border-normal);
+    border-radius: 50%;
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Conversion menu */
+.conversion-menu {
+    position: absolute;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        0 1px 3px rgba(0, 0, 0, 0.2);
+    z-index: 10000;
+    min-width: 180px;
+    animation: menu-appear 0.15s ease-out;
+    overflow: hidden;
+}
+
+@keyframes menu-appear {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.conversion-menu-header {
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-subtle);
+    font-family: monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.conversion-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+    font-family: monospace;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    border-left: 3px solid transparent;
+}
+
+.conversion-menu-item:hover,
+.conversion-menu-item.hover {
+    background: var(--bg-hover);
+    border-left-color: var(--primary-color);
+    transform: translateX(2px);
+}
+
+.conversion-menu-item:active {
+    background: var(--bg-active);
+    transform: translateX(0);
+}
+
+.conversion-menu-item .icon {
+    font-size: 1.1rem;
+    width: 24px;
+    text-align: center;
+    filter: saturate(1.2);
+}
+
+.conversion-menu-item .label {
+    flex: 1;
+}
+
+/* Special styling for different conversion types */
+.conversion-menu-item:has(.label:contains("Luminosity")) {
+    border-left-color: hsl(60, 100%, 50%);
+}
+
+.conversion-menu-item:has(.label:contains("Red")) .icon {
+    filter: hue-rotate(-10deg) saturate(1.5);
+}
+
+.conversion-menu-item:has(.label:contains("Green")) .icon {
+    filter: hue-rotate(85deg) saturate(1.5);
+}
+
+.conversion-menu-item:has(.label:contains("Blue")) .icon {
+    filter: hue-rotate(200deg) saturate(1.5);
+}
+
+.conversion-menu-item:has(.label:contains("Greyscale")) {
+    filter: grayscale(0.5);
+}
+
+/* Visual feedback during conversion hover */
+.node-root.is-connecting .port.convertible:hover::after {
+    border-color: var(--border-strong);
+    opacity: 0.8;
+}
