@@ -21,9 +21,12 @@ let copyUploadToPatchesCheckbox
 let uploadSvsBtn
 let filesystemTab
 let loadCancelBtnFooter
+let folderListEl
 
 // --- Tab state ---
 let activeTab = 'default'
+let selectedFolder = null
+let patchFolders = []
 
 function createLoadModal(){
     const html = `
@@ -67,8 +70,18 @@ function createLoadModal(){
 						</div>
 					</div>
 					<div class="load-tab-content load-tab-content-hidden" id="filesystem-tab-content">
-						<div class="patch-grid" data-el="localPatchListEl">
-							<p>Loading your patches...</p>
+						<div class="filesystem-layout">
+							<div class="filesystem-sidebar">
+								<h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-secondary); font-weight: 600;">Folders</h4>
+								<div class="folder-list" data-el="folderListEl">
+									<p>Loading folders...</p>
+								</div>
+							</div>
+							<div class="filesystem-content">
+								<div class="patch-grid" data-el="localPatchListEl">
+									<p>Loading your patches...</p>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -115,7 +128,8 @@ export function initLoad(){
         copyUploadToPatchesCheckbox,
         uploadSvsBtn,
         filesystemTab,
-        loadCancelBtnFooter
+        loadCancelBtnFooter,
+        folderListEl
     } = loadElements)
 
 
@@ -267,22 +281,17 @@ async function populateLoadModal(){
         if (filesystemTab) {
             filesystemTab.innerHTML = '<span class="load-tab-icon">💾</span>Filesystem Patches'
         }
-        
-        try {
-            // Load from workspace patches directory in Electron
-            const patchFiles = await window.electronAPI.listPatchFiles()
 
-            if(patchFiles.length === 0){
-                localPatchListEl.innerHTML = '<p>No patches saved in portable workspace.</p>'
-            } else {
-                // Add all patch files
-                patchFiles.forEach((patchFile, index) => {
-                    const item = createPatchListItem(patchFile.data, index, patchFile, false)
-                    localPatchListEl.appendChild(item)
-                })
-            }
+        try {
+            // Load folders and initial patches
+            await loadPatchFolders()
+            // Load patches for the selected folder (or first folder if none selected)
+            await loadPatchesForFolder(selectedFolder)
         } catch (error) {
             console.error('Failed to load patches from workspace:', error)
+            if(folderListEl) {
+                folderListEl.innerHTML = '<p>Failed to load folders.</p>'
+            }
             localPatchListEl.innerHTML = '<p>Failed to load patches from workspace.</p>'
         }
     } else {
@@ -797,4 +806,103 @@ function populateDefaultPatches(patches){
         const item = createPatchListItem(patch, index, null, false)
         defaultsPatchListEl.appendChild(item)
     })
+}
+
+async function loadPatchFolders(){
+    if (!folderListEl || !window.electronAPI) return
+
+    try {
+        // Get all patches to determine what folders exist
+        const allPatches = await window.electronAPI.listPatchFiles()
+        const folders = await window.electronAPI.listPatchFolders()
+
+        folderListEl.innerHTML = ''
+
+        // Always check if root patches exist by looking for patches with folder: null
+        const rootPatches = allPatches.filter(patch => patch.folder === null)
+        const subfolderData = folders.filter(folder => folder.name !== null)
+
+        const allFolders = []
+
+        // Always add Root folder first if there are root patches
+        if (rootPatches.length > 0) {
+            allFolders.push({
+                name: null,
+                displayName: 'Root',
+                patchCount: rootPatches.length
+            })
+        }
+
+        // Add subfolders
+        allFolders.push(...subfolderData)
+
+        if (allFolders.length === 0) {
+            folderListEl.innerHTML = '<p style="padding: 8px; color: var(--text-muted); font-size: 11px;">No patch folders found.</p>'
+            return
+        }
+
+        // Set default selected folder if none is selected
+        if (selectedFolder === null && allFolders.length > 0) {
+            selectedFolder = allFolders[0].name
+        }
+
+        allFolders.forEach(folder => {
+            const folderItem = document.createElement('div')
+            folderItem.className = 'folder-item'
+            if (folder.name === selectedFolder) {
+                folderItem.classList.add('selected')
+            }
+
+            const folderIcon = folder.name === null ? '🏠' : '📁'
+            folderItem.innerHTML = `
+                <span class="folder-item-icon">${folderIcon}</span>
+                <span class="folder-item-name">${folder.displayName}</span>
+                <span class="folder-item-count">${folder.patchCount}</span>
+            `
+
+            folderItem.addEventListener('click', async () => {
+                // Update selection
+                const currentSelected = folderListEl.querySelector('.folder-item.selected')
+                if (currentSelected) {
+                    currentSelected.classList.remove('selected')
+                }
+                folderItem.classList.add('selected')
+                selectedFolder = folder.name
+
+                // Load patches for this folder
+                await loadPatchesForFolder(folder.name)
+            })
+
+            folderListEl.appendChild(folderItem)
+        })
+
+        patchFolders = allFolders
+    } catch (error) {
+        console.error('Failed to load patch folders:', error)
+        folderListEl.innerHTML = '<p style="padding: 8px; color: var(--text-muted); font-size: 11px;">Failed to load folders.</p>'
+    }
+}
+
+async function loadPatchesForFolder(folderName) {
+    if (!localPatchListEl || !window.electronAPI) return
+
+    try {
+        const patchFiles = await window.electronAPI.listPatchFiles(folderName)
+        localPatchListEl.innerHTML = ''
+
+        if (patchFiles.length === 0) {
+            const folderDisplayName = folderName === null ? 'Root' : folderName
+            localPatchListEl.innerHTML = `<p>No patches found in ${folderDisplayName}.</p>`
+            return
+        }
+
+        // The API already returns filtered patches for the specific folder, no need to filter again
+        patchFiles.forEach((patchFile, index) => {
+            const item = createPatchListItem(patchFile.data, index, patchFile, false)
+            localPatchListEl.appendChild(item)
+        })
+    } catch (error) {
+        console.error('Failed to load patches for folder:', error)
+        localPatchListEl.innerHTML = '<p>Failed to load patches.</p>'
+    }
 }
