@@ -485,12 +485,19 @@ ipcMain.handle('create-workspace', async (event, wsPath) => {
 })
 
 // Patch file management IPC handlers
-ipcMain.handle('save-patch-file', async (event, patchData, filename) => {
+ipcMain.handle('save-patch-file', async (event, patchData, filename, folderName = null) => {
     try {
         const wsPath = getWorkspacePath()
         await ensureDirectories()
-        
-        const patchesDir = path.join(wsPath, 'patches')
+
+        let patchesDir = path.join(wsPath, 'patches')
+
+        // If a folder is specified, create subdirectory path
+        if (folderName && folderName.trim() !== '') {
+            patchesDir = path.join(patchesDir, folderName)
+        }
+
+        // Ensure the target directory exists
         await fs.mkdir(patchesDir, { recursive: true })
         
         // Ensure filename has .svs extension

@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
     
     // Patch file management APIs
-    savePatchFile: (patchData, filename) => ipcRenderer.invoke('save-patch-file', patchData, filename),
+    savePatchFile: (patchData, filename, folderName) => ipcRenderer.invoke('save-patch-file', patchData, filename, folderName),
     listPatchFiles: (folderName) => ipcRenderer.invoke('list-patch-files', folderName),
     listPatchFolders: () => ipcRenderer.invoke('list-patch-folders'),
     loadPatchFile: (filename) => ipcRenderer.invoke('load-patch-file', filename),

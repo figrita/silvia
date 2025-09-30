@@ -34,6 +34,7 @@ let saveFeedbackEl
 let saveMessageEl
 let patchJsonOutputEl
 let downloadLinkContainerEl
+let subfolderSelectEl
 
 function createSaveModal(){
     const html = `
@@ -67,6 +68,12 @@ function createSaveModal(){
                     <div class="form-group" style="flex-grow:1">
                         <label for="patch-description">Description</label>
                         <textarea id="patch-description" rows="3" data-el="patchDescriptionEl"></textarea>
+                    </div>
+                    <div class="form-group electron-only-field" style="display: none;">
+                        <label for="subfolder-select">Save to Folder</label>
+                        <select id="subfolder-select" data-el="subfolderSelectEl">
+                            <option value="">Root</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -114,7 +121,8 @@ export function initSave(){
         saveFeedbackEl,
         saveMessageEl,
         patchJsonOutputEl,
-        downloadLinkContainerEl
+        downloadLinkContainerEl,
+        subfolderSelectEl
     } = saveElements)
 
     // Get the static trigger buttons from the main document
@@ -152,13 +160,24 @@ function cycleThumbnail(direction){
     updateThumbnailPreview()
 }
 
-function openSaveModal(){
+async function openSaveModal(){
     // Reset form
     patchNameEl.value = ''
     patchAuthorEl.value = ''
     patchDescriptionEl.value = ''
     saveFeedbackEl.style.display = 'none'
     patchThumbnailPreviewEl.style.display = 'none'
+
+    // Handle subfolder dropdown for Electron mode
+    const electronOnlyField = saveModal.querySelector('.electron-only-field')
+    if (typeof window !== 'undefined' && window.electronAPI) {
+        // Show subfolder dropdown in Electron mode
+        electronOnlyField.style.display = 'block'
+        await populateSubfolderDropdown()
+    } else {
+        // Hide subfolder dropdown in web mode
+        electronOnlyField.style.display = 'none'
+    }
 
     // Thumbnail Logic
     outputNodesForThumb = SNode.getOutputsInCurrentWorkspace()
@@ -167,6 +186,35 @@ function openSaveModal(){
     updateThumbnailPreview()
 
     saveModal.style.display = 'flex'
+}
+
+async function populateSubfolderDropdown(){
+    if (!subfolderSelectEl || !window.electronAPI) return
+
+    try {
+        // Get existing folders from the patches directory
+        const folders = await window.electronAPI.listPatchFolders()
+
+        // Clear existing options except Root
+        subfolderSelectEl.innerHTML = '<option value="">Root</option>'
+
+        // Add existing subfolders as options
+        folders.forEach(folder => {
+            if (folder.name !== null) { // Skip the Root folder since it's already added
+                const option = document.createElement('option')
+                option.value = folder.name
+                option.textContent = folder.displayName
+                subfolderSelectEl.appendChild(option)
+            }
+        })
+
+        // Set default selection to Root
+        subfolderSelectEl.value = ''
+    } catch (error) {
+        console.error('Failed to populate subfolder dropdown:', error)
+        // Keep just the Root option if there's an error
+        subfolderSelectEl.innerHTML = '<option value="">Root</option>'
+    }
 }
 
 function updateThumbnailPreview(){
@@ -286,8 +334,11 @@ async function handleSave(){
     // Check if running in Electron mode
     if (typeof window !== 'undefined' && window.electronAPI) {
         try {
+            // Get selected subfolder (empty string means Root)
+            const selectedFolder = subfolderSelectEl.value || null
+
             // Save to workspace patches directory in Electron
-            const savedPath = await window.electronAPI.savePatchFile(patch, safeFilename)
+            const savedPath = await window.electronAPI.savePatchFile(patch, safeFilename, selectedFolder)
             
             // Show feedback for Electron
             try {
