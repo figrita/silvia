@@ -1,5 +1,5 @@
 // preload.js
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 console.log('Preload script loaded')
 
@@ -7,17 +7,16 @@ console.log('Preload script loaded')
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
     // Asset management APIs
-    copyAsset: async (fileData, type) => {
-        // Convert File object to serializable data
-        const serializedFile = {
-            name: fileData.name,
-            size: fileData.size,
-            type: fileData.type,
-            data: fileData.data, // ArrayBuffer data
-            thumbnailData: fileData.thumbnailData // Include thumbnail data for videos
+    getFilePathFromFile: (file) => {
+        // Use webUtils to get the real file path from a File object
+        try {
+            return webUtils.getPathForFile(file)
+        } catch (error) {
+            console.error('Failed to get file path:', error)
+            return null
         }
-        return await ipcRenderer.invoke('copy-asset', serializedFile, type)
     },
+    copyAssetFromPath: (filePath, type, thumbnailData) => ipcRenderer.invoke('copy-asset-from-path', filePath, type, thumbnailData),
     resolveAssetPath: (assetPath) => ipcRenderer.invoke('resolve-asset-path', assetPath),
     listAssets: (type) => ipcRenderer.invoke('list-assets', type),
     deleteAsset: (assetPath) => ipcRenderer.invoke('delete-asset', assetPath),
@@ -43,9 +42,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onOpenPatchFile: (callback) => {
         ipcRenderer.on('open-patch-file', (event, filePath) => callback(filePath))
     },
-    
-    // Debug info
-    getDebugInfo: () => ipcRenderer.invoke('get-debug-info'),
 
     // Note: Window close handling now uses standard beforeunload events
 

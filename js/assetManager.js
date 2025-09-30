@@ -1,144 +1,66 @@
-// AssetManager - Dual-mode asset handling for web and Electron
-// Preserves browser-ready deployment while adding Electron asset persistence
-
-// Environment detection
-const isElectron = typeof window !== 'undefined' && window.electronAPI
-const isWeb = !isElectron
+// AssetManager - Electron-only asset management
 
 /**
- * Unified asset management that works in both browser and Electron environments
+ * Asset management for Electron environment
  */
 export const AssetManager = {
     /**
-     * Copy a file to the assets folder (Electron) or create blob URL (web)
-     * @param {Object} file - File data object with {name, size, type, data} properties
-     * @param {string} type - Asset type: 'image', 'video', 'audio'
-     * @returns {Promise<string>} Asset path or blob URL
-     */
-    async copyToAssets(file, type = 'image') {
-        if (isElectron) {
-            try {
-                // Expect the same format as nodes use: {name, size, type, data}
-                const assetPath = await window.electronAPI.copyAsset(file, type)
-                console.log(`Asset copied to: ${assetPath}`)
-                return assetPath
-            } catch (error) {
-                console.error('Failed to copy asset in Electron:', error)
-                // Fallback to blob URL if Electron copy fails
-                const blob = new Blob([file.data], { type: file.type })
-                return URL.createObjectURL(blob)
-            }
-        } else {
-            // Web mode: create blob URL from the data
-            const blob = new Blob([file.data], { type: file.type })
-            return URL.createObjectURL(blob)
-        }
-    },
-
-    /**
-     * Load an asset by path - resolves asset:// URLs in Electron, passes through blob URLs in web
-     * @param {string} assetPath - Asset path or blob URL
+     * Load an asset by path - resolves asset:// URLs
+     * @param {string} assetPath - Asset path
      * @returns {Promise<string>} Resolved file path/URL
      */
     async loadAsset(assetPath) {
-        if (isElectron && assetPath.startsWith('asset://')) {
-            try {
-                const resolvedPath = await window.electronAPI.resolveAssetPath(assetPath)
-                return resolvedPath
-            } catch (error) {
-                console.error('Failed to resolve asset path:', error)
-                return null
-            }
-        } else {
-            // Web mode or regular URLs: pass through unchanged
-            return assetPath
+        if (assetPath.startsWith('asset://')) {
+            const resolvedPath = await window.electronAPI.resolveAssetPath(assetPath)
+            return resolvedPath
         }
+        return assetPath
     },
 
     /**
-     * List all available assets of a given type (Electron only)
+     * List all available assets of a given type
      * @param {string} type - Asset type: 'image', 'video', 'audio'
      * @returns {Promise<Array>} List of asset info objects
      */
     async listAssets(type = 'image') {
-        if (isElectron) {
-            try {
-                return await window.electronAPI.listAssets(type)
-            } catch (error) {
-                console.error('Failed to list assets:', error)
-                return []
-            }
-        } else {
-            // Web mode: no persistent assets
-            return []
-        }
+        return await window.electronAPI.listAssets(type)
     },
 
     /**
-     * Update asset metadata (Electron only)
+     * Update asset metadata
      * @param {string} assetPath - Asset path to update
      * @param {Object} newInfo - Updated asset info
      * @returns {Promise<boolean>} Success status
      */
     async updateAssetInfo(assetPath, newInfo) {
-        if (isElectron && assetPath.startsWith('asset://')) {
-            try {
-                return await window.electronAPI.updateAssetInfo(assetPath, newInfo)
-            } catch (error) {
-                console.error('Failed to update asset info:', error)
-                return false
-            }
-        }
-        return false
+        return await window.electronAPI.updateAssetInfo(assetPath, newInfo)
     },
 
     /**
-     * Delete an asset (Electron only)
+     * Delete an asset
      * @param {string} assetPath - Asset path to delete
      * @returns {Promise<boolean>} Success status
      */
     async deleteAsset(assetPath) {
-        if (isElectron && assetPath.startsWith('asset://')) {
-            try {
-                return await window.electronAPI.deleteAsset(assetPath)
-            } catch (error) {
-                console.error('Failed to delete asset:', error)
-                return false
-            }
-        } else {
-            // Web mode: revoke blob URL
-            if (assetPath.startsWith('blob:')) {
-                URL.revokeObjectURL(assetPath)
-                return true
-            }
-            return false
-        }
+        return await window.electronAPI.deleteAsset(assetPath)
     },
 
     /**
-     * Get asset info (Electron only)
+     * Get asset info
      * @param {string} assetPath - Asset path
      * @returns {Promise<Object|null>} Asset info or null
      */
     async getAssetInfo(assetPath) {
-        if (isElectron && assetPath.startsWith('asset://')) {
-            try {
-                return await window.electronAPI.getAssetInfo(assetPath)
-            } catch (error) {
-                console.error('Failed to get asset info:', error)
-                return null
-            }
-        }
-        return null
+        return await window.electronAPI.getAssetInfo(assetPath)
     },
 
     /**
      * Generate video thumbnail and save as PNG file
-     * @param {File|Blob} videoFile - Video file data
-     * @param {string} assetId - Asset identifier for naming
+     * @param {File|Blob|string} videoSource - Video file data or file path
+     * @param {string} assetId - Asset identifier for naming (optional)
      * @returns {Promise<ArrayBuffer|null>} Thumbnail data or null on failure
      */
-    async generateVideoThumbnail(videoFile, assetId) {
+    async generateVideoThumbnail(videoSource, assetId) {
         return new Promise((resolve, reject) => {
             const video = document.createElement('video')
             const canvas = document.createElement('canvas')
@@ -183,23 +105,17 @@ export const AssetManager = {
                 resolve(null)
             }
 
-            // Create object URL from file
-            if (videoFile instanceof File) {
-                video.src = URL.createObjectURL(videoFile)
-            } else if (videoFile instanceof Blob) {
-                video.src = URL.createObjectURL(videoFile)
+            // Handle different input types
+            if (typeof videoSource === 'string') {
+                // File path (Electron)
+                video.src = videoSource
+            } else if (videoSource instanceof File || videoSource instanceof Blob) {
+                // File/Blob object
+                video.src = URL.createObjectURL(videoSource)
             } else {
-                reject(new Error('Invalid video file type'))
+                reject(new Error('Invalid video source type'))
             }
         })
-    },
-
-    /**
-     * Check if running in Electron environment
-     * @returns {boolean} True if Electron, false if web
-     */
-    isElectronMode() {
-        return isElectron
     },
 
     /**
@@ -208,14 +124,8 @@ export const AssetManager = {
      * @returns {Promise<string>} Appropriate URL for loading
      */
     async getLoadableUrl(assetPath) {
-        if (isElectron && assetPath.startsWith('asset://')) {
-            // Validate asset path through IPC (returns same asset:// URL)
-            try {
-                return await this.loadAsset(assetPath)
-            } catch (error) {
-                console.error('Failed to resolve loadable URL:', error)
-                return assetPath
-            }
+        if (assetPath.startsWith('asset://')) {
+            return await this.loadAsset(assetPath)
         }
         return assetPath
     },
@@ -246,10 +156,6 @@ export const AssetManager = {
      */
     async showGlobalAssetManager(options = {}) {
         const { nodeType = null, onSelect = null } = options
-        if (!isElectron) {
-            alert('Asset manager is only available in Electron mode')
-            return
-        }
 
         try {
             // Create main overlay
@@ -269,10 +175,10 @@ export const AssetManager = {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             `
 
-            // Create main window
-            const window = document.createElement('div')
-            window.className = 'global-asset-manager-window'
-            window.style.cssText = `
+            // Create main window (renamed to avoid shadowing global window)
+            const windowEl = document.createElement('div')
+            windowEl.className = 'global-asset-manager-window'
+            windowEl.style.cssText = `
                 background: var(--bg-primary);
                 border: 1px solid var(--border-normal);
                 border-radius: 12px;
@@ -389,29 +295,24 @@ export const AssetManager = {
                     }
 
                     try {
-                        // Prepare asset data
-                        const assetData = {
-                            name: file.name,
-                            size: file.size,
-                            type: file.type,
-                            data: await file.arrayBuffer()
+                        // Get file path from File object
+                        const filePath = window.electronAPI.getFilePathFromFile(file)
+                        if (!filePath) {
+                            throw new Error('Could not get file path')
                         }
 
-                        // For video files, generate thumbnail
+                        // Generate thumbnail for video files
+                        let thumbnailData = null
                         if (fileType === 'video') {
                             try {
-                                const thumbnailData = await this.generateVideoThumbnail(file)
-                                if (thumbnailData) {
-                                    assetData.thumbnailData = thumbnailData
-                                }
+                                thumbnailData = await this.generateVideoThumbnail(file)
                             } catch (error) {
                                 console.warn(`Failed to generate thumbnail for ${file.name}:`, error)
-                                // Continue without thumbnail
                             }
                         }
 
-                        // Call it exactly like the nodes do
-                        const assetPath = await this.copyToAssets(assetData, fileType)
+                        // Copy file to assets using path
+                        const assetPath = await window.electronAPI.copyAssetFromPath(filePath, fileType, thumbnailData)
                         uploadPromises.push({ success: true, fileName: file.name, assetPath, type: fileType })
                         console.log(`Successfully uploaded: ${file.name} -> ${assetPath}`)
                     } catch (error) {
@@ -441,23 +342,23 @@ export const AssetManager = {
             }
 
             // Connect upload button to file input
-                uploadBtn.onclick = () => {
-                    // Set file type filter based on active tab
-                    const acceptTypes = {
-                        'image': 'image/*',
-                        'video': 'video/*',
-                        'audio': 'audio/*'
-                    }
-                    fileInput.accept = acceptTypes[activeTab] || 'image/*,video/*,audio/*'
-                    fileInput.click()
+            uploadBtn.onclick = () => {
+                // Set file type filter based on active tab
+                const acceptTypes = {
+                    'image': 'image/*',
+                    'video': 'video/*',
+                    'audio': 'audio/*'
                 }
+                fileInput.accept = acceptTypes[activeTab] || 'image/*,video/*,audio/*'
+                fileInput.click()
+            }
 
-                fileInput.onchange = async (e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                        await handleFileUpload(Array.from(e.target.files), activeTab)
-                        e.target.value = '' // Reset input
-                    }
+            fileInput.onchange = async (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    await handleFileUpload(Array.from(e.target.files), activeTab)
+                    e.target.value = '' // Reset input
                 }
+            }
 
             // Create tab bar
             const tabBar = document.createElement('div')
@@ -1133,14 +1034,7 @@ export const AssetManager = {
                                     uploadEmptyBtn.style.background = 'var(--primary-color)'
                                 })
                                 uploadEmptyBtn.onclick = () => {
-                                    // Set file type filter for this specific type
-                                    const acceptTypes = {
-                                        'image': 'image/*',
-                                        'video': 'video/*',
-                                        'audio': 'audio/*'
-                                    }
-                                    fileInput.accept = acceptTypes[type] || 'image/*,video/*,audio/*'
-                                    fileInput.click()
+                                    handleFileUpload(type)
                                 }
                                 emptyStateContainer.appendChild(uploadEmptyBtn)
 
@@ -1328,14 +1222,7 @@ export const AssetManager = {
                                             uploadEmptyBtn.style.background = 'var(--primary-color)'
                                         })
                                         uploadEmptyBtn.onclick = () => {
-                                            // Set file type filter for this specific type
-                                            const acceptTypes = {
-                                                'image': 'image/*',
-                                                'video': 'video/*',
-                                                'audio': 'audio/*'
-                                            }
-                                            fileInput.accept = acceptTypes[type] || 'image/*,video/*,audio/*'
-                                            fileInput.click()
+                                            handleFileUpload(type)
                                         }
                                         emptyStateContainer.appendChild(uploadEmptyBtn)
 
@@ -1403,11 +1290,11 @@ export const AssetManager = {
             }
 
             // Assemble the window
-            window.appendChild(header)
-            window.appendChild(tabBar)
-            window.appendChild(filterBar)
-            window.appendChild(mainContainer)
-            overlay.appendChild(window)
+            windowEl.appendChild(header)
+            windowEl.appendChild(tabBar)
+            windowEl.appendChild(filterBar)
+            windowEl.appendChild(mainContainer)
+            overlay.appendChild(windowEl)
             document.body.appendChild(overlay)
 
             // Load initial content
@@ -1416,36 +1303,13 @@ export const AssetManager = {
             // Close on overlay click
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) {
-                    fileInput.remove() // Clean up file input
                     overlay.remove()
                 }
             })
-
-            // Clean up file input when close button is clicked
-            const originalCloseHandler = closeBtn.onclick
-            closeBtn.onclick = () => {
-                fileInput.remove()
-                originalCloseHandler()
-            }
 
         } catch (error) {
             console.error('Failed to show global asset manager:', error)
             alert('Failed to open asset manager. Check console for details.')
         }
     }
-}
-
-// Auto-initialize in Electron environment
-if (isElectron) {
-    console.log('AssetManager initialized in Electron mode')
-    
-    // Add global keyboard shortcut for asset manager
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
-            e.preventDefault()
-            AssetManager.showGlobalAssetManager()
-        }
-    })
-} else {
-    console.log('AssetManager initialized in web mode')
 }

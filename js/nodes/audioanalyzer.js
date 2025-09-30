@@ -203,7 +203,7 @@ registerNode({
             font-size: 11px;
             cursor: pointer;
             font-family: monospace;
-            display: ${AssetManager.isElectronMode() ? 'block' : 'none'};
+            display: ${isElectronMode ? 'block' : 'none'};
         `
         assetBrowserBtn.textContent = '📂 Assets'
         assetBrowserBtn.onclick = async (e) => {
@@ -262,7 +262,7 @@ registerNode({
         // Create audio element
         this.elements.audio = document.createElement('audio')
         this.elements.audio.style.cssText = `
-            width: 100%;
+            min-width: 100%;
             margin-bottom: 8px;
         `
         this.elements.audio.controls = true
@@ -285,7 +285,7 @@ registerNode({
         createAudioMetersUI(this, false, {numbers: true, events: true})
 
         // Load existing asset if available (Electron only)
-        if(this.values.assetPath && AssetManager.isElectronMode()){
+        if(this.values.assetPath && isElectronMode){
             this._loadFromAssetPath(this.values.assetPath)
         }
     },
@@ -334,32 +334,38 @@ registerNode({
 
     async _handleAudioFile(file){
         if(!file || !file.type.startsWith('audio/')) return
-        
+
         // Cleanup previous state
         this.runtimeState.analyzer?.close()
         if(this.elements.audio.src && this.runtimeState.currentAssetPath && !this.runtimeState.currentAssetPath.startsWith('asset://')){
             URL.revokeObjectURL(this.elements.audio.src)
         }
 
-        try {
-            // Copy file to assets (Electron) or create blob URL (web)
-            const assetPath = await AssetManager.copyToAssets({
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                data: await file.arrayBuffer()
-            }, 'audio')
+        // Web mode: Use blob URL directly
+        if (!isElectronMode) {
+            this._loadAudioFromBlob(file)
+            return
+        }
 
-            // Store asset path for serialization (Electron only)
-            if (AssetManager.isElectronMode()) {
-                this.values.assetPath = assetPath
+        // Electron mode: Use file path from drag-and-drop
+        try {
+            // Get the real file path using webUtils
+            const filePath = window.electronAPI.getFilePathFromFile(file)
+            if (!filePath) {
+                console.error('No file path available')
+                this._loadAudioFromBlob(file)
+                return
             }
+
+            // Copy file to assets using path
+            const assetPath = await window.electronAPI.copyAssetFromPath(filePath, 'audio')
+            this.values.assetPath = assetPath
             this.runtimeState.currentAssetPath = assetPath
 
             console.log(`Audio file handled, calling _loadFromAssetPath with: ${assetPath}`)
             // Load the asset
             await this._loadFromAssetPath(assetPath)
-            
+
             console.log(`Audio asset stored: ${assetPath}`)
         } catch (error) {
             console.error('Failed to handle audio file:', error)
