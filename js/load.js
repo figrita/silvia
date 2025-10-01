@@ -16,63 +16,77 @@ let loadCancelBtn
 let localPatchListEl
 let defaultsPatchListEl
 let patchFileUploadEl
-let patchJsonInputEl
-let loadFromJsonBtn
 let clearWorkspaceCheckbox
-let copyFileToPatchesCheckbox
-let copyJsonToPatchesCheckbox
+let copyUploadToPatchesCheckbox
+let uploadSvsBtn
+let filesystemTab
+let loadCancelBtnFooter
+let folderListEl
+
+// --- Tab state ---
+let activeTab = 'default'
+let selectedFolder = null
+let patchFolders = []
 
 function createLoadModal(){
     const html = `
 	<div class="modal-overlay" style="display: none;" data-el="loadModal">
-		<div class="modal-content load-modal-content">
-			<h2>Load Patch - Into Current Workspace</h2>
-            <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">This will clear your current workspace and load the selected patch into it.</p>
-            <div class="load-controls-container">
-                <div class="form-group load-file-group">
-                    <label>Load a file saved to your PC</label>
-                    <div class="load-file-button-container">
-                    <label for="patch-file-upload" class="floating-btn">Upload .svs File</label>
-                    <input type="file" id="patch-file-upload" accept=".svs,.json" style="display:none;" data-el="patchFileUploadEl">
-                    </div>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">
-                        <input type="checkbox" id="copy-file-to-patches-checkbox" data-el="copyFileToPatchesCheckbox">
-                        Copy to my patches
-                    </label>
-                </div>
+		<div class="load-modal-window">
+			<!-- Header -->
+			<div class="load-modal-header">
+				<h2>📂 Load Patch</h2>
+				<div class="load-modal-header-controls">
+					<label class="load-upload-checkbox" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary);">
+						<input type="checkbox" data-el="copyUploadToPatchesCheckbox" checked>
+						Save uploaded patches
+					</label>
+					<button class="load-upload-btn" data-el="uploadSvsBtn">➕ Upload .svs File</button>
+					<button class="load-close-btn" data-el="loadCancelBtn">✕ Close</button>
+				</div>
+			</div>
 
-                <div class="form-group load-json-group">
-                    <label for="patch-json-input">Paste Patch JSON</label>
-                    <textarea id="patch-json-input" rows="4" data-el="patchJsonInputEl"></textarea>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); margin: 0.5rem 0;">
-                        <input type="checkbox" id="copy-json-to-patches-checkbox" data-el="copyJsonToPatchesCheckbox">
-                        Copy to my patches
-                    </label>
-                    <button data-el="loadFromJsonBtn" class="load-json-btn">Load from Text</button>
-                </div>
+			<!-- Hidden file input for uploads -->
+			<input type="file" id="patch-file-upload" accept=".svs,.json" style="display:none;" data-el="patchFileUploadEl">
 
-            </div>
-            <div class="load-patches-container">
-                <div class="patch-lists-container">
-                    <h3>Default Patches</h3>
-                    <div class="patch-list" data-el="defaultsPatchListEl">
-                        <p>No default patches available.</p>
-                    </div>
-                </div>
-                <div class="patch-lists-container">
-                    <h3 id="local-patches-title">Your Local Storage Patches</h3>
-                    <div class="patch-list" data-el="localPatchListEl">
-                        <!-- Patches populated by JS -->
-                    </div>
-                </div>
-            </div>
-			<div class="modal-actions">
-				<label style="margin-right: 1rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+			<!-- Tab Bar -->
+			<div class="load-modal-tab-bar">
+				<button class="load-tab load-tab-active" data-tab="default">
+					<span class="load-tab-icon">⭐</span>
+					Default Patches
+				</button>
+				<button class="load-tab" data-tab="filesystem" data-el="filesystemTab">
+					<span class="load-tab-icon">💾</span>
+					Your Patches
+				</button>
+			</div>
+
+			<!-- Content Area -->
+			<div class="load-modal-main-container">
+				<div class="load-modal-content-area">
+					<!-- Tab content will be populated here -->
+					<div class="load-tab-content" id="default-tab-content">
+						<div class="patch-grid" data-el="defaultsPatchListEl">
+							<p>Loading default patches...</p>
+						</div>
+					</div>
+					<div class="load-tab-content load-tab-content-hidden" id="filesystem-tab-content">
+						<div id="filesystem-content-container">
+							<!-- Content will be dynamically populated based on web vs electron -->
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Footer Actions -->
+			<div class="load-modal-footer">
+				<label class="load-modal-checkbox-label">
 					<input type="checkbox" id="clear-workspace-checkbox" checked data-el="clearWorkspaceCheckbox">
 					Clear this workspace on load
 				</label>
-				<button disabled data-el="loadConfirmBtn">Load</button>
-				<button class="cancel-btn" data-el="loadCancelBtn">Cancel</button>
+				<div class="load-modal-actions">
+					<button disabled data-el="loadConfirmBtn" class="load-btn-primary">Load Patch</button>
+					<button class="load-btn-secondary" data-el="loadCancelBtnFooter">Cancel</button>
+				</div>
 			</div>
 		</div>
 	</div>`
@@ -100,16 +114,30 @@ export function initLoad(){
         localPatchListEl,
         defaultsPatchListEl,
         patchFileUploadEl,
-        patchJsonInputEl,
-        loadFromJsonBtn,
         clearWorkspaceCheckbox,
-        copyFileToPatchesCheckbox,
-        copyJsonToPatchesCheckbox
+        copyUploadToPatchesCheckbox,
+        uploadSvsBtn,
+        filesystemTab,
+        loadCancelBtnFooter,
+        folderListEl
     } = loadElements)
+
 
     const loadBtn = document.getElementById('load-patch-btn')
     loadBtn.addEventListener('click', openLoadModal)
     loadCancelBtn.addEventListener('click', () => (loadModal.style.display = 'none'))
+    loadCancelBtnFooter.addEventListener('click', () => (loadModal.style.display = 'none'))
+
+    // Upload button functionality
+    uploadSvsBtn.addEventListener('click', () => {
+        patchFileUploadEl.click()
+    })
+
+    // Setup filesystem tab content based on environment
+    setupFilesystemTab()
+
+    // Tab functionality
+    setupTabFunctionality()
 
     // Close modals on overlay click
     loadModal.addEventListener('click', (e) => {
@@ -119,7 +147,6 @@ export function initLoad(){
     loadConfirmBtn.addEventListener('click', handleLoad)
 
     patchFileUploadEl.addEventListener('change', handleFileUpload)
-    loadFromJsonBtn.addEventListener('click', handleLoadFromJson)
 
     // Initialize checkbox from localStorage and add change listener
     const savedClearWorkspace = localStorage.getItem('silvia_clear_workspace_on_load')
@@ -141,11 +168,150 @@ export function initLoad(){
 }
 
 function updateLoadModalText(){
-    const descriptionP = loadModal.querySelector('p')
-    if(clearWorkspaceCheckbox.checked){
-        descriptionP.textContent = 'This will clear your current workspace and load the selected patch into it.'
+    // The new modal doesn't have the description paragraph in the same location
+    // We can add status text later if needed
+}
+
+function setupTabFunctionality(){
+    const tabs = loadModal.querySelectorAll('.load-tab')
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabType = tab.getAttribute('data-tab')
+            switchToTab(tabType)
+        })
+    })
+}
+
+function switchToTab(tabType){
+    activeTab = tabType
+
+    // Update tab appearances
+    const tabs = loadModal.querySelectorAll('.load-tab')
+    tabs.forEach(tab => {
+        tab.classList.remove('load-tab-active')
+    })
+
+    const activeTabEl = loadModal.querySelector(`[data-tab="${tabType}"]`)
+    if(activeTabEl) {
+        activeTabEl.classList.add('load-tab-active')
+    }
+
+    // Show/hide tab content
+    const defaultContent = loadModal.querySelector('#default-tab-content')
+    const filesystemContent = loadModal.querySelector('#filesystem-tab-content')
+
+    if(tabType === 'default') {
+        defaultContent.classList.remove('load-tab-content-hidden')
+        filesystemContent.classList.add('load-tab-content-hidden')
     } else {
-        descriptionP.textContent = 'This will add the selected patch nodes to your current workspace without clearing existing content.'
+        defaultContent.classList.add('load-tab-content-hidden')
+        filesystemContent.classList.remove('load-tab-content-hidden')
+    }
+}
+
+function setupFilesystemTab() {
+    const filesystemTab = loadModal.querySelector('[data-tab="filesystem"]')
+    const filesystemContentContainer = document.getElementById('filesystem-content-container')
+
+    if (typeof window !== 'undefined' && window.electronAPI) {
+        // Electron mode: Use filesystem layout with sidebar
+        filesystemTab.innerHTML = '<span class="load-tab-icon">💾</span>Filesystem Patches'
+
+        filesystemContentContainer.innerHTML = `
+            <div class="filesystem-layout">
+                <div class="filesystem-sidebar">
+                    <div class="filesystem-sidebar-header">
+                        <h4 style="margin: 0; font-size: 12px; color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 6px; position: relative;">
+                            Folders
+                            <span class="folders-help-icon" style="
+                                width: 12px;
+                                height: 12px;
+                                border-radius: 50%;
+                                border: 1px solid var(--text-muted);
+                                color: var(--text-muted);
+                                font-size: 8px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                cursor: help;
+                                font-weight: bold;
+                                position: relative;
+                            ">?
+                                <span class="folders-tooltip" style="
+                                    position: absolute;
+                                    bottom: 100%;
+                                    left: 70%;
+                                    transform: translateX(-30%);
+                                    background: var(--bg-interactive);
+                                    border: 1px solid var(--border-normal);
+                                    border-radius: 4px;
+                                    padding: 6px 8px;
+                                    font-size: 11px;
+                                    white-space: nowrap;
+                                    z-index: 1000;
+                                    pointer-events: none;
+                                    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+                                    opacity: 0;
+                                    visibility: hidden;
+                                    transition: opacity 0.2s, visibility 0.2s;
+                                    margin-bottom: 4px;
+                                    font-weight: normal;
+                                ">One sublevel of folders is supported</span>
+                            </span>
+                        </h4>
+                    </div>
+                    <div class="folder-list-container">
+                        <div class="folder-list" data-el="folderListEl">
+                            <p>Loading folders...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="filesystem-content">
+                    <div class="patch-grid" data-el="localPatchListEl">
+                        <p>Loading your patches...</p>
+                    </div>
+                </div>
+            </div>
+        `
+    } else {
+        // Web mode: Simple grid layout without sidebar
+        filesystemTab.innerHTML = '<span class="load-tab-icon">💾</span>Local Storage'
+
+        filesystemContentContainer.innerHTML = `
+            <div class="patch-grid" data-el="localPatchListEl">
+                <p>Loading your patches...</p>
+            </div>
+        `
+    }
+
+    // Re-autowire the new elements
+    const containerEl = document.getElementById('filesystem-content-container')
+    const newLocalPatchListEl = containerEl.querySelector('[data-el="localPatchListEl"]')
+    const newFolderListEl = containerEl.querySelector('[data-el="folderListEl"]')
+
+    if (newLocalPatchListEl) {
+        localPatchListEl = newLocalPatchListEl
+    }
+    if (newFolderListEl) {
+        folderListEl = newFolderListEl
+    }
+
+    // Setup tooltip functionality for the folders help icon (Electron mode only)
+    if (typeof window !== 'undefined' && window.electronAPI) {
+        const helpIcon = containerEl.querySelector('.folders-help-icon')
+        const tooltip = containerEl.querySelector('.folders-tooltip')
+
+        if (helpIcon && tooltip) {
+            helpIcon.addEventListener('mouseenter', () => {
+                tooltip.style.opacity = '1'
+                tooltip.style.visibility = 'visible'
+            })
+
+            helpIcon.addEventListener('mouseleave', () => {
+                tooltip.style.opacity = '0'
+                tooltip.style.visibility = 'hidden'
+            })
+        }
     }
 }
 
@@ -174,15 +340,13 @@ function handleFileUpload(event){
             deserializeWorkspace(patchData, clearWorkspaceCheckbox.checked)
 
             // Copy to patches if checkbox is checked
-            if(copyFileToPatchesCheckbox.checked){
+            if(copyUploadToPatchesCheckbox.checked){
                 const success = await copyPatchToStorage(patchData)
                 if(success){
-                    // Show brief success feedback
-                    const originalText = copyFileToPatchesCheckbox.nextSibling.textContent
-                    copyFileToPatchesCheckbox.nextSibling.textContent = '✓ Copied!'
-                    setTimeout(() => {
-                        copyFileToPatchesCheckbox.nextSibling.textContent = originalText
-                    }, 2000)
+                    // Refresh the patches list if we're on the filesystem tab
+                    if(activeTab === 'filesystem') {
+                        populateLoadModal()
+                    }
                 }
             }
 
@@ -196,99 +360,52 @@ function handleFileUpload(event){
     event.target.value = '' // Reset file input to allow re-uploading the same file
 }
 
-async function handleLoadFromJson(){
-    const jsonText = patchJsonInputEl.value.trim()
-    if(!jsonText){
-        alert('Paste JSON data into the text area first.')
-        return
-    }
-    try {
-        const patchData = JSON.parse(jsonText)
-        deserializeWorkspace(patchData, clearWorkspaceCheckbox.checked)
-
-        // Copy to patches if checkbox is checked
-        if(copyJsonToPatchesCheckbox.checked){
-            const success = await copyPatchToStorage(patchData)
-            if(success){
-                // Show brief success feedback
-                const originalText = copyJsonToPatchesCheckbox.nextSibling.textContent
-                copyJsonToPatchesCheckbox.nextSibling.textContent = '✓ Copied!'
-                setTimeout(() => {
-                    copyJsonToPatchesCheckbox.nextSibling.textContent = originalText
-                }, 2000)
-            }
-        }
-
-        loadModal.style.display = 'none'
-    } catch(error){
-        alert('Failed to parse JSON. Please check the format.')
-        console.error('JSON parsing error:', error)
-    }
-}
-
 async function populateLoadModal(){
     // Clear previous state
-    localPatchListEl.innerHTML = ''
-    defaultsPatchListEl.innerHTML = '<p>Loading default patches...</p>'
-    patchJsonInputEl.value = ''
     selectedPatchData = null
     loadConfirmBtn.disabled = true
 
+    // Clear and set loading states
+    if(localPatchListEl) {
+        localPatchListEl.innerHTML = ''
+    }
+    if(defaultsPatchListEl) {
+        defaultsPatchListEl.innerHTML = '<p>Loading default patches...</p>'
+    }
+
     // Check if running in Electron mode
     if (typeof window !== 'undefined' && window.electronAPI) {
-        // Update title for Electron mode
-        const titleEl = document.getElementById('local-patches-title')
-        if (titleEl) {
-            titleEl.textContent = 'Your Filesystem Patches'
-        }
-        
+        // Electron mode: Load folders and patches with sidebar
         try {
-            // Load from workspace patches directory in Electron
-            const patchFiles = await window.electronAPI.listPatchFiles()
+            // Load folders and initial patches
+            await loadPatchFolders()
+            // Load patches for the selected folder (or first folder if none selected)
+            await loadPatchesForFolder(selectedFolder)
+        } catch (error) {
+            console.error('Failed to load patches from workspace:', error)
+            if(folderListEl) {
+                folderListEl.innerHTML = '<p>Failed to load folders.</p>'
+            }
+            localPatchListEl.innerHTML = '<p>Failed to load patches from workspace.</p>'
+        }
+    } else {
+        // Web mode: Load all patches from localStorage in simple grid
+        try {
+            const allPatches = getPatchesFromLocalStorage()
 
-            if(patchFiles.length === 0){
-                localPatchListEl.innerHTML = '<p>No patches saved in portable workspace.</p>'
+            if(allPatches.length === 0){
+                localPatchListEl.innerHTML = '<p>No patches saved in local storage.</p>'
             } else {
-                // Add all patch files
-                patchFiles.forEach((patchFile, index) => {
-                    const item = createPatchListItem(patchFile.data, index, patchFile, false)
-                    item.addEventListener('click', () => {
-                        const currentSelection = loadModal.querySelector('.patch-item.selected')
-                        if(currentSelection){
-                            currentSelection.classList.remove('selected')
-                        }
-                        item.classList.add('selected')
-                        selectedPatchData = patchFile.data
-                        loadConfirmBtn.disabled = false
-                    })
+                localPatchListEl.innerHTML = ''
+                // Add all patches (workspace restores and regular patches)
+                allPatches.forEach((patch, index) => {
+                    const item = createPatchListItem(patch, index, null, false)
                     localPatchListEl.appendChild(item)
                 })
             }
         } catch (error) {
-            console.error('Failed to load patches from workspace:', error)
-            localPatchListEl.innerHTML = '<p>Failed to load patches from workspace.</p>'
-        }
-    } else {
-        // Web mode: use localStorage
-        const allPatches = getPatchesFromLocalStorage()
-
-        if(allPatches.length === 0){
-            localPatchListEl.innerHTML = '<p>No patches saved in local storage.</p>'
-        } else {
-            // Add all patches (workspace restores and regular patches)
-            allPatches.forEach((patch, index) => {
-                const item = createPatchListItem(patch, index, null, false)
-                item.addEventListener('click', () => {
-                    const currentSelection = loadModal.querySelector('.patch-item.selected')
-                    if(currentSelection){
-                        currentSelection.classList.remove('selected')
-                    }
-                    item.classList.add('selected')
-                    selectedPatchData = patch
-                    loadConfirmBtn.disabled = false
-                })
-                localPatchListEl.appendChild(item)
-            })
+            console.error('Failed to load patches from local storage:', error)
+            localPatchListEl.innerHTML = '<p>Failed to load patches from local storage.</p>'
         }
     }
 
@@ -296,37 +413,106 @@ async function populateLoadModal(){
     await loadDefaultPatches()
 }
 
-function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = false){
+function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = false, isDefaultPatch = false){
     const item = document.createElement('div')
-    item.className = 'patch-item'
+    item.className = 'patch-card'
     const meta = patch.meta || {}
     const patchName = meta.name || 'Untitled'
-    
+    const patchDescription = meta.description || 'No description.'
+    const patchAuthor = meta.author || 'Unknown Author'
+
     // Additional info for Electron mode (file-based patches)
     const modifiedDate = patchFile ? new Date(patchFile.modified).toLocaleDateString() : ''
     const fileSize = patchFile ? (patchFile.size / 1024).toFixed(1) + ' KB' : ''
-    
-    const thumbnailHtml = meta.thumbnail && meta.thumbnail.trim() !== ''
-        ? `<img src="${meta.thumbnail}" class="patch-thumbnail" alt="thumbnail">`
-        : `<div class="patch-thumbnail no-thumbnail">No thumbnail</div>`
 
-    item.innerHTML = `
-		${thumbnailHtml}
-		<div class="patch-info">
-			<div class="patch-info-top">
-				<span class="patch-name">${patchName}</span>
-				<span class="patch-author">${meta.author || 'Unknown Author'}</span>
-			</div>
-			<p class="patch-description">${meta.description || 'No description.'}</p>
-			${patchFile ? `<p class="patch-file-info" style="font-size: 0.8em; color: var(--text-secondary); margin: 4px 0;">
-				Saved: ${modifiedDate} • ${fileSize}
-			</p>` : ''}
-            <div class="patch-actions">
-                <button class="patch-download-btn" title="Download .svs file">Download .svs</button>
-                <button class="patch-delete-btn" title="Delete patch">Delete</button>
-            </div>
-		</div>
-	`
+    // Create thumbnail preview
+    const previewDiv = document.createElement('div')
+    previewDiv.className = 'patch-card-preview'
+
+    if (meta.thumbnail && meta.thumbnail.trim() !== '') {
+        const img = document.createElement('img')
+        img.src = meta.thumbnail
+        img.alt = 'Patch thumbnail'
+        img.onerror = () => {
+            previewDiv.innerHTML = '<div class="no-thumbnail">No preview</div>'
+        }
+        previewDiv.appendChild(img)
+    } else {
+        previewDiv.innerHTML = '<div class="no-thumbnail">No preview</div>'
+    }
+
+    // Create info section
+    const infoDiv = document.createElement('div')
+    infoDiv.className = 'patch-card-info'
+
+    // Add tooltip for description
+    item.title = patchDescription
+
+    infoDiv.innerHTML = `
+        <div class="patch-card-name">${patchName}</div>
+        <div class="patch-card-author">${patchAuthor}</div>
+        <div class="patch-card-description">${patchDescription}</div>
+        ${patchFile ? `<div class="patch-card-meta" style="font-size: 10px; color: var(--text-muted); margin-top: auto;">
+            ${modifiedDate} • ${fileSize}
+        </div>` : ''}
+        <div class="patch-card-actions" style="margin-top: auto; display: flex; gap: 4px;">
+            <button class="patch-load-btn" title="Load this patch" style="
+                flex: 1;
+                padding: 4px 8px;
+                background: var(--primary-color);
+                border: none;
+                border-radius: 4px;
+                color: white;
+                font-size: 10px;
+                cursor: pointer;
+                transition: background 0.2s;
+            ">Load</button>
+            <button class="patch-download-btn" title="Download .svs file" style="
+                padding: 4px 6px;
+                background: var(--bg-interactive);
+                border: 1px solid var(--border-normal);
+                border-radius: 4px;
+                color: var(--text-secondary);
+                font-size: 10px;
+                cursor: pointer;
+                transition: background 0.2s;
+            ">💾</button>
+            ${isDefaultPatch ? '' : `<button class="patch-delete-btn" title="Delete patch" style="
+                padding: 4px 6px;
+                background: var(--bg-interactive);
+                border: 1px solid var(--border-normal);
+                border-radius: 4px;
+                color: var(--text-secondary);
+                font-size: 10px;
+                cursor: pointer;
+                transition: background 0.2s;
+            ">🗑️</button>`}
+        </div>
+    `
+
+    item.appendChild(previewDiv)
+    item.appendChild(infoDiv)
+
+    // Add Load button functionality (new primary action)
+    const loadBtn = item.querySelector('.patch-load-btn')
+    loadBtn.addEventListener('click', (e) => {
+        e.stopPropagation() // Prevent card selection
+        // Directly load the patch
+        selectedPatchData = patch
+        deserializeWorkspace(patch, clearWorkspaceCheckbox.checked)
+        loadModal.style.display = 'none'
+    })
+
+    // Also allow clicking the card itself to select (but not load immediately)
+    item.addEventListener('click', () => {
+        const currentSelection = loadModal.querySelector('.patch-card.selected')
+        if(currentSelection){
+            currentSelection.classList.remove('selected')
+        }
+        item.classList.add('selected')
+        selectedPatchData = patch
+        loadConfirmBtn.disabled = false
+    })
 
     const downloadBtn = item.querySelector('.patch-download-btn')
     downloadBtn.addEventListener('click', (e) => {
@@ -344,39 +530,41 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
         URL.revokeObjectURL(url)
     })
 
-    const deleteBtn = item.querySelector('.patch-delete-btn')
-    deleteBtn.addEventListener('click', async (e) => {
-        e.stopPropagation() // Prevent selecting the patch for loading
-        
-        const confirmMessage = `Are you sure you want to delete "${patchName}"? This action cannot be undone.`
-        if(confirm(confirmMessage)){
-            // Check if running in Electron mode
-            if (typeof window !== 'undefined' && window.electronAPI && patchFile) {
-                try {
-                    const success = await window.electronAPI.deletePatchFile(patchFile.filename)
-                    if (success) {
-                        populateLoadModal() // Refresh the list
-                    } else {
+    if (!isDefaultPatch) {
+        const deleteBtn = item.querySelector('.patch-delete-btn')
+        deleteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation() // Prevent selecting the patch for loading
+            
+            const confirmMessage = `Are you sure you want to delete "${patchName}"? This action cannot be undone.`
+            if(confirm(confirmMessage)){
+                // Check if running in Electron mode
+                if (typeof window !== 'undefined' && window.electronAPI && patchFile) {
+                    try {
+                        const success = await window.electronAPI.deletePatchFile(patchFile.filename)
+                        if (success) {
+                            populateLoadModal() // Refresh the list
+                        } else {
+                            alert('Failed to delete patch file.')
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete patch file:', error)
                         alert('Failed to delete patch file.')
                     }
-                } catch (error) {
-                    console.error('Failed to delete patch file:', error)
-                    alert('Failed to delete patch file.')
-                }
-            } else {
-                // Web mode: delete from localStorage
-                // Check if this is a workspace restore entry
-                if(patch.isWorkspaceRestore) {
-                    // Delete the workspace save data directly
-                    const workspaceKey = patch.targetWorkspace === 1 ? 'silvia_workspace_1' : 'silvia_workspace_2'
-                    localStorage.removeItem(workspaceKey)
                 } else {
-                    deletePatchFromLocalStorage(patchIndex, patch)
+                    // Web mode: delete from localStorage
+                    // Check if this is a workspace restore entry
+                    if(patch.isWorkspaceRestore) {
+                        // Delete the workspace save data directly
+                        const workspaceKey = patch.targetWorkspace === 1 ? 'silvia_workspace_1' : 'silvia_workspace_2'
+                        localStorage.removeItem(workspaceKey)
+                    } else {
+                        deletePatchFromLocalStorage(patchIndex, patch)
+                    }
+                    populateLoadModal() // Refresh the list
                 }
-                populateLoadModal() // Refresh the list
             }
-        }
-    })
+        })
+    }
 
     return item
 }
@@ -705,6 +893,10 @@ async function loadDefaultPatches(){
 }
 
 function populateDefaultPatches(patches){
+    if(!defaultsPatchListEl) {
+        return
+    }
+
     if(!patches || patches.length === 0){
         defaultsPatchListEl.innerHTML = '<p>No default patches available.</p>'
         return
@@ -713,16 +905,106 @@ function populateDefaultPatches(patches){
     defaultsPatchListEl.innerHTML = ''
 
     patches.forEach((patch, index) => {
-        const item = createPatchListItem(patch, index, null, false)
-        item.addEventListener('click', () => {
-            const currentSelection = loadModal.querySelector('.patch-item.selected')
-            if(currentSelection){
-                currentSelection.classList.remove('selected')
-            }
-            item.classList.add('selected')
-            selectedPatchData = patch
-            loadConfirmBtn.disabled = false
-        })
+        const item = createPatchListItem(patch, index, null, false, true)
         defaultsPatchListEl.appendChild(item)
     })
+}
+
+async function loadPatchFolders(){
+    if (!folderListEl || !window.electronAPI) return
+
+    try {
+        // Get all patches to determine what folders exist
+        const allPatches = await window.electronAPI.listPatchFiles()
+        const folders = await window.electronAPI.listPatchFolders()
+
+        folderListEl.innerHTML = ''
+
+        // Always check if root patches exist by looking for patches with folder: null
+        const rootPatches = allPatches.filter(patch => patch.folder === null)
+        const subfolderData = folders.filter(folder => folder.name !== null)
+
+        const allFolders = []
+
+        // Always add Root folder first if there are root patches
+        if (rootPatches.length > 0) {
+            allFolders.push({
+                name: null,
+                displayName: 'Root',
+                patchCount: rootPatches.length
+            })
+        }
+
+        // Add subfolders
+        allFolders.push(...subfolderData)
+
+        if (allFolders.length === 0) {
+            folderListEl.innerHTML = '<p style="padding: 8px; color: var(--text-muted); font-size: 11px;">No patch folders found.</p>'
+            return
+        }
+
+        // Set default selected folder if none is selected
+        if (selectedFolder === null && allFolders.length > 0) {
+            selectedFolder = allFolders[0].name
+        }
+
+        allFolders.forEach(folder => {
+            const folderItem = document.createElement('div')
+            folderItem.className = 'folder-item'
+            if (folder.name === selectedFolder) {
+                folderItem.classList.add('selected')
+            }
+
+            const folderIcon = folder.name === null ? '🏠' : '📁'
+            folderItem.innerHTML = `
+                <span class="folder-item-icon">${folderIcon}</span>
+                <span class="folder-item-name">${folder.displayName}</span>
+                <span class="folder-item-count">${folder.patchCount}</span>
+            `
+
+            folderItem.addEventListener('click', async () => {
+                // Update selection
+                const currentSelected = folderListEl.querySelector('.folder-item.selected')
+                if (currentSelected) {
+                    currentSelected.classList.remove('selected')
+                }
+                folderItem.classList.add('selected')
+                selectedFolder = folder.name
+
+                // Load patches for this folder
+                await loadPatchesForFolder(folder.name)
+            })
+
+            folderListEl.appendChild(folderItem)
+        })
+
+        patchFolders = allFolders
+    } catch (error) {
+        console.error('Failed to load patch folders:', error)
+        folderListEl.innerHTML = '<p style="padding: 8px; color: var(--text-muted); font-size: 11px;">Failed to load folders.</p>'
+    }
+}
+
+async function loadPatchesForFolder(folderName) {
+    if (!localPatchListEl || !window.electronAPI) return
+
+    try {
+        const patchFiles = await window.electronAPI.listPatchFiles(folderName)
+        localPatchListEl.innerHTML = ''
+
+        if (patchFiles.length === 0) {
+            const folderDisplayName = folderName === null ? 'Root' : folderName
+            localPatchListEl.innerHTML = `<p>No patches found in ${folderDisplayName}.</p>`
+            return
+        }
+
+        // The API already returns filtered patches for the specific folder, no need to filter again
+        patchFiles.forEach((patchFile, index) => {
+            const item = createPatchListItem(patchFile.data, index, patchFile, false)
+            localPatchListEl.appendChild(item)
+        })
+    } catch (error) {
+        console.error('Failed to load patches for folder:', error)
+        localPatchListEl.innerHTML = '<p>Failed to load patches.</p>'
+    }
 }
