@@ -3,6 +3,7 @@ console.log('Main Electron process starting...')
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron')
 const path = require('path')
 const fs = require('fs').promises
+const crypto = require('crypto')
 console.log('Electron modules loaded successfully')
 
 // Register the custom protocol as a standard scheme before app ready
@@ -17,8 +18,6 @@ protocol.registerSchemesAsPrivileged([
         }
     }
 ])
-const crypto = require('crypto')
-const os = require('os')
 
 // Get workspace path (always relative to app directory)
 function getWorkspacePath() {
@@ -55,6 +54,11 @@ function generateAssetId() {
 // Get file extension
 function getFileExtension(filename) {
     return path.extname(filename).toLowerCase()
+}
+
+// Get asset folder name (audio stays singular, others get 's')
+function getAssetFolder(type) {
+    return type === 'audio' ? 'audio' : `${type}s`
 }
 
 // Validate asset type
@@ -162,7 +166,7 @@ function createWindow() {
                     "style-src 'self' 'unsafe-inline'; " +  // unsafe-inline needed for dynamic styles
                     "img-src 'self' asset: data: blob:; " +
                     "media-src 'self' asset: data: blob:; " +
-                    "connect-src 'none'; " +  // Block all network connections
+                    "connect-src asset:; " +  // Allow fetching from asset protocol
                     "font-src 'self' data:; " +
                     "object-src 'none'; " +  // Block plugins
                     "frame-src 'none'; " +  // Block iframes
@@ -224,52 +228,47 @@ function createWindow() {
 }
 
 // IPC Handlers for asset management
-ipcMain.handle('copy-asset', async (event, serializedFile, type) => {
+ipcMain.handle('copy-asset-from-path', async (event, filePath, type, thumbnailData) => {
     try {
         const wsPath = getWorkspacePath()
         await ensureDirectories()
-        
+
+        // Get file info
+        const fileStats = await fs.stat(filePath)
+        const fileName = path.basename(filePath)
+        const extension = getFileExtension(fileName)
+
         // Validate file type
-        if (!validateAssetType(serializedFile, type)) {
+        if (!validateAssetType({name: fileName}, type)) {
             throw new Error(`Invalid file type for ${type}`)
         }
-        
+
         const assetId = generateAssetId()
-        const extension = getFileExtension(serializedFile.name)
         const filename = `${assetId}${extension}`
-        const assetDir = path.join(wsPath, 'assets', `${type}s`)
+        const folderName = getAssetFolder(type)
+        const assetDir = path.join(wsPath, 'assets', folderName)
         const assetPath = path.join(assetDir, filename)
-        
+
         // Ensure asset directory exists
         await fs.mkdir(assetDir, { recursive: true })
-        
-        // Write file data - handle both ArrayBuffer and Uint8Array
-        const fileData = serializedFile.data
-        let buffer
-        if (fileData instanceof ArrayBuffer) {
-            buffer = Buffer.from(fileData)
-        } else if (fileData.buffer instanceof ArrayBuffer) {
-            buffer = Buffer.from(fileData.buffer, fileData.byteOffset, fileData.byteLength)
-        } else {
-            buffer = Buffer.from(fileData)
-        }
-        
-        await fs.writeFile(assetPath, buffer)
 
-        // Handle thumbnail for video files
-        if (type === 'video' && serializedFile.thumbnailData) {
+        // Copy file directly without loading into memory
+        await fs.copyFile(filePath, assetPath)
+
+        // Handle thumbnail for video files (if provided)
+        if (type === 'video' && thumbnailData) {
             try {
                 const thumbnailFilename = `${assetId}_thumb.png`
                 const thumbnailPath = path.join(assetDir, thumbnailFilename)
 
                 // Convert thumbnail data to buffer
                 let thumbnailBuffer
-                if (serializedFile.thumbnailData instanceof ArrayBuffer) {
-                    thumbnailBuffer = Buffer.from(serializedFile.thumbnailData)
-                } else if (serializedFile.thumbnailData.buffer instanceof ArrayBuffer) {
-                    thumbnailBuffer = Buffer.from(serializedFile.thumbnailData.buffer, serializedFile.thumbnailData.byteOffset, serializedFile.thumbnailData.byteLength)
+                if (thumbnailData instanceof ArrayBuffer) {
+                    thumbnailBuffer = Buffer.from(thumbnailData)
+                } else if (thumbnailData.buffer instanceof ArrayBuffer) {
+                    thumbnailBuffer = Buffer.from(thumbnailData.buffer, thumbnailData.byteOffset, thumbnailData.byteLength)
                 } else {
-                    thumbnailBuffer = Buffer.from(serializedFile.thumbnailData)
+                    thumbnailBuffer = Buffer.from(thumbnailData)
                 }
 
                 await fs.writeFile(thumbnailPath, thumbnailBuffer)
@@ -281,13 +280,13 @@ ipcMain.handle('copy-asset', async (event, serializedFile, type) => {
         }
 
         // Create asset metadata
-        const assetUrl = `asset://${type}s/${filename}`
+        const assetUrl = `asset://${folderName}/${filename}`
         const metadata = {
             id: assetId,
-            originalName: serializedFile.name,
+            originalName: fileName,
             type: type,
             extension: extension,
-            size: serializedFile.size,
+            size: fileStats.size,
             created: new Date().toISOString(),
             path: assetUrl,
             tags: []
@@ -295,12 +294,12 @@ ipcMain.handle('copy-asset', async (event, serializedFile, type) => {
 
         const metadataPath = path.join(assetDir, `${assetId}.json`)
         await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
-        
-        console.log(`Asset saved: ${assetPath}`)
+
+        console.log(`Asset copied from path: ${assetPath}`)
         console.log(`Asset URL returned: ${assetUrl}`)
         return assetUrl
     } catch (error) {
-        console.error('Failed to copy asset:', error)
+        console.error('Failed to copy asset from path:', error)
         throw error
     }
 })
@@ -324,8 +323,9 @@ ipcMain.handle('resolve-asset-path', async (event, assetPath) => {
 ipcMain.handle('list-assets', async (event, type) => {
     try {
         const wsPath = getWorkspacePath()
-        
-        const assetDir = path.join(wsPath, 'assets', `${type}s`)
+
+        const folderName = getAssetFolder(type)
+        const assetDir = path.join(wsPath, 'assets', folderName)
         
         try {
             const files = await fs.readdir(assetDir)
@@ -367,20 +367,27 @@ ipcMain.handle('list-assets', async (event, type) => {
 
 ipcMain.handle('delete-asset', async (event, assetPath) => {
     try {
+        const wsPath = getWorkspacePath()
         if (!wsPath || !assetPath.startsWith('asset://')) {
+            console.error('Invalid workspace path or asset path:', wsPath, assetPath)
             return false
         }
-        
+
         const url = new URL(assetPath)
         const relativePath = url.hostname + url.pathname
         const fullPath = path.join(wsPath, 'assets', relativePath)
         const assetId = path.basename(fullPath, path.extname(fullPath))
         const assetDir = path.dirname(fullPath)
         const metadataPath = path.join(assetDir, `${assetId}.json`)
-        
+
+        console.log(`Deleting asset: ${fullPath}`)
+
         // Delete asset file and metadata
         await fs.unlink(fullPath)
+        console.log(`Deleted asset file: ${fullPath}`)
+
         await fs.unlink(metadataPath)
+        console.log(`Deleted metadata: ${metadataPath}`)
 
         // For video assets, also delete thumbnail if it exists
         if (relativePath.startsWith('videos/')) {
@@ -393,7 +400,8 @@ ipcMain.handle('delete-asset', async (event, assetPath) => {
                 console.log(`No thumbnail to delete for video asset: ${assetId}`)
             }
         }
-        
+
+        console.log(`Successfully deleted asset: ${assetPath}`)
         return true
     } catch (error) {
         console.error('Failed to delete asset:', error)
@@ -407,6 +415,7 @@ ipcMain.handle('get-asset-info', async (event, assetPath) => {
             return null
         }
 
+        const wsPath = getWorkspacePath()
         const url = new URL(assetPath)
         const relativePath = url.hostname + url.pathname
         const fullPath = path.join(wsPath, 'assets', relativePath)
@@ -424,10 +433,11 @@ ipcMain.handle('get-asset-info', async (event, assetPath) => {
 
 ipcMain.handle('update-asset-info', async (event, assetPath, newInfo) => {
     try {
-        if (!wsPath || !assetPath.startsWith('asset://')) {
+        if (!assetPath.startsWith('asset://')) {
             return false
         }
 
+        const wsPath = getWorkspacePath()
         const url = new URL(assetPath)
         const relativePath = url.hostname + url.pathname
         const fullPath = path.join(wsPath, 'assets', relativePath)
@@ -464,17 +474,6 @@ ipcMain.handle('update-asset-info', async (event, assetPath, newInfo) => {
 
 ipcMain.handle('get-workspace-path', async () => {
     return getWorkspacePath()
-})
-
-ipcMain.handle('get-debug-info', async () => {
-    return {
-        wsPath: wsPath,
-        workspacePath: getWorkspacePath(),
-        isPackaged: app.isPackaged,
-        execPath: process.execPath,
-        cwd: process.cwd(),
-        dirname: __dirname
-    }
 })
 
 // Note: Using standard web beforeunload handling instead of custom close dialogs
