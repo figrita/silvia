@@ -1290,13 +1290,13 @@ body.hide-port-borders .port {
 
 /* Override scrolling for filesystem tab to enable independent sidebar/content scrolling */
 #filesystem-tab-content {
-    overflow: hidden;
+    overflow: visible;
     height: 100%;
 }
 
 #filesystem-content-container {
     height: 100%;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .load-tab-content {
@@ -1494,6 +1494,17 @@ body.hide-port-borders .port {
     display: flex;
     flex-direction: column;
     height: 100%;
+    overflow: visible; /* Allow tooltip to overflow */
+}
+
+.filesystem-sidebar-header {
+    flex-shrink: 0;
+    margin-bottom: 12px;
+}
+
+.folder-list-container {
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -1509,8 +1520,7 @@ body.hide-port-borders .port {
     flex-direction: column;
     gap: 4px;
     overflow: auto;
-    flex: 1;
-    min-height: 0;
+    height: 100%;
 }
 
 .folder-item {
@@ -1618,5 +1628,11 @@ body.hide-port-borders .port {
 .leave-anyway-btn:hover {
     background: hsl(0, 50%, 30%);
     border-color: hsl(0, 50%, 45%);
+}
+
+/* ===== FOLDERS HELP TOOLTIP ===== */
+.folders-help-icon:hover .folders-tooltip {
+    opacity: 1;
+    visibility: visible;
 }
 
