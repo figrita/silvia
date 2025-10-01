@@ -54,3 +54,4 @@ temp/
 
 # Agent files
 .claude/
+package-lock.json

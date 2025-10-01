@@ -404,14 +404,20 @@ export class PatchValidator {
             const mapping = mappings[key]
 
             if (mapping && typeof mapping === 'object') {
-                // Validate MIDI mapping structure
-                if (typeof mapping.cc === 'number' && mapping.cc >= 0 && mapping.cc <= 127) {
-                    sanitized[key] = { cc: mapping.cc }
-                } else if (typeof mapping.note === 'number' && mapping.note >= 0 && mapping.note <= 127) {
-                    sanitized[key] = { note: mapping.note }
+                // Validate MIDI mapping structure: {type: 'cc'|'note', value: number}
+                if (typeof mapping.type === 'string' && typeof mapping.value === 'number') {
+                    if (mapping.type === 'cc' && mapping.value >= 0 && mapping.value <= 127) {
+                        sanitized[key] = { type: 'cc', value: mapping.value }
+                    } else if (mapping.type === 'note' && mapping.value >= 0 && mapping.value <= 127) {
+                        sanitized[key] = { type: 'note', value: mapping.value }
+                    } else {
+                        errors.push(`${context}: Invalid MIDI mapping type or value for ${key}`)
+                    }
                 } else {
-                    errors.push(`${context}: Invalid MIDI mapping for ${key}`)
+                    errors.push(`${context}: Invalid MIDI mapping structure for ${key}`)
                 }
+            } else {
+                errors.push(`${context}: MIDI mapping must be an object for ${key}`)
             }
         }
 

@@ -1,12 +1,12 @@
-  /*
-   * This file is part of Silvia.
-   * Copyright (C) 2025 Silvia Team
-   * 
-   * Silvia is free software: you can redistribute it and/or modify
-   * it under the terms of the GNU Affero General Public License as published by
-   * the Free Software Foundation, either version 3 of the License, or
-   * (at your option) any later version.
-   */
+/*
+ * This file is part of Silvia.
+ * Copyright (C) 2025 Silvia Team
+ * 
+ * Silvia is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ */
 
 import './js/editor.js'
 import './js/nodes/index.js'
@@ -14,21 +14,22 @@ import './js/snumber.js'
 import './js/scolor.js'
 import './js/audioAnalyzer.js'
 import './js/midiManager.js'
-import {SNode} from './js/snode.js'
-import {createMenu} from './js/menu.js'
-import {BackgroundRenderer} from './js/nodes/_background.js'
-import {initSettings, settings} from './js/settings.js'
-import {initSave, serializeWorkspace} from './js/save.js'
-import {initLoad, deserializeWorkspace} from './js/load.js'
-import {addVersionToPatch, getCurrentVersion} from './js/version.js'
-import {initHowto} from './js/howto.js'
-import {initAbout, showAbout} from './js/about.js'
-import {Connection} from './js/connections.js'
-import {updateCropButtonState, expandWorkspaceToViewport} from './js/editor.js'
-import {themeManager} from './js/themeManager.js'
-import {AssetManager} from './js/assetManager.js'
-import {masterMixer} from './js/masterMixer.js'
-import {masterMixerUI} from './js/masterMixerUI.js'
+import { SNode } from './js/snode.js'
+import { createMenu } from './js/menu.js'
+import { BackgroundRenderer } from './js/nodes/_background.js'
+import { initSettings, settings } from './js/settings.js'
+import { initSave, serializeWorkspace } from './js/save.js'
+import { initLoad, deserializeWorkspace } from './js/load.js'
+import { addVersionToPatch, getCurrentVersion } from './js/version.js'
+import { initHowto } from './js/howto.js'
+import { initAbout, showAbout } from './js/about.js'
+import { Connection } from './js/connections.js'
+import { updateCropButtonState, expandWorkspaceToViewport } from './js/editor.js'
+import { themeManager } from './js/themeManager.js'
+import { AssetManager } from './js/assetManager.js'
+import { masterMixer } from './js/masterMixer.js'
+import { masterMixerUI } from './js/masterMixerUI.js'
+
 // Global dirty tracking
 window.isDirty = false
 window.markDirty = () => { window.isDirty = true }
@@ -37,8 +38,8 @@ window.markClean = () => { window.isDirty = false }
 // --- Centralized Resize Handler ---
 let resizeRequestPending = false
 
-function onWindowResize(){
-    if(resizeRequestPending){
+function onWindowResize() {
+    if (resizeRequestPending) {
         return // A resize is already scheduled
     }
     resizeRequestPending = true
@@ -48,7 +49,7 @@ function onWindowResize(){
         expandWorkspaceToViewport()
 
         // 1. Update the absolute coordinates of all node ports
-        for(const node of SNode.nodes){
+        for (const node of SNode.nodes) {
             node.updatePortPoints()
         }
 
@@ -56,7 +57,7 @@ function onWindowResize(){
         Connection.redrawAllConnections()
 
         // 3. Tell all WebGL renderers to resize their canvases and framebuffers
-        for(const output of SNode.outputs){
+        for (const output of SNode.outputs) {
             output.renderer?.onResize()
         }
 
@@ -87,7 +88,7 @@ function isWorkspaceEmpty(workspaceNumber) {
     return nodes.length === 0
 }
 
-async function saveWorkspace(workspaceNumber){
+async function saveWorkspace(workspaceNumber) {
     try {
         // Delete if workspace is empty
         if (isWorkspaceEmpty(workspaceNumber)) {
@@ -158,13 +159,13 @@ async function saveWorkspace(workspaceNumber){
         }
         window.markClean()
         return true
-    } catch(e){
+    } catch (e) {
         console.warn(`Could not save workspace ${workspaceNumber}:`, e)
         return false
     }
 }
 
-async function loadWorkspaceSave(workspaceNumber){
+async function loadWorkspaceSave(workspaceNumber) {
     try {
         const storageKey = WORKSPACE_SAVE_KEYS[workspaceNumber]
         const filename = `${WORKSPACE_SAVE_FILENAMES[workspaceNumber]}.svs`
@@ -187,7 +188,7 @@ async function loadWorkspaceSave(workspaceNumber){
 
         // Web mode or fallback: use localStorage
         const saveData = localStorage.getItem(storageKey)
-        if(saveData){
+        if (saveData) {
             const patch = JSON.parse(saveData)
             // Switch to target workspace and load
             SNode.setCurrentWorkspace(workspaceNumber)
@@ -196,7 +197,7 @@ async function loadWorkspaceSave(workspaceNumber){
             console.log(`Restored workspace ${workspaceNumber} from localStorage`)
             return true
         }
-    } catch(e){
+    } catch (e) {
         console.warn(`Could not load workspace save for workspace ${workspaceNumber}:`, e)
         if (typeof localStorage !== 'undefined') {
             localStorage.removeItem(WORKSPACE_SAVE_KEYS[workspaceNumber])
@@ -205,7 +206,7 @@ async function loadWorkspaceSave(workspaceNumber){
     return false
 }
 
-async function saveAllWorkspaces(){
+async function saveAllWorkspaces() {
     console.log('Saving all workspaces...')
     const results = await Promise.all([
         saveWorkspace(1),
@@ -215,7 +216,7 @@ async function saveAllWorkspaces(){
     return success
 }
 
-async function loadAllWorkspaces(){
+async function loadAllWorkspaces() {
     // Load workspace 1 first
     const loaded1 = await loadWorkspaceSave(1)
 
@@ -250,7 +251,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 4. Add listener for the projector button
     const projectorBtn = document.getElementById('projector-btn')
-    if(projectorBtn){
+    if (projectorBtn) {
         projectorBtn.addEventListener('click', () => {
             BackgroundRenderer.openProjector()
         })
@@ -258,7 +259,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 5. Setup workspace toggle functionality
     const workspaceToggleBtn = document.getElementById('workspace-toggle-btn')
-    if(workspaceToggleBtn){
+    if (workspaceToggleBtn) {
         workspaceToggleBtn.addEventListener('click', () => {
             const newWorkspace = SNode.currentWorkspace === 1 ? 2 : 1
             SNode.setCurrentWorkspace(newWorkspace)
@@ -268,7 +269,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Setup save workspaces button
     const saveWorkspacesBtn = document.getElementById('save-workspaces-btn')
-    if(saveWorkspacesBtn){
+    if (saveWorkspacesBtn) {
         const iconEl = saveWorkspacesBtn.querySelector('.btn-icon')
         const originalIcon = iconEl.textContent
 
@@ -304,7 +305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 6. Check if this is the user's first visit and show about
     const hasVisitedBefore = localStorage.getItem('silvia_has_visited')
-    if(!hasVisitedBefore){
+    if (!hasVisitedBefore) {
         // Mark that the user has visited
         localStorage.setItem('silvia_has_visited', 'true')
         // Show the about dialog
@@ -313,7 +314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 7. Try to restore saved workspaces, or create default nodes for a new session
     const restoredWorkspaces = await loadAllWorkspaces()
-    if(!restoredWorkspaces){
+    if (!restoredWorkspaces) {
         // Create the init patch
         const patch = {
             "nodes": [
@@ -430,60 +431,60 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 9. Attach comprehensive window state change listeners
     window.addEventListener('resize', onWindowResize)
-    
+
     // Additional listeners for macOS window state changes
     document.addEventListener('visibilitychange', () => {
-        if(!document.hidden) {
+        if (!document.hidden) {
             // Window became visible again (un-minimized)
             setTimeout(onWindowResize, 100) // Small delay for OS to finish transition
         }
     })
-    
+
     window.addEventListener('focus', () => {
         // Window regained focus (could be from minimize/maximize)
         setTimeout(onWindowResize, 50)
     })
-    
+
     // Handle page show event (browser back/forward, window restoration)
     window.addEventListener('pageshow', (e) => {
-        if(e.persisted || performance.navigation.type === 2) {
+        if (e.persisted || performance.navigation.type === 2) {
             setTimeout(onWindowResize, 100)
         }
     })
-    
+
     // Initial call to set up dimensions
     onWindowResize()
-    
+
     // 10. Listen for theme changes to update connection colors
     document.addEventListener('themeChanged', () => {
         Connection.redrawAllConnections()
         console.log(`🎨 Theme updated:`, themeManager.getAllColors())
     })
-    
+
     // 11. Global key handlers for system functions
     document.addEventListener('keydown', (e) => {
-        if(e.key === 'Escape'){
+        if (e.key === 'Escape') {
             // Blur any focused input/textarea elements
             const activeEl = document.activeElement
-            if(activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')){
+            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
                 activeEl.blur()
             }
-            
+
             // Dispatch a custom event that components can listen to
             document.dispatchEvent(new CustomEvent('escape-pressed'))
         }
-        
-        if(e.key === 'p' || e.key === 'P'){
+
+        if (e.key === 'p' || e.key === 'P') {
             // Only dispatch if not typing in an input field
             const activeEl = document.activeElement
-            if(!activeEl || (activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')){
+            if (!activeEl || (activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
                 // Dispatch custom event for putting down dragging nodes
                 document.dispatchEvent(new CustomEvent('p-key-pressed'))
             }
         }
-        
+
     })
-    
+
     // 12. Add global dirty tracking for control changes
     document.addEventListener('input', (e) => {
         // Only track changes to node controls, not interface elements
@@ -500,29 +501,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     })
 
     // 13. Initialize asset manager (Electron only)
-    if (AssetManager.isElectronMode()) {
-        // DEBUG: Show workspace information
-        if (window.electronAPI && window.electronAPI.getDebugInfo) {
-            window.electronAPI.getDebugInfo().then(debugInfo => {
-                console.log('🔍 ELECTRON DEBUG INFO:')
-                console.log('  workspacePath:', debugInfo.workspacePath)
-                console.log('  defaultWorkspacePath:', debugInfo.defaultWorkspacePath)
-                console.log('  isPackaged:', debugInfo.isPackaged)
-                console.log('  execPath:', debugInfo.execPath)
-                console.log('  cwd:', debugInfo.cwd)
-                console.log('  dirname:', debugInfo.dirname)
-                
-                // Check if directories exist
-                if (debugInfo.workspacePath) {
-                    console.log('Workspace should be at:', debugInfo.workspacePath)
-                } else {
-                    console.log('workspacePath is null - this is the problem!')
-                }
-            }).catch(err => {
-                console.error('Failed to get debug info:', err)
-            })
-        }
-        
+    if (isElectronMode) {
+
         const assetManagerBtn = document.getElementById('asset-manager-btn')
         if (assetManagerBtn) {
             assetManagerBtn.style.display = 'block' // Show button in Electron mode
@@ -530,7 +510,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 AssetManager.showGlobalAssetManager()
             })
         }
-        
+
         // Handle opening .svs files from command line or drag-and-drop
         if (window.electronAPI && window.electronAPI.onOpenPatchFile) {
             window.electronAPI.onOpenPatchFile(async (filePath) => {
@@ -658,18 +638,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // --- Global Render Loop ---
 // This loop continuously calls the `updateOutput` method for all active output nodes.
-function renderLoop(time){
+function renderLoop(time) {
     // Convert time to seconds
     const timeInSeconds = time * 0.001
 
-    for(const outputNode of SNode.outputs){
-        if(outputNode.updateOutput){
+    for (const outputNode of SNode.outputs) {
+        if (outputNode.updateOutput) {
             outputNode.updateOutput(timeInSeconds)
         }
     }
 
     // Update master mixer
-    if(masterMixer.isInitialized){
+    if (masterMixer.isInitialized) {
         masterMixer.updateMasterOutput()
     }
 

@@ -128,7 +128,7 @@ registerNode({
             position: absolute;
             top: 8px;
             right: 8px;
-            display: ${AssetManager.isElectronMode() ? 'flex' : 'none'};
+            display: ${isElectronMode ? 'flex' : 'none'};
             flex-direction: column;
             gap: 4px;
             z-index: 10;
@@ -149,7 +149,7 @@ registerNode({
             cursor: pointer;
             font-family: monospace;
         `
-        replaceBtn.textContent = AssetManager.isElectronMode() ? '📁 Upload' : '↻ Replace'
+        replaceBtn.textContent = isElectronMode ? '📁 Upload' : '↻ Replace'
         replaceBtn.onclick = (e) => {
             e.stopPropagation()
             this.fileSelectors.input.click()
@@ -175,7 +175,7 @@ registerNode({
             font-size: 11px;
             cursor: pointer;
             font-family: monospace;
-            display: ${AssetManager.isElectronMode() ? 'block' : 'none'};
+            display: ${isElectronMode ? 'block' : 'none'};
         `
         assetBrowserBtn.textContent = '📂 Assets'
         assetBrowserBtn.onclick = async (e) => {
@@ -268,7 +268,7 @@ registerNode({
         this.customArea.appendChild(this.fileSelectors.input)
 
         // Load asset if one is already set in values (Electron only)
-        if (this.values.assetPath && AssetManager.isElectronMode()) {
+        if (this.values.assetPath && isElectronMode) {
             this._loadFromAssetPath(this.values.assetPath)
         }
     },
@@ -300,24 +300,38 @@ registerNode({
             URL.revokeObjectURL(this.elements.imageLoader.src)
         }
 
-        try {
-            // Copy file to assets (Electron) or create blob URL (web)
-            const assetPath = await AssetManager.copyToAssets({
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                data: await file.arrayBuffer()
-            }, 'image')
-
-            // Store asset path for serialization (Electron only)
-            if (AssetManager.isElectronMode()) {
-                this.values.assetPath = assetPath
+        // Web mode: Use blob URL directly
+        if (!isElectronMode) {
+            if(file.type === 'image/gif'){
+                this._handleGif(file)
+            } else {
+                this._handleStaticImage(file)
             }
+            return
+        }
+
+        // Electron mode: Use file path from drag-and-drop
+        try {
+            // Get the real file path using webUtils
+            const filePath = window.electronAPI.getFilePathFromFile(file)
+            if (!filePath) {
+                console.error('No file path available')
+                if(file.type === 'image/gif'){
+                    this._handleGif(file)
+                } else {
+                    this._handleStaticImage(file)
+                }
+                return
+            }
+
+            // Copy file to assets using path
+            const assetPath = await window.electronAPI.copyAssetFromPath(filePath, 'image')
+            this.values.assetPath = assetPath
             this.runtimeState.currentAssetPath = assetPath
 
             // Load the asset
             await this._loadFromAssetPath(assetPath)
-            
+
             console.log(`Image asset stored: ${assetPath}`)
         } catch (error) {
             console.error('Failed to handle image file:', error)

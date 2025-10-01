@@ -29,7 +29,8 @@ registerNode({
         renderLoop: null,
         uiUpdateFrameId: null,
         thresholdState: DEFAULT_THRESHOLD_STATE,
-        currentAssetPath: null // Track current asset for cleanup
+        currentAssetPath: null, // Track current asset for cleanup
+        canvasHasData: false // Track if canvas has been drawn to at least once
     },
     values: {
         playbackRate: 1.0,
@@ -87,7 +88,7 @@ registerNode({
             },
             textureUniformUpdate(uniformName, gl, program, textureUnit, textureMap){
                 if(this.isDestroyed){return}
-                
+
                 let texture = textureMap.get(this)
                 if(!texture){
                     texture = gl.createTexture()
@@ -97,20 +98,22 @@ registerNode({
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
                 }
-                
+
                 gl.activeTexture(gl.TEXTURE0 + textureUnit)
                 gl.bindTexture(gl.TEXTURE_2D, texture)
-                
+
                 const {canvas} = this.elements
-                if(canvas && canvas.width > 0 && canvas.height > 0){
-                    // Use the actual canvas
+                // Security: Only upload canvas if it has been drawn to at least once
+                // This prevents reading uninitialized canvas memory which causes security errors
+                if(canvas && canvas.width > 0 && canvas.height > 0 && this.runtimeState.canvasHasData){
+                    // Use the actual canvas with verified video data
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
                 } else {
                     // Create a 1x1 black texture as fallback
                     const blackPixel = new Uint8Array([0, 0, 0, 255]) // Black with full alpha
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, blackPixel)
                 }
-                
+
                 const location = gl.getUniformLocation(program, uniformName)
                 gl.uniform1i(location, textureUnit)
             }
@@ -256,7 +259,7 @@ registerNode({
             <div style="font-size: 12px; opacity: 0.7; margin-top: 4px;">or click to browse</div>
         `
 
-        // Hidden file input
+        // Hidden file input (web mode only, Electron uses native dialog)
         this.fileSelectors.input = document.createElement('input')
         this.fileSelectors.input.type = 'file'
         this.fileSelectors.input.accept = 'video/*'
@@ -303,7 +306,7 @@ registerNode({
             position: absolute;
             top: 8px;
             right: 8px;
-            display: ${AssetManager.isElectronMode() ? 'flex' : 'none'};
+            display: ${isElectronMode ? 'flex' : 'none'};
             flex-direction: column;
             gap: 4px;
             z-index: 10;
@@ -324,7 +327,7 @@ registerNode({
             cursor: pointer;
             font-family: monospace;
         `
-        replaceBtn.textContent = AssetManager.isElectronMode() ? '📁 Upload' : '↻ Replace'
+        replaceBtn.textContent = isElectronMode ? '📁 Upload' : '↻ Replace'
         replaceBtn.onclick = (e) => {
             e.stopPropagation()
             this.fileSelectors.input.click()
@@ -350,7 +353,7 @@ registerNode({
             font-size: 11px;
             cursor: pointer;
             font-family: monospace;
-            display: ${AssetManager.isElectronMode() ? 'block' : 'none'};
+            display: ${isElectronMode ? 'block' : 'none'};
         `
         assetBrowserBtn.textContent = '📂 Assets'
         assetBrowserBtn.onclick = async (e) => {
@@ -456,57 +459,67 @@ registerNode({
         createAudioMetersUI(this, false, {numbers: true, events: false})
 
         // Load asset if one is already set in values (Electron only)
-        if (this.values.assetPath && AssetManager.isElectronMode()) {
+        if (this.values.assetPath && isElectronMode) {
             this._loadFromAssetPath(this.values.assetPath)
         }
     },
     
-    async _handleVideoFile(file){
-        if(!file || !file.type.startsWith('video/')) return
-        
-        // Cleanup previous state
+    async _handleVideoFilePath(filePath){
+        // Cleanup previous state and mark canvas as invalid immediately
+        this.runtimeState.canvasHasData = false
         this.runtimeState.analyzer?.close()
         if(this.elements.video.src && this.runtimeState.currentAssetPath && !this.runtimeState.currentAssetPath.startsWith('asset://')){
             URL.revokeObjectURL(this.elements.video.src)
         }
 
         try {
-            // Prepare asset data
-            const assetData = {
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                data: await file.arrayBuffer()
-            }
+            console.log(`Copying video from path (no size limit): ${filePath}`)
 
-            // Generate thumbnail for video
+            // Generate thumbnail using AssetManager
+            let thumbnailData = null
             try {
-                const thumbnailData = await AssetManager.generateVideoThumbnail(file)
-                if (thumbnailData) {
-                    assetData.thumbnailData = thumbnailData
-                }
+                thumbnailData = await AssetManager.generateVideoThumbnail(filePath)
             } catch (error) {
-                console.warn(`Failed to generate thumbnail for ${file.name}:`, error)
+                console.warn('Failed to generate thumbnail:', error)
                 // Continue without thumbnail
             }
 
-            // Copy file to assets (Electron) or create blob URL (web)
-            const assetPath = await AssetManager.copyToAssets(assetData, 'video')
-
-            // Store asset path for serialization (Electron only)
-            if (AssetManager.isElectronMode()) {
-                this.values.assetPath = assetPath
-            }
+            const assetPath = await window.electronAPI.copyAssetFromPath(filePath, 'video', thumbnailData)
+            this.values.assetPath = assetPath
             this.runtimeState.currentAssetPath = assetPath
 
             console.log(`Video file handled, calling _loadFromAssetPath with: ${assetPath}`)
-            // Load the asset
             await this._loadFromAssetPath(assetPath)
-            
             console.log(`Video asset stored: ${assetPath}`)
         } catch (error) {
-            console.error('Failed to handle video file:', error)
-            // Fallback to old blob URL method
+            console.error('Failed to handle video file path:', error)
+            alert(`Failed to load video: ${error.message}`)
+        }
+    },
+
+    async _handleVideoFile(file){
+        if(!file || !file.type.startsWith('video/')) return
+
+        // Cleanup previous state and mark canvas as invalid immediately
+        this.runtimeState.canvasHasData = false
+        this.runtimeState.analyzer?.close()
+        if(this.elements.video.src && this.runtimeState.currentAssetPath && !this.runtimeState.currentAssetPath.startsWith('asset://')){
+            URL.revokeObjectURL(this.elements.video.src)
+        }
+
+        // Web mode: Use blob URL directly (faster, no size limit, no persistence anyway)
+        if (!isElectronMode) {
+            this._loadVideoFromBlob(file)
+            return
+        }
+
+        // Electron mode: Use file path to copy to assets
+        const filePath = window.electronAPI.getFilePathFromFile(file)
+        if (filePath) {
+            // Use the existing path handler which copies to assets
+            await this._handleVideoFilePath(filePath)
+        } else {
+            console.error('No file path available in Electron mode')
             this._loadVideoFromBlob(file)
         }
     },
@@ -522,6 +535,7 @@ registerNode({
             }
 
             this.runtimeState.currentAssetPath = assetPath
+            this.runtimeState.canvasHasData = false // Reset flag when loading new video
             await this._loadVideoFromPath(resolvedPath)
         } catch (error) {
             console.error('Failed to load video asset:', error)
@@ -572,28 +586,29 @@ registerNode({
 
     _loadVideoFromBlob(file) {
         // Fallback method using blob URL
+        this.runtimeState.canvasHasData = false // Reset flag for new video
         const url = URL.createObjectURL(file)
         this.elements.video.src = url
         this.runtimeState.currentAssetPath = url
-        
+
         this.elements.video.onloadedmetadata = () => {
             this.runtimeState.aspect = this.elements.video.videoWidth / this.elements.video.videoHeight
             this.elements.video.playbackRate = this.values.playbackRate
-            
+
             this.elements.canvas.width = this.elements.video.videoWidth
             this.elements.canvas.height = this.elements.video.videoHeight
-            
+
             this._startCanvasRenderLoop()
-            
+
             this.runtimeState.analyzer = new AudioAnalyzer()
             this.runtimeState.analyzer.initFromFile(this.elements.video)
             this.elements.video.style.display = 'block'
             this.elements.placeholder.style.display = 'none'
             this.elements.buttonContainer.style.display = 'flex'
             this.elements.playbackControls.style.display = 'flex'
-            
+
             this._startUiUpdateLoop()
-            
+
             this.updatePortPoints()
             Connection.redrawAllConnections()
             SNode.refreshDownstreamOutputs(this)
@@ -609,13 +624,22 @@ registerNode({
         
         const renderFrame = () => {
             if(this.isDestroyed) return
-            
+
             const {video, canvas} = this.elements
-            if(video && canvas && video.readyState >= video.HAVE_CURRENT_DATA){
+            if(video && canvas){
                 const ctx = canvas.getContext('2d')
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+                if(video.readyState >= video.HAVE_CURRENT_DATA){
+                    // Draw video frame
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+                    this.runtimeState.canvasHasData = true
+                } else if(!this.runtimeState.canvasHasData){
+                    // Draw black fallback when no video data yet
+                    ctx.fillStyle = '#000000'
+                    ctx.fillRect(0, 0, canvas.width, canvas.height)
+                    this.runtimeState.canvasHasData = true
+                }
             }
-            
+
             this.runtimeState.renderLoop = requestAnimationFrame(renderFrame)
         }
         
