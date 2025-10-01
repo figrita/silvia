@@ -529,6 +529,11 @@ ipcMain.handle('list-patch-files', async (event, folderName = null) => {
 
                 for (const file of files) {
                     if (file.endsWith('.svs')) {
+                        // Exclude workspace files from the patch list
+                        if (file === 'workspace_1.svs' || file === 'workspace_2.svs') {
+                            continue
+                        }
+
                         try {
                             const patchPath = path.join(patchesDir, file)
                             const stats = await fs.stat(patchPath)
