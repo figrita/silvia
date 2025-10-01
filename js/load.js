@@ -220,9 +220,50 @@ function setupFilesystemTab() {
         filesystemContentContainer.innerHTML = `
             <div class="filesystem-layout">
                 <div class="filesystem-sidebar">
-                    <h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-secondary); font-weight: 600;">Folders</h4>
-                    <div class="folder-list" data-el="folderListEl">
-                        <p>Loading folders...</p>
+                    <div class="filesystem-sidebar-header">
+                        <h4 style="margin: 0; font-size: 12px; color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 6px; position: relative;">
+                            Folders
+                            <span class="folders-help-icon" style="
+                                width: 12px;
+                                height: 12px;
+                                border-radius: 50%;
+                                border: 1px solid var(--text-muted);
+                                color: var(--text-muted);
+                                font-size: 8px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                cursor: help;
+                                font-weight: bold;
+                                position: relative;
+                            ">?
+                                <span class="folders-tooltip" style="
+                                    position: absolute;
+                                    bottom: 100%;
+                                    left: 70%;
+                                    transform: translateX(-30%);
+                                    background: var(--bg-interactive);
+                                    border: 1px solid var(--border-normal);
+                                    border-radius: 4px;
+                                    padding: 6px 8px;
+                                    font-size: 11px;
+                                    white-space: nowrap;
+                                    z-index: 1000;
+                                    pointer-events: none;
+                                    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+                                    opacity: 0;
+                                    visibility: hidden;
+                                    transition: opacity 0.2s, visibility 0.2s;
+                                    margin-bottom: 4px;
+                                    font-weight: normal;
+                                ">One sublevel of folders is supported</span>
+                            </span>
+                        </h4>
+                    </div>
+                    <div class="folder-list-container">
+                        <div class="folder-list" data-el="folderListEl">
+                            <p>Loading folders...</p>
+                        </div>
                     </div>
                 </div>
                 <div class="filesystem-content">
@@ -253,6 +294,24 @@ function setupFilesystemTab() {
     }
     if (newFolderListEl) {
         folderListEl = newFolderListEl
+    }
+
+    // Setup tooltip functionality for the folders help icon (Electron mode only)
+    if (typeof window !== 'undefined' && window.electronAPI) {
+        const helpIcon = containerEl.querySelector('.folders-help-icon')
+        const tooltip = containerEl.querySelector('.folders-tooltip')
+
+        if (helpIcon && tooltip) {
+            helpIcon.addEventListener('mouseenter', () => {
+                tooltip.style.opacity = '1'
+                tooltip.style.visibility = 'visible'
+            })
+
+            helpIcon.addEventListener('mouseleave', () => {
+                tooltip.style.opacity = '0'
+                tooltip.style.visibility = 'hidden'
+            })
+        }
     }
 }
 
