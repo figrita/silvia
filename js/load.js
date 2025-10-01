@@ -354,7 +354,7 @@ async function populateLoadModal(){
     await loadDefaultPatches()
 }
 
-function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = false){
+function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = false, isDefaultPatch = false){
     const item = document.createElement('div')
     item.className = 'patch-card'
     const meta = patch.meta || {}
@@ -418,7 +418,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                 cursor: pointer;
                 transition: background 0.2s;
             ">💾</button>
-            <button class="patch-delete-btn" title="Delete patch" style="
+            ${isDefaultPatch ? '' : `<button class="patch-delete-btn" title="Delete patch" style="
                 padding: 4px 6px;
                 background: var(--bg-interactive);
                 border: 1px solid var(--border-normal);
@@ -427,7 +427,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                 font-size: 10px;
                 cursor: pointer;
                 transition: background 0.2s;
-            ">🗑️</button>
+            ">🗑️</button>`}
         </div>
     `
 
@@ -471,39 +471,41 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
         URL.revokeObjectURL(url)
     })
 
-    const deleteBtn = item.querySelector('.patch-delete-btn')
-    deleteBtn.addEventListener('click', async (e) => {
-        e.stopPropagation() // Prevent selecting the patch for loading
-        
-        const confirmMessage = `Are you sure you want to delete "${patchName}"? This action cannot be undone.`
-        if(confirm(confirmMessage)){
-            // Check if running in Electron mode
-            if (typeof window !== 'undefined' && window.electronAPI && patchFile) {
-                try {
-                    const success = await window.electronAPI.deletePatchFile(patchFile.filename)
-                    if (success) {
-                        populateLoadModal() // Refresh the list
-                    } else {
+    if (!isDefaultPatch) {
+        const deleteBtn = item.querySelector('.patch-delete-btn')
+        deleteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation() // Prevent selecting the patch for loading
+            
+            const confirmMessage = `Are you sure you want to delete "${patchName}"? This action cannot be undone.`
+            if(confirm(confirmMessage)){
+                // Check if running in Electron mode
+                if (typeof window !== 'undefined' && window.electronAPI && patchFile) {
+                    try {
+                        const success = await window.electronAPI.deletePatchFile(patchFile.filename)
+                        if (success) {
+                            populateLoadModal() // Refresh the list
+                        } else {
+                            alert('Failed to delete patch file.')
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete patch file:', error)
                         alert('Failed to delete patch file.')
                     }
-                } catch (error) {
-                    console.error('Failed to delete patch file:', error)
-                    alert('Failed to delete patch file.')
-                }
-            } else {
-                // Web mode: delete from localStorage
-                // Check if this is a workspace restore entry
-                if(patch.isWorkspaceRestore) {
-                    // Delete the workspace save data directly
-                    const workspaceKey = patch.targetWorkspace === 1 ? 'silvia_workspace_1' : 'silvia_workspace_2'
-                    localStorage.removeItem(workspaceKey)
                 } else {
-                    deletePatchFromLocalStorage(patchIndex, patch)
+                    // Web mode: delete from localStorage
+                    // Check if this is a workspace restore entry
+                    if(patch.isWorkspaceRestore) {
+                        // Delete the workspace save data directly
+                        const workspaceKey = patch.targetWorkspace === 1 ? 'silvia_workspace_1' : 'silvia_workspace_2'
+                        localStorage.removeItem(workspaceKey)
+                    } else {
+                        deletePatchFromLocalStorage(patchIndex, patch)
+                    }
+                    populateLoadModal() // Refresh the list
                 }
-                populateLoadModal() // Refresh the list
             }
-        }
-    })
+        })
+    }
 
     return item
 }
@@ -844,7 +846,7 @@ function populateDefaultPatches(patches){
     defaultsPatchListEl.innerHTML = ''
 
     patches.forEach((patch, index) => {
-        const item = createPatchListItem(patch, index, null, false)
+        const item = createPatchListItem(patch, index, null, false, true)
         defaultsPatchListEl.appendChild(item)
     })
 }
