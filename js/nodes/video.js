@@ -5,6 +5,7 @@ import {autowire, formatFloatGLSL, StringToFragment} from '../utils.js'
 import {AudioAnalyzer} from '../audioAnalyzer.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
 import {AssetManager} from '../assetManager.js'
+import {ensureBandConfig, createBandEQControlsHTML, attachBandEQListeners, setupHistogramCanvas, drawHistogram, applyBandConfig, DEFAULT_BAND_CONFIG} from '../audioHistogram.js'
 
 registerNode({
     slug: 'video',
@@ -18,7 +19,8 @@ registerNode({
         speedControl: null,
         meters: {},
         thresholdSliders: {},
-        meterContainer: null
+        meterContainer: null,
+        histogramCanvas: null
     },
     fileSelectors: {
         input: null
@@ -36,7 +38,8 @@ registerNode({
         playbackRate: 1.0,
         thresholds: DEFAULT_THRESHOLDS,
         debounceMs: 100,
-        assetPath: null // Persistent asset reference for serialization (Electron only)
+        assetPath: null, // Persistent asset reference for serialization (Electron only)
+        bandConfig: DEFAULT_BAND_CONFIG
     },
 
     input: {
@@ -225,6 +228,8 @@ registerNode({
     onCreate(){
         if(!this.customArea){return}
 
+        ensureBandConfig(this)
+
         // Create drop zone container
         const dropZone = document.createElement('div')
         dropZone.className = 'drop-zone'
@@ -232,6 +237,7 @@ registerNode({
             border: 2px dashed var(--color-border);
             border-radius: 8px;
             min-height: 120px;
+            min-width: 270px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -290,11 +296,12 @@ registerNode({
 
         // --- Create Custom Playback Controls ---
         const controlsHtml = `
-            <div data-el="playbackControls" style="display: none; padding: 0.5rem; flex-direction: column; gap: 0.5rem; border-top: 1px solid #444; margin-top: 0.5rem;">
+            <div data-el="playbackControls" style="padding: 0.5rem; flex-direction: column; gap: 0.5rem; border-top: 1px solid #444; margin-top: 0.5rem;">
                 <div style="display:flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
                     <label style="font-size:0.9rem; color:#ccc;">Speed</label>
                     <s-number value="${this.values.playbackRate}" default="${this.defaults.playbackRate}" min="0.1" max="4.0" step="0.05" data-el="speedControl"></s-number>
                 </div>
+                ${createBandEQControlsHTML(this.values.bandConfig)}
             </div>
         `
         const controlsFragment = StringToFragment(controlsHtml)
@@ -447,6 +454,9 @@ registerNode({
             this.runtimeState.analyzer?.setPlaybackRate(newRate)
         })
 
+        // Add band EQ control event listeners
+        attachBandEQListeners(this)
+
         // --- Append elements to DOM ---
         dropZone.appendChild(placeholder)
         dropZone.appendChild(this.elements.video)
@@ -557,12 +567,14 @@ registerNode({
                 this._startCanvasRenderLoop()
                 
                 this.runtimeState.analyzer = new AudioAnalyzer()
+                applyBandConfig(this.runtimeState.analyzer, this.values.bandConfig)
                 this.runtimeState.analyzer.initFromFile(this.elements.video)
                 this.elements.video.style.display = 'block'
                 this.elements.placeholder.style.display = 'none'
                 this.elements.buttonContainer.style.display = 'flex'
-                this.elements.playbackControls.style.display = 'flex'
-                
+                this.elements.histogramCanvas.style.display = 'block'
+                setupHistogramCanvas(this.elements.histogramCanvas)
+
                 // Start UI update loop (meters already created)
                 this._startUiUpdateLoop()
                 
@@ -601,11 +613,13 @@ registerNode({
             this._startCanvasRenderLoop()
 
             this.runtimeState.analyzer = new AudioAnalyzer()
+            applyBandConfig(this.runtimeState.analyzer, this.values.bandConfig)
             this.runtimeState.analyzer.initFromFile(this.elements.video)
             this.elements.video.style.display = 'block'
             this.elements.placeholder.style.display = 'none'
             this.elements.buttonContainer.style.display = 'flex'
-            this.elements.playbackControls.style.display = 'flex'
+            this.elements.histogramCanvas.style.display = 'block'
+            setupHistogramCanvas(this.elements.histogramCanvas)
 
             this._startUiUpdateLoop()
 
@@ -646,6 +660,7 @@ registerNode({
         this.runtimeState.renderLoop = requestAnimationFrame(renderFrame)
     },
 
+
     _startUiUpdateLoop(){
         if(this.runtimeState.uiUpdateFrameId){
             cancelAnimationFrame(this.runtimeState.uiUpdateFrameId)
@@ -664,6 +679,9 @@ registerNode({
             updateMeterAndCheckThreshold(this, 'bassExciter', bassExciter, now, 'bass+')
             updateMeterAndCheckThreshold(this, 'mid', mid, now)
             updateMeterAndCheckThreshold(this, 'high', high, now)
+
+            // Draw histogram
+            drawHistogram(this.elements.histogramCanvas, this.runtimeState.analyzer)
 
             this.runtimeState.uiUpdateFrameId = requestAnimationFrame(updateMeters)
         }

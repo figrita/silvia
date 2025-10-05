@@ -28,8 +28,8 @@ export class PatchValidator {
         /\\u[0-9a-f]{4}/gi,  // Unicode escapes that could hide malicious content
     ]
 
-    // Validate asset paths
-    static ASSET_PATH_REGEX = /^asset:\/\/(images|videos|audio)\/[a-f0-9]{16}\.[a-z0-9]+$/i
+    // Validate asset paths - accept any file extension (validation happens at upload time)
+    static ASSET_PATH_REGEX = /^asset:\/\/(images|videos|audio)\/[a-f0-9]{16}\.[a-zA-Z0-9]+$/i
     static BLOB_URL_REGEX = /^blob:[a-z]+:\/\/[a-f0-9-]+$/i
 
     /**

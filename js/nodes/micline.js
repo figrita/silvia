@@ -2,6 +2,7 @@ import {registerNode} from '../registry.js'
 import {autowire, StringToFragment} from '../utils.js'
 import {AudioAnalyzer} from '../audioAnalyzer.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS_WITH_VOLUME, DEFAULT_THRESHOLD_STATE_WITH_VOLUME, THRESHOLD_ACTION_OUTPUTS_WITH_VOLUME} from '../audioThresholds.js'
+import {ensureBandConfig, createBandEQControlsHTML, attachBandEQListeners, setupHistogramCanvas, drawHistogram, applyBandConfig, DEFAULT_BAND_CONFIG} from '../audioHistogram.js'
 
 registerNode({
     slug: 'micline',
@@ -18,7 +19,8 @@ registerNode({
         volumeSlider: null,
         smoothingSlider: null,
         gainSlider: null,
-        deviceSelect: null
+        deviceSelect: null,
+        histogramCanvas: null
     },
     values: {
         volume: 1.0,
@@ -26,7 +28,8 @@ registerNode({
         gain: 1.0,
         thresholds: DEFAULT_THRESHOLDS_WITH_VOLUME,
         debounceMs: 100,
-        selectedDeviceId: 'default'
+        selectedDeviceId: 'default',
+        bandConfig: DEFAULT_BAND_CONFIG
     },
     runtimeState: {
         stream: null,
@@ -172,6 +175,8 @@ registerNode({
     async onCreate(){
         if(!this.customArea){return}
 
+        ensureBandConfig(this)
+
         // Enumerate devices first (Electron only)
         if (typeof window !== 'undefined' && window.electronAPI) {
             await this._enumerateDevices()
@@ -196,11 +201,14 @@ registerNode({
 
                 // Initialize analyzer
                 this.runtimeState.analyzer = new AudioAnalyzer()
+                applyBandConfig(this.runtimeState.analyzer, this.values.bandConfig)
                 this.runtimeState.analyzer.initFromStream(stream)
 
                 // Update UI
                 this.elements.startButton.style.display = 'none'
                 this.elements.statusText.textContent = 'Status: Mic Active'
+                this.elements.histogramCanvas.style.display = 'block'
+                setupHistogramCanvas(this.elements.histogramCanvas)
                 this._startUiUpdateLoop()
 
                 // Listen for when the user stops sharing via browser UI
@@ -226,6 +234,7 @@ registerNode({
         this.runtimeState.stream = null
     },
 
+
     _startUiUpdateLoop(){
         if(this.runtimeState.uiUpdateFrameId){
             cancelAnimationFrame(this.runtimeState.uiUpdateFrameId)
@@ -236,7 +245,7 @@ registerNode({
 
             const {bass, mid, high, bassExciter} = this.runtimeState.analyzer.audioValues
             const now = performance.now()
-            
+
             // Calculate volume (average of all bands with gain)
             const volume = Math.min(1.0, (bass + mid + high) / 3.0 * this.values.gain)
 
@@ -246,6 +255,9 @@ registerNode({
             updateMeterAndCheckThreshold(this, 'mid', mid, now)
             updateMeterAndCheckThreshold(this, 'high', high, now)
             updateMeterAndCheckThreshold(this, 'volume', volume, now)
+
+            // Draw histogram
+            drawHistogram(this.elements.histogramCanvas, this.runtimeState.analyzer)
 
             this.runtimeState.uiUpdateFrameId = requestAnimationFrame(updateMeters)
         }
@@ -286,11 +298,11 @@ registerNode({
             : ''
 
         const html = `
-            <div style="padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 270px;">
                 <p data-el="statusText" style="margin: 0; color: #ccc;">Status: Inactive</p>
                 ${deviceSelectHtml}
                 <button data-el="startButton" style="width: 100%;">Start Mic</button>
-                
+
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
                     <label style="color: #ccc; font-size: 11px; min-width: 60px;">Volume:</label>
                     <s-number data-el="volumeControl" value="${this.values.volume}" default="${this.defaults.volume}" min="0" max="2" step="0.01" style="flex: 1;"></s-number>
@@ -305,7 +317,9 @@ registerNode({
                     <label style="color: #ccc; font-size: 11px; min-width: 60px;">Gain:</label>
                     <s-number data-el="gainControl" value="${this.values.gain}" default="${this.defaults.gain}" min="0.1" max="5" step="0.1" style="flex: 1;"></s-number>
                 </div>
-                
+
+                ${createBandEQControlsHTML(this.values.bandConfig)}
+
                 <div class="meter-container" data-el="meterContainer" style="margin-top:0.5rem;"></div>
             </div>
         `
@@ -347,6 +361,9 @@ registerNode({
                 }
             })
         }
+
+        // Add band EQ control event listeners
+        attachBandEQListeners(this)
     },
 
     async _restartWithNewDevice(){
@@ -368,10 +385,13 @@ registerNode({
 
             // Initialize analyzer
             this.runtimeState.analyzer = new AudioAnalyzer()
+            applyBandConfig(this.runtimeState.analyzer, this.values.bandConfig)
             this.runtimeState.analyzer.initFromStream(stream)
 
             // Update UI
             this.elements.statusText.textContent = 'Status: Mic Active'
+            this.elements.histogramCanvas.style.display = 'block'
+            setupHistogramCanvas(this.elements.histogramCanvas)
             this._startUiUpdateLoop()
 
             // Listen for when the user stops sharing via browser UI
