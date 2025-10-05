@@ -61,13 +61,30 @@ function getAssetFolder(type) {
     return type === 'audio' ? 'audio' : `${type}s`
 }
 
-// Validate asset type
+// Validate asset type based on file extension
+// Comprehensive lists that accept all common formats
 function validateAssetType(file, expectedType) {
     const ext = getFileExtension(file.name)
-    const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp']
-    const videoExts = ['.mp4', '.webm', '.ogv', '.mov', '.avi', '.mkv']
-    const audioExts = ['.mp3', '.wav', '.ogg', '.m4a', '.flac']
-    
+
+    // Image formats: all common raster and vector formats
+    const imageExts = [
+        '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp',
+        '.ico', '.tiff', '.tif', '.avif', '.apng'
+    ]
+
+    // Video formats: all common video containers and codecs
+    const videoExts = [
+        '.mp4', '.webm', '.ogv', '.mov', '.avi', '.mkv', '.m4v',
+        '.mpg', '.mpeg', '.wmv', '.flv', '.3gp', '.mts', '.m2ts'
+    ]
+
+    // Audio formats: all common audio formats (lossless and lossy)
+    const audioExts = [
+        '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.wma',
+        '.opus', '.oga', '.webm', '.aiff', '.ape', '.alac', '.ac3',
+        '.dts', '.amr', '.mid', '.midi', '.mka'
+    ]
+
     switch (expectedType) {
         case 'image': return imageExts.includes(ext)
         case 'video': return videoExts.includes(ext)

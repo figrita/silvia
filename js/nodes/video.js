@@ -296,7 +296,7 @@ registerNode({
 
         // --- Create Custom Playback Controls ---
         const controlsHtml = `
-            <div data-el="playbackControls" style="display: none; padding: 0.5rem; flex-direction: column; gap: 0.5rem; border-top: 1px solid #444; margin-top: 0.5rem;">
+            <div data-el="playbackControls" style="padding: 0.5rem; flex-direction: column; gap: 0.5rem; border-top: 1px solid #444; margin-top: 0.5rem;">
                 <div style="display:flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
                     <label style="font-size:0.9rem; color:#ccc;">Speed</label>
                     <s-number value="${this.values.playbackRate}" default="${this.defaults.playbackRate}" min="0.1" max="4.0" step="0.05" data-el="speedControl"></s-number>
@@ -572,7 +572,6 @@ registerNode({
                 this.elements.video.style.display = 'block'
                 this.elements.placeholder.style.display = 'none'
                 this.elements.buttonContainer.style.display = 'flex'
-                this.elements.playbackControls.style.display = 'flex'
                 this.elements.histogramCanvas.style.display = 'block'
                 setupHistogramCanvas(this.elements.histogramCanvas)
 
@@ -619,7 +618,6 @@ registerNode({
             this.elements.video.style.display = 'block'
             this.elements.placeholder.style.display = 'none'
             this.elements.buttonContainer.style.display = 'flex'
-            this.elements.playbackControls.style.display = 'flex'
             this.elements.histogramCanvas.style.display = 'block'
             setupHistogramCanvas(this.elements.histogramCanvas)
 
