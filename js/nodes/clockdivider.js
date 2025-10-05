@@ -167,7 +167,7 @@ registerNode({
                 </div>
 
                 <div class="divider-controls">
-                    <button data-el="resetButton">Reset</button>
+                    <button class="btn" data-el="resetButton">Reset</button>
                 </div>
 
                 <div class="divider-help">

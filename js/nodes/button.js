@@ -21,7 +21,7 @@ registerNode({
 
         const html = `
             <div style="padding: 0.5rem;">
-                <button data-el="button" style="width: 100%; padding: 0.5rem; font-family: monospace;">Press Me</button>
+                <button class="btn" data-el="button" style="width: 100%; padding: 0.5rem; font-family: monospace;">Press Me</button>
             </div>
         `
         const fragment = StringToFragment(html)

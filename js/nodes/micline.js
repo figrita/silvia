@@ -290,7 +290,7 @@ registerNode({
         const deviceSelectHtml = isElectron
             ? `<div style="display: flex; align-items: center; gap: 0.5rem;">
                     <label style="color: #ccc; font-size: 11px; min-width: 60px;">Device:</label>
-                    <select data-el="deviceSelect" style="flex: 1; background: var(--bg-interactive); color: var(--text-primary); border: 1px solid var(--border-normal); border-radius: 4px; padding: 4px 6px; font-family: monospace; width: 15rem;">
+                    <select class="slct" data-el="deviceSelect" style="flex: 1; background: var(--bg-interactive); color: var(--text-primary); border: 1px solid var(--border-normal); border-radius: 4px; padding: 4px 6px; font-family: monospace; width: 15rem;">
                         <option value="default" ${this.values.selectedDeviceId === 'default' ? 'selected' : ''}>Default</option>
                         ${deviceOptions}
                     </select>
@@ -301,7 +301,7 @@ registerNode({
             <div style="padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; min-width: 270px;">
                 <p data-el="statusText" style="margin: 0; color: #ccc;">Status: Inactive</p>
                 ${deviceSelectHtml}
-                <button data-el="startButton" style="width: 100%;">Start Mic</button>
+                <button class="btn" data-el="startButton" style="width: 100%;">Start Mic</button>
 
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
                     <label style="color: #ccc; font-size: 11px; min-width: 60px;">Volume:</label>

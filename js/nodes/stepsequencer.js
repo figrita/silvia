@@ -232,9 +232,9 @@ registerNode({
                 </div>
                 <div class="seq-grid" data-el="grid">${gridHtml}</div>
                 <div class="seq-controls">
-                    <button data-el="runButton">Start</button>
-                    <button data-el="resetButton">Reset</button>
-                    <button data-el="clearButton">Clear</button>
+                    <button class="btn" data-el="runButton">Start</button>
+                    <button class="btn" data-el="resetButton">Reset</button>
+                    <button class="btn" data-el="clearButton">Clear</button>
                 </div>
             </div>
         `

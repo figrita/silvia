@@ -229,7 +229,7 @@ registerNode({
 
                 <div class="custom-control-group" style="flex-direction: row; justify-content: space-between;">
                     <label>Weight</label>
-                    <select data-el="fontWeightSelect">
+                    <select class="slct" data-el="fontWeightSelect">
                         <option value="normal" ${this.values.fontWeight === 'normal' ? 'selected' : ''}>Normal</option>
                         <option value="bold" ${this.values.fontWeight === 'bold' ? 'selected' : ''}>Bold</option>
                         <option value="lighter" ${this.values.fontWeight === 'lighter' ? 'selected' : ''}>Lighter</option>
@@ -237,7 +237,7 @@ registerNode({
                 </div>
                 <div class="custom-control-group" style="flex-direction: row; justify-content: space-between;">
                     <label>Align</label>
-                    <select data-el="textAlignSelect">
+                    <select class="slct" data-el="textAlignSelect">
                         <option value="left" ${this.values.textAlign === 'left' ? 'selected' : ''}>Left</option>
                         <option value="center" ${this.values.textAlign === 'center' ? 'selected' : ''}>Center</option>
                         <option value="right" ${this.values.textAlign === 'right' ? 'selected' : ''}>Right</option>
@@ -245,7 +245,7 @@ registerNode({
                 </div>
                  <div class="custom-control-group" style="flex-direction: row; justify-content: space-between;">
                     <label>Baseline</label>
-                    <select data-el="verticalAlignSelect">
+                    <select class="slct" data-el="verticalAlignSelect">
                         <option value="top" ${this.values.verticalAlign === 'top' ? 'selected' : ''}>Top</option>
                         <option value="middle" ${this.values.verticalAlign === 'middle' ? 'selected' : ''}>Middle</option>
                         <option value="bottom" ${this.values.verticalAlign === 'bottom' ? 'selected' : ''}>Bottom</option>
