@@ -2,6 +2,7 @@ import {registerNode} from '../registry.js'
 import {AudioAnalyzer} from '../audioAnalyzer.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
 import {AssetManager} from '../assetManager.js'
+import {ensureBandConfig, createBandEQUI, setupHistogramCanvas, drawHistogram, applyBandConfig, DEFAULT_BAND_CONFIG} from '../audioHistogram.js'
 
 registerNode({
     slug: 'audioanalyzer',
@@ -13,7 +14,8 @@ registerNode({
         audio: null,
         meters: {},
         thresholdSliders: {},
-        meterContainer: null
+        meterContainer: null,
+        histogramCanvas: null
     },
     fileSelectors: {
         input: null
@@ -21,7 +23,8 @@ registerNode({
     values: {
         thresholds: DEFAULT_THRESHOLDS,
         debounceMs: 100,
-        assetPath: null
+        assetPath: null,
+        bandConfig: DEFAULT_BAND_CONFIG
     },
     runtimeState: {
         analyzer: null,
@@ -147,6 +150,8 @@ registerNode({
     onCreate(){
         if(!this.customArea){return}
 
+        ensureBandConfig(this)
+
         // Hidden file input
         this.fileSelectors.input = document.createElement('input')
         this.fileSelectors.input.type = 'file'
@@ -262,7 +267,7 @@ registerNode({
         // Create audio element
         this.elements.audio = document.createElement('audio')
         this.elements.audio.style.cssText = `
-            min-width: 100%;
+            min-width: 270px;
             margin-bottom: 8px;
         `
         this.elements.audio.controls = true
@@ -280,6 +285,9 @@ registerNode({
         this.customArea.appendChild(buttonContainer)
         this.customArea.appendChild(this.elements.audio)
         this.customArea.appendChild(this.fileSelectors.input)
+
+        // Create band EQ controls
+        createBandEQUI(this, this.customArea)
 
         // Create audio meters with threshold sliders - Audio Analyzer shows both by default
         createAudioMetersUI(this, false, {numbers: true, events: true})
@@ -308,6 +316,7 @@ registerNode({
         }
     },
 
+
     _startUiUpdateLoop(){
         if(this.runtimeState.uiUpdateFrameId){
             cancelAnimationFrame(this.runtimeState.uiUpdateFrameId)
@@ -326,6 +335,9 @@ registerNode({
             updateMeterAndCheckThreshold(this, 'bassExciter', bassExciter, now, 'bass+')
             updateMeterAndCheckThreshold(this, 'mid', mid, now)
             updateMeterAndCheckThreshold(this, 'high', high, now)
+
+            // Draw histogram
+            drawHistogram(this.elements.histogramCanvas, this.runtimeState.analyzer)
 
             this.runtimeState.uiUpdateFrameId = requestAnimationFrame(updateMeters)
         }
@@ -396,10 +408,13 @@ registerNode({
         return new Promise((resolve, reject) => {
             this.elements.audio.onloadedmetadata = () => {
                 this.runtimeState.analyzer = new AudioAnalyzer()
+                applyBandConfig(this.runtimeState.analyzer, this.values.bandConfig)
                 this.runtimeState.analyzer.initFromFile(this.elements.audio)
                 this.elements.uploadBtn.style.display = 'none'
                 this.elements.replaceBtn.style.display = 'block'
-                
+                this.elements.histogramCanvas.style.display = 'block'
+                setupHistogramCanvas(this.elements.histogramCanvas)
+
                 this.elements.audio.play()
                 this._startUiUpdateLoop()
                 
@@ -422,10 +437,13 @@ registerNode({
         this.runtimeState.currentAssetPath = url
 
         this.runtimeState.analyzer = new AudioAnalyzer()
+        applyBandConfig(this.runtimeState.analyzer, this.values.bandConfig)
         this.runtimeState.analyzer.initFromFile(this.elements.audio)
         this.elements.uploadBtn.style.display = 'none'
         this.elements.replaceBtn.style.display = 'block'
-        
+        this.elements.histogramCanvas.style.display = 'block'
+        setupHistogramCanvas(this.elements.histogramCanvas)
+
         this.elements.audio.play()
         this._startUiUpdateLoop()
     },

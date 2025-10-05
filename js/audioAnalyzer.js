@@ -1,12 +1,14 @@
 // audioAnalyzer.js
 
-// With fftSize = 1024, each bin is ~43Hz wide.
+// With fftSize = 1024, sample rate is typically 48000Hz
+// Each bin is sampleRate / fftSize = 48000 / 1024 = ~46.875Hz wide
+// Default bands (can be overridden):
 // Bass: ~43Hz - ~258Hz
 // Mids: ~301Hz - ~4.3kHz
 // Highs: ~4.3kHz - ~12.9kHz
-const BASS_BINS = [1, 6]
-const MID_BINS = [7, 100]
-const HIGH_BINS = [101, 300]
+const DEFAULT_BASS_BINS = [1, 6]
+const DEFAULT_MID_BINS = [7, 100]
+const DEFAULT_HIGH_BINS = [101, 300]
 
 /**
  * A reusable class for performing frequency analysis on audio from
@@ -16,6 +18,14 @@ export class AudioAnalyzer{
     // Public state that nodes can read from.
     audioValues = {bass: 0, mid: 0, high: 0, bassExciter: 0}
     waveformData = new Uint8Array(1024) // Time domain data for oscilloscope
+    frequencyData = new Uint8Array(512) // Frequency bin data for histogram
+
+    // Band configuration (center frequency in Hz and Q factor)
+    bandConfig = {
+        bass: {freq: 100, q: 1.0},
+        mid: {freq: 1000, q: 1.0},
+        high: {freq: 8000, q: 1.0}
+    }
 
     // Running median tracking for exciter
     #bassHistory = new Array(30).fill(0)
@@ -35,6 +45,34 @@ export class AudioAnalyzer{
 
     constructor(){
         // No binding needed in the constructor when using arrow function class fields.
+    }
+
+    /**
+     * Helper to convert frequency (Hz) to bin index
+     * @param {number} freq - Frequency in Hz
+     * @returns {number} - Bin index
+     */
+    #freqToBin(freq){
+        const sampleRate = this.#audioCtx?.sampleRate || 48000
+        const binWidth = sampleRate / (this.#analyser?.fftSize || 1024)
+        return Math.round(freq / binWidth)
+    }
+
+    /**
+     * Helper to calculate bin range from center frequency and Q
+     * @param {number} centerFreq - Center frequency in Hz
+     * @param {number} q - Q factor (higher = narrower bandwidth)
+     * @returns {Array} - [startBin, endBin]
+     */
+    #getBinRange(centerFreq, q){
+        const bandwidth = centerFreq / q
+        const startFreq = Math.max(0, centerFreq - bandwidth / 2)
+        const endFreq = centerFreq + bandwidth / 2
+
+        const startBin = this.#freqToBin(startFreq)
+        const endBin = this.#freqToBin(endFreq)
+
+        return [Math.max(1, startBin), Math.min(endBin, 511)]
     }
 
     /**
@@ -189,8 +227,9 @@ export class AudioAnalyzer{
         this.#analyser.getByteFrequencyData(this.#dataArray)
         this.#analyser.getByteTimeDomainData(this.#timeDomainArray)
 
-        // Update public waveform data
+        // Update public waveform data and frequency data
         this.waveformData.set(this.#timeDomainArray)
+        this.frequencyData.set(this.#dataArray)
 
         const getWeightedAverage = (start, end, powerCurve = 0.6) => {
             let sum = 0
@@ -204,9 +243,14 @@ export class AudioAnalyzer{
             return Math.pow(rawAvg, powerCurve)
         }
 
-        this.audioValues.bass = getWeightedAverage(...BASS_BINS, 0.5)
-        this.audioValues.mid = getWeightedAverage(...MID_BINS, 0.6)
-        this.audioValues.high = getWeightedAverage(...HIGH_BINS, 0.7)
+        // Calculate bin ranges based on current band configuration
+        const bassBins = this.#getBinRange(this.bandConfig.bass.freq, this.bandConfig.bass.q)
+        const midBins = this.#getBinRange(this.bandConfig.mid.freq, this.bandConfig.mid.q)
+        const highBins = this.#getBinRange(this.bandConfig.high.freq, this.bandConfig.high.q)
+
+        this.audioValues.bass = getWeightedAverage(...bassBins, 0.5)
+        this.audioValues.mid = getWeightedAverage(...midBins, 0.6)
+        this.audioValues.high = getWeightedAverage(...highBins, 0.7)
         
         // Bass exciter - harsh S-curve around running median
         this.#bassHistory[this.#historyIndex] = this.audioValues.bass
