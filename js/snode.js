@@ -3,6 +3,7 @@ import {nodeList} from './registry.js'
 import {Connection, CursorWire} from './connections.js'
 import {updateCropButtonState} from './editor.js'
 import {midiManager} from './midiManager.js'
+import {settings} from './settings.js'
 
 const editor = document.getElementById('editor')
 export class SNode{
@@ -481,6 +482,9 @@ export class SNode{
                 Connection.connections.delete(connection)
             })
 
+            // Clear any hover highlights before redrawing
+            this.unhighlightPortConnections()
+
             Connection.redrawAllConnections()
 
             // Notify the single affected node.
@@ -688,6 +692,59 @@ export class SNode{
         if(existingMenu){
             existingMenu.remove()
         }
+    }
+
+    highlightPortConnections(portEl){
+        // Check if glow on hover is enabled
+        if(!settings.glowOnHover) return
+
+        const nodeId = parseInt(portEl.dataset.nodeId)
+        const portKey = portEl.dataset.portKey
+        const portType = portEl.dataset.portType
+
+        // Find all connections involving this port
+        const relatedConnections = [...Connection.connections].filter(conn => {
+            if(portType === 'input'){
+                return conn.destination.parent.id === nodeId && conn.destination.key === portKey
+            } else {
+                return conn.source.parent.id === nodeId && conn.source.key === portKey
+            }
+        })
+
+        // Highlight the hovered port
+        portEl.classList.add('highlighted')
+
+        // Highlight connections and connected ports
+        relatedConnections.forEach(conn => {
+            // Build connection ID
+            const connectionId = `conn-${conn.source.parent.id}-${conn.source.key}-${conn.destination.parent.id}-${conn.destination.key}`
+
+            // Highlight connection paths
+            const pathElements = document.querySelectorAll(`[data-connection-id="${connectionId}"]`)
+            pathElements.forEach(path => path.classList.add('highlighted'))
+
+            // Highlight shadow if present
+            const shadowElements = document.querySelectorAll(`[data-connection-id="${connectionId}-shadow"]`)
+            shadowElements.forEach(shadow => shadow.classList.add('highlighted'))
+
+            // Highlight connected ports
+            if(conn.source.portEl){
+                conn.source.portEl.classList.add('highlighted')
+            }
+            if(conn.destination.portEl){
+                conn.destination.portEl.classList.add('highlighted')
+            }
+        })
+    }
+
+    unhighlightPortConnections(){
+        // Remove all highlights
+        document.querySelectorAll('.port.highlighted').forEach(port => {
+            port.classList.remove('highlighted')
+        })
+        document.querySelectorAll('.connection-path.highlighted').forEach(path => {
+            path.classList.remove('highlighted')
+        })
     }
 
     showContextMenu(x, y){
@@ -1090,23 +1147,43 @@ export class SNode{
         mapJoin(inputPorts, (inputPort) => {
             inputPort.style.cursor = 'grab'
             inputPort.portObj = this.input[inputPort.dataset.inPort]
+
+            // Add data attributes for connection highlighting
+            inputPort.dataset.nodeId = this.id
+            inputPort.dataset.portKey = inputPort.dataset.inPort
+            inputPort.dataset.portType = 'input'
+
             inputPort.addEventListener('pointerdown', e => {
                 if(e.button !== 0){return}
                 e.preventDefault() // Prevent text selection during wire drag
                 new CursorWire(inputPort.portObj, e)
             })
             inputPort.addEventListener('contextmenu', e => this.clearPort(e))
+
+            // Hover highlighting for connections
+            inputPort.addEventListener('mouseenter', () => this.highlightPortConnections(inputPort))
+            inputPort.addEventListener('mouseleave', () => this.unhighlightPortConnections())
         })
 
         mapJoin(outputPorts, (outputPort) => {
             outputPort.style.cursor = 'grab'
             outputPort.portObj = this.output[outputPort.dataset.outPort]
+
+            // Add data attributes for connection highlighting
+            outputPort.dataset.nodeId = this.id
+            outputPort.dataset.portKey = outputPort.dataset.outPort
+            outputPort.dataset.portType = 'output'
+
             outputPort.addEventListener('pointerdown', e => {
                 if(e.button !== 0){return}
                 e.preventDefault() // Prevent text selection during wire drag
                 new CursorWire(outputPort.portObj, e)
             })
             outputPort.addEventListener('contextmenu', e => this.clearPort(e))
+
+            // Hover highlighting for connections
+            outputPort.addEventListener('mouseenter', () => this.highlightPortConnections(outputPort))
+            outputPort.addEventListener('mouseleave', () => this.unhighlightPortConnections())
         })
 
         mapJoin(optionControls, (control, key) => {
