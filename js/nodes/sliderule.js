@@ -79,7 +79,7 @@ registerNode({
         const createSelect = (id, label) => `
             <div class="custom-control-group">
                 <label for="${this.id}-${id}">${label}</label>
-                <select id="${this.id}-${id}" data-el="${id}">
+                <select class="slct" id="${this.id}-${id}" data-el="${id}">
                     ${mapJoin(basisOptions, o => `<option value="${o.value}">${o.name}</option>`)}
                 </select>
             </div>

@@ -70,6 +70,7 @@ registerNode({
 
         // Create start button
         const startButton = document.createElement('button')
+        startButton.className = 'btn'
         startButton.textContent = 'Start Screen Capture'
         startButton.style.margin = '0.5rem'
         startButton.style.width = 'calc(100% - 1rem)'

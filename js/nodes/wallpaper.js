@@ -147,7 +147,7 @@ registerNode({
             <div style="padding: 0.5rem; display:flex; flex-direction:column; gap: 0.5rem;">
                 <div class="custom-control-group">
                     <label for="${this.id}-symmetryType">Symmetry Type</label>
-                    <select id="${this.id}-symmetryType" data-el="symmetrySelect">
+                    <select class="slct" id="${this.id}-symmetryType" data-el="symmetrySelect">
                         ${symmetryOptions.map(opt => `<option value="${opt.value}" data-lattice="${opt.lattice}" title="${symmetryHints[opt.value]}">${opt.name}</option>`).join('')}
                     </select>
                 </div>

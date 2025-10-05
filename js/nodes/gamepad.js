@@ -166,7 +166,7 @@ registerNode({
         const html = `
             <div style="padding: 0.5rem; display:flex; flex-direction:column; gap: 0.5rem; color: #ccc; font-size: 0.9rem;">
                 <p data-el="status" style="margin:0; width: 16rem;">Status: Scanning...</p>
-                <button data-el="scanButton" style="font-family: monospace; background: #444; color: #ccc; border: 1px solid #666; padding: 5px; border-radius: 4px; cursor: pointer;">
+                <button class="btn" data-el="scanButton" style="font-family: monospace; background: #444; color: #ccc; border: 1px solid #666; padding: 5px; border-radius: 4px; cursor: pointer;">
                     Rescan for Gamepads
                 </button>
             </div>

@@ -297,7 +297,7 @@ input[type="checkbox"]:hover {
 }
 
 /* ===== GENERIC BUTTONS ===== */
-button:not(.action-control-button):not(.floating-btn):not(.modal-actions button):not(.form-group button):not(.thumb-arrow-btn):not(.patch-download-btn):not(.patch-delete-btn):not(#workspace-controls button):not(.s-number-btn) {
+.btn {
     font-family: monospace;
     background: var(--bg-interactive);
     color: var(--text-primary);
@@ -308,23 +308,23 @@ button:not(.action-control-button):not(.floating-btn):not(.modal-actions button)
     font-size: 1rem;
 }
 
-button:not(.action-control-button):not(.floating-btn):not(.modal-actions button):not(.form-group button):not(.thumb-arrow-btn):not(.patch-download-btn):not(.patch-delete-btn):not(#workspace-controls button):not(.s-number-btn):hover {
+.btn:hover {
     background: var(--bg-hover);
     border-color: var(--primary-muted);
 }
 
-button:not(.action-control-button):not(.floating-btn):not(.modal-actions button):not(.form-group button):not(.thumb-arrow-btn):not(.patch-download-btn):not(.patch-delete-btn):not(#workspace-controls button):not(.s-number-btn):active {
+.btn:active {
     background: var(--bg-active);
 }
 
-button:not(.action-control-button):not(.floating-btn):not(.modal-actions button):not(.form-group button):not(.thumb-arrow-btn):not(.patch-download-btn):not(.patch-delete-btn):not(#workspace-controls button):not(.s-number-btn):disabled {
+.btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
     background: var(--bg-primary);
 }
 
 /* ===== GENERIC DROPDOWNS/SELECTS ===== */
-select:not(.node .option-control select):not(.node .node-custom .custom-control-group select) {
+.slct {
     font-family: monospace;
     background: var(--bg-interactive);
     color: var(--text-primary);
@@ -335,11 +335,11 @@ select:not(.node .option-control select):not(.node .node-custom .custom-control-
     font-size: 1rem;
 }
 
-select:not(.node .option-control select):not(.node .node-custom .custom-control-group select):hover {
+.slct:hover {
     border-color: var(--primary-muted);
 }
 
-select:not(.node .option-control select):not(.node .node-custom .custom-control-group select):focus {
+.slct:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 2px hsla(var(--theme-hue), var(--theme-sat-full), 50%, 0.2);
