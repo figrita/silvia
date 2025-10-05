@@ -281,26 +281,10 @@
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
-    transition: background 0.2s;
 }
 
 .load-upload-btn:hover {
     background: var(--primary-dark);
-}
-
-.load-close-btn {
-    padding: 8px 16px;
-    background: var(--bg-interactive);
-    border: 1px solid var(--border-normal);
-    border-radius: 6px;
-    color: var(--text-primary);
-    cursor: pointer;
-    font-size: 14px;
-    transition: background 0.2s;
-}
-
-.load-close-btn:hover {
-    background: var(--bg-hover);
 }
 
 /* Tab Bar */
@@ -321,7 +305,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: all 0.2s;
 }
 
 .load-tab:hover {
@@ -350,7 +333,6 @@
     overflow: auto;
     padding: 24px;
     background: var(--bg-tertiary);
-    transition: flex 0.3s ease;
     min-height: 0;
 }
 
@@ -394,7 +376,6 @@
     border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
-    transition: all 0.15s ease;
     display: flex;
     flex-direction: column;
     height: 250px;
@@ -403,7 +384,6 @@
 
 .patch-card:hover {
     border-color: var(--primary-muted);
-    transform: translateY(-2px);
     box-shadow: 0 4px 12px var(--shadow-secondary);
 }
 
@@ -415,14 +395,12 @@
 /* Button hover effects within patch cards */
 .patch-card .patch-load-btn:hover {
     background: var(--primary-dark) !important;
-    transform: scale(1.05);
 }
 
 .patch-card .patch-download-btn:hover,
 .patch-card .patch-delete-btn:hover {
     background: var(--bg-hover) !important;
     border-color: var(--primary-muted) !important;
-    transform: scale(1.1);
 }
 
 .patch-card-preview {
@@ -516,7 +494,6 @@
     color: white;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s;
 }
 
 .load-btn-primary:hover:not(:disabled) {
@@ -535,7 +512,6 @@
     border-radius: 6px;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: background 0.2s;
 }
 
 .load-btn-secondary:hover {
@@ -595,7 +571,6 @@
     border: 1px solid var(--border-subtle);
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.15s ease;
     font-size: 12px;
     color: var(--text-primary);
     display: flex;
@@ -637,4 +612,8 @@
 .folders-help-icon:hover .folders-tooltip {
     opacity: 1;
     visibility: visible;
+}
+
+.folders-tooltip {
+    transition: none;
 }

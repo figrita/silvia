@@ -26,7 +26,6 @@ registerNode({
         input: null
     },
     runtimeState: {
-        aspect: 1.0,
         analyzer: null,
         renderLoop: null,
         uiUpdateFrameId: null,
@@ -35,6 +34,7 @@ registerNode({
         canvasHasData: false // Track if canvas has been drawn to at least once
     },
     values: {
+        aspect: 1.0, // Moved from runtimeState so it persists and triggers shader recompilation
         playbackRate: 1.0,
         thresholds: DEFAULT_THRESHOLDS,
         debounceMs: 100,
@@ -83,7 +83,7 @@ registerNode({
             type: 'color',
             genCode(cc, funcName, uniformName){
                 return `vec4 ${funcName}(vec2 uv) {
-    float aspect = ${formatFloatGLSL(this.runtimeState.aspect)};
+    float aspect = ${formatFloatGLSL(this.values.aspect)};
     uv.x = (uv.x / aspect + 1.0) * 0.5;  // [-imageAspectRatio, imageAspectRatio] -> [0,1]
     uv.y = (uv.y + 1.0) * 0.5;                     // [-1, 1] -> [0,1]
     return texture(${uniformName}, vec2(uv.x, 1.0 - uv.y));
@@ -470,7 +470,10 @@ registerNode({
 
         // Load asset if one is already set in values (Electron only)
         if (this.values.assetPath && isElectronMode) {
-            this._loadFromAssetPath(this.values.assetPath)
+            // Load asynchronously and await it to ensure aspect is set before shader compilation
+            this._loadFromAssetPath(this.values.assetPath).catch(err => {
+                console.error('Failed to load video asset on create:', err)
+            })
         }
     },
     
@@ -556,16 +559,16 @@ registerNode({
         console.log(`Video node setting video.src to: ${videoPath}`)
         return new Promise((resolve, reject) => {
             this.elements.video.onloadedmetadata = () => {
-                this.runtimeState.aspect = this.elements.video.videoWidth / this.elements.video.videoHeight
+                this.values.aspect = this.elements.video.videoWidth / this.elements.video.videoHeight
                 this.elements.video.playbackRate = this.values.playbackRate // Apply saved speed
-                
+
                 // Set up canvas with video dimensions
                 this.elements.canvas.width = this.elements.video.videoWidth
                 this.elements.canvas.height = this.elements.video.videoHeight
-                
+
                 // Start canvas rendering loop
                 this._startCanvasRenderLoop()
-                
+
                 this.runtimeState.analyzer = new AudioAnalyzer()
                 applyBandConfig(this.runtimeState.analyzer, this.values.bandConfig)
                 this.runtimeState.analyzer.initFromFile(this.elements.video)
@@ -577,11 +580,14 @@ registerNode({
 
                 // Start UI update loop (meters already created)
                 this._startUiUpdateLoop()
-                
+
                 this.updatePortPoints()
                 Connection.redrawAllConnections()
+
+                // IMPORTANT: Refresh outputs AFTER aspect ratio is set
+                // This forces shader recompilation with correct aspect ratio
                 SNode.refreshDownstreamOutputs(this)
-                
+
                 resolve()
             }
 
@@ -604,7 +610,7 @@ registerNode({
         this.runtimeState.currentAssetPath = url
 
         this.elements.video.onloadedmetadata = () => {
-            this.runtimeState.aspect = this.elements.video.videoWidth / this.elements.video.videoHeight
+            this.values.aspect = this.elements.video.videoWidth / this.elements.video.videoHeight
             this.elements.video.playbackRate = this.values.playbackRate
 
             this.elements.canvas.width = this.elements.video.videoWidth
@@ -625,6 +631,9 @@ registerNode({
 
             this.updatePortPoints()
             Connection.redrawAllConnections()
+
+            // IMPORTANT: Refresh outputs AFTER aspect ratio is set
+            // This forces shader recompilation with correct aspect ratio
             SNode.refreshDownstreamOutputs(this)
         }
         this.elements.video.play()

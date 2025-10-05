@@ -1,6 +1,6 @@
 // electron.js
 console.log('Main Electron process starting...')
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs').promises
 const crypto = require('crypto')
@@ -56,41 +56,19 @@ function getFileExtension(filename) {
     return path.extname(filename).toLowerCase()
 }
 
-// Get asset folder name (audio stays singular, others get 's')
+// Get asset folder name - uses shared constants
 function getAssetFolder(type) {
-    return type === 'audio' ? 'audio' : `${type}s`
+    const { ASSET_FOLDERS } = require('../js/assetConstants.js')
+    return ASSET_FOLDERS[type] || type
 }
 
 // Validate asset type based on file extension
-// Comprehensive lists that accept all common formats
+// Uses shared constants from assetConstants.js
 function validateAssetType(file, expectedType) {
     const ext = getFileExtension(file.name)
-
-    // Image formats: all common raster and vector formats
-    const imageExts = [
-        '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp',
-        '.ico', '.tiff', '.tif', '.avif', '.apng'
-    ]
-
-    // Video formats: all common video containers and codecs
-    const videoExts = [
-        '.mp4', '.webm', '.ogv', '.mov', '.avi', '.mkv', '.m4v',
-        '.mpg', '.mpeg', '.wmv', '.flv', '.3gp', '.mts', '.m2ts'
-    ]
-
-    // Audio formats: all common audio formats (lossless and lossy)
-    const audioExts = [
-        '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.wma',
-        '.opus', '.oga', '.webm', '.aiff', '.ape', '.alac', '.ac3',
-        '.dts', '.amr', '.mid', '.midi', '.mka'
-    ]
-
-    switch (expectedType) {
-        case 'image': return imageExts.includes(ext)
-        case 'video': return videoExts.includes(ext)
-        case 'audio': return audioExts.includes(ext)
-        default: return false
-    }
+    const { ALLOWED_EXTENSIONS } = require('../js/assetConstants.js')
+    const allowedExts = ALLOWED_EXTENSIONS[expectedType]
+    return allowedExts ? allowedExts.includes(ext) : false
 }
 
 function createWindow() {
@@ -99,7 +77,7 @@ function createWindow() {
         width: 1920,
         height: 1080,
         show: false, // Don't show until ready to prevent flash
-        autoHideMenuBar: true, // Hide menu bar (Alt to show)
+        autoHideMenuBar: false, // Keep menu visible
         webPreferences: {
             backgroundThrottling: false,
             // The preload script is a bridge between the Electron main process (Node.js)
@@ -833,6 +811,25 @@ app.on('open-file', (event, filePath) => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.whenReady().then(async () => {
+    // Create minimal menu with just dev tools access
+    const template = [
+        {
+            label: 'View',
+            submenu: [
+                { role: 'resetZoom' },
+                { role: 'zoomIn' },
+                { role: 'zoomIn', accelerator: 'CmdOrCtrl+=', visible: false },
+                { role: 'zoomOut' },
+                { type: 'separator' },
+                { role: 'toggleDevTools' },
+                { role: 'reload' },
+                { role: 'forceReload' }
+            ]
+        }
+    ]
+    const menu = Menu.buildFromTemplate(template)
+    Menu.setApplicationMenu(menu)
+
     // Ensure required directories exist
     const wsPath = getWorkspacePath()
     console.log('WORKSPACE PATH:', wsPath)

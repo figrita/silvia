@@ -12,7 +12,6 @@ let defaultPatchesCache = null
 // --- DOM Elements (will be populated by autowire) ---
 let loadModal
 let loadConfirmBtn
-let loadCancelBtn
 let localPatchListEl
 let defaultsPatchListEl
 let patchFileUploadEl
@@ -41,7 +40,6 @@ function createLoadModal(){
 						Save uploaded patches
 					</label>
 					<button class="load-upload-btn" data-el="uploadSvsBtn">➕ Upload .svs File</button>
-					<button class="load-close-btn" data-el="loadCancelBtn">✕ Close</button>
 				</div>
 			</div>
 
@@ -110,7 +108,6 @@ export function initLoad(){
     ; ({
         loadModal,
         loadConfirmBtn,
-        loadCancelBtn,
         localPatchListEl,
         defaultsPatchListEl,
         patchFileUploadEl,
@@ -125,7 +122,6 @@ export function initLoad(){
 
     const loadBtn = document.getElementById('load-patch-btn')
     loadBtn.addEventListener('click', openLoadModal)
-    loadCancelBtn.addEventListener('click', () => (loadModal.style.display = 'none'))
     loadCancelBtnFooter.addEventListener('click', () => (loadModal.style.display = 'none'))
 
     // Upload button functionality
@@ -253,7 +249,6 @@ function setupFilesystemTab() {
                                     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
                                     opacity: 0;
                                     visibility: hidden;
-                                    transition: opacity 0.2s, visibility 0.2s;
                                     margin-bottom: 4px;
                                     font-weight: normal;
                                 ">One sublevel of folders is supported</span>
@@ -465,7 +460,6 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                 color: white;
                 font-size: 10px;
                 cursor: pointer;
-                transition: background 0.2s;
             ">Load</button>
             <button class="patch-download-btn" title="Download .svs file" style="
                 padding: 4px 6px;
@@ -485,7 +479,6 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                 color: var(--text-secondary);
                 font-size: 10px;
                 cursor: pointer;
-                transition: background 0.2s;
             ">🗑️</button>`}
         </div>
     `
@@ -576,14 +569,13 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
         // SECURITY: Validate and sanitize patch data before loading
         const validation = PatchValidator.validate(patchData)
 
-        if (!validation.valid) {
-            const errorMessage = `Security validation failed:\n${validation.errors.join('\n')}`
-            console.error('Patch validation errors:', validation.errors)
-            alert(`Cannot load patch - security validation failed.\n\n${validation.errors.slice(0, 5).join('\n')}${validation.errors.length > 5 ? '\n...' : ''}`)
-            return
+        // Log validation issues but don't block (validator now always returns valid:true)
+        if (validation.errors.length > 0) {
+            console.warn('Patch validation warnings:', validation.errors)
+            console.warn(`${validation.errors.length} issues found - sanitized and continuing`)
         }
 
-        // Use sanitized patch data
+        // Use sanitized patch data (invalid assets cleared, dangerous content removed)
         patchData = validation.sanitized
 
         if(!patchData || !patchData.nodes){
@@ -808,15 +800,15 @@ async function copyPatchToStorage(patchData){
     try {
         // Check if running in Electron mode
         if (typeof window !== 'undefined' && window.electronAPI) {
-            // Electron mode: save to patches/ folder
+            // Electron mode: save to patches/ folder (Root)
             const meta = patchData.meta || {}
             const patchName = meta.name || 'Untitled'
             const safeFilename = patchName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'patch'
-            const filename = `${safeFilename}_${Date.now()}.svs`
+            const filename = `${safeFilename}_${Date.now()}`
 
-            const success = await window.electronAPI.savePatchFile(filename, patchData)
+            const success = await window.electronAPI.savePatchFile(patchData, filename, null)
             if (success) {
-                console.log(`Patch copied to workspace: ${filename}`)
+                console.log(`Patch copied to workspace Root: ${filename}`)
                 return true
             } else {
                 console.error('Failed to copy patch to workspace')

@@ -49,24 +49,29 @@ registerNode({
 
                 const {video} = this.elements
 
-                if(video && video.readyState >= video.HAVE_CURRENT_DATA){
-                    let texture = textureMap.get(this)
-                    if(!texture){
-                        texture = gl.createTexture()
-                        textureMap.set(this, texture)
-                        gl.bindTexture(gl.TEXTURE_2D, texture)
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-                    }
-
-                    gl.activeTexture(gl.TEXTURE0 + textureUnit)
+                let texture = textureMap.get(this)
+                if(!texture){
+                    texture = gl.createTexture()
+                    textureMap.set(this, texture)
                     gl.bindTexture(gl.TEXTURE_2D, texture)
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video)
-
-                    const location = gl.getUniformLocation(program, uniformName)
-                    gl.uniform1i(location, textureUnit)
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
                 }
+
+                gl.activeTexture(gl.TEXTURE0 + textureUnit)
+                gl.bindTexture(gl.TEXTURE_2D, texture)
+
+                if(video && video.readyState >= video.HAVE_CURRENT_DATA){
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video)
+                } else {
+                    // Upload black 1x1 pixel as fallback when no video data yet
+                    const blackPixel = new Uint8Array([0, 0, 0, 255])
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, blackPixel)
+                }
+
+                const location = gl.getUniformLocation(program, uniformName)
+                gl.uniform1i(location, textureUnit)
             }
         }
     },
