@@ -1,0 +1,41 @@
+/* styles/audio-meters.css - Audio level meter visualizations */
+
+/* ===== AUDIO METERS ===== */
+.node .node-custom .meter-container {
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.node .node-custom .meter-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.node .node-custom .meter-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.9rem;
+    width: 3rem;
+    text-align: right;
+    color: var(--text-secondary);
+}
+
+.node .node-custom .meter-bar-bg {
+    flex-grow: 1;
+    background-color: var(--bg-primary);
+    border-radius: 4px;
+    height: 1.2rem;
+    border: 1px solid var(--border-subtle);
+    box-shadow: inset 0 1px 3px var(--shadow-primary);
+    overflow: hidden;
+}
+
+.node .node-custom .meter-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--primary-dark), var(--primary-light));
+    border-radius: 3px;
+    /* No transition - meters should update instantly */
+}

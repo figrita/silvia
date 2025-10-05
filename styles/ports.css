@@ -1,0 +1,42 @@
+/* styles/ports.css - Port visual styles and states */
+
+/* ===== PORTS ===== */
+.port {
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--shadow-primary);
+    opacity: 1;
+    transition: opacity 0.15s ease-in-out, transform 0.1s linear;
+
+    &.float {
+        background: var(--port-float-bg);
+    }
+
+    &.color {
+        background: var(--port-color-bg);
+    }
+
+    &.action {
+        background: var(--port-action-bg);
+        border-radius: 25%;
+        width: 1rem;
+        height: 1rem;
+    }
+
+    &.hidden {
+        opacity: 0.4;
+        pointer-events: none;
+    }
+}
+
+/* Hide port border colors when setting is disabled */
+body.hide-port-borders .port {
+    border: none !important;
+}
+
+#node-root.is-connecting .port:not(.hidden) {
+    transform: scale(1.35);
+    filter: drop-shadow(1px 1px 3px hsla(var(--theme-hue), var(--theme-sat-high), 100%, 0.3)) saturate(1.15);
+    cursor: crosshair !important;
+}

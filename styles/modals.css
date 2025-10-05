@@ -1,0 +1,178 @@
+/* styles/modals.css - Modal dialog systems */
+
+/* ===== BASE MODAL STYLES ===== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: hsla(var(--theme-hue), var(--theme-sat-norm), 0%, 0.8);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Space Mono', monospace;
+    color: var(--text-primary);
+}
+
+.modal-content {
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 20px;
+    min-width: 60rem;
+    max-width: 90vw;
+    min-height: 0;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+}
+
+.modal-content h2 {
+    margin: 0 0 10px 0;
+    font-family: monospace;
+    font-weight: bold;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 10px;
+    color: var(--primary-light);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.form-group input[type="text"],
+.form-group textarea {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-normal);
+    color: var(--text-primary);
+    padding: 8px;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-family: 'Space Mono', monospace;
+    flex-grow: 1;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px hsla(var(--theme-hue), var(--theme-sat-full), 50%, 0.2);
+}
+
+#patch-json-output {
+    height: 120px;
+    resize: vertical;
+    font-size: 0.8rem;
+    background: var(--bg-primary);
+}
+
+.form-group .help-text {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+#patch-thumbnail-preview {
+    width: 256px;
+    height: 144px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--border-normal);
+    margin-top: 5px;
+    background-color: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+#save-feedback {
+    margin-top: 15px;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#save-message {
+    margin: 0;
+    color: var(--success-color);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: auto;
+}
+
+/* ===== CLOSE CONFIRMATION MODAL ===== */
+.close-confirmation-content {
+    max-width: 600px;
+    min-width: 500px;
+}
+
+.close-warning-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.close-warning-details {
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 8%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.9rem;
+}
+
+.close-warning-details p {
+    margin: 0.5rem 0;
+}
+
+.close-warning-advice {
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.close-warning-advice kbd {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-normal);
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+.save-and-close-btn {
+    background: hsl(120, 50%, 25%);
+    color: white;
+    border: 1px solid hsl(120, 50%, 35%);
+}
+
+.save-and-close-btn:hover {
+    background: hsl(120, 50%, 30%);
+    border-color: hsl(120, 50%, 45%);
+}
+
+.leave-anyway-btn {
+    background: hsl(0, 50%, 25%);
+    color: white;
+    border: 1px solid hsl(0, 50%, 35%);
+}
+
+.leave-anyway-btn:hover {
+    background: hsl(0, 50%, 30%);
+    border-color: hsl(0, 50%, 45%);
+}

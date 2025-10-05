@@ -110,7 +110,7 @@ export function createBandEQControlsHTML(bandConfig) {
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <label style="color: #ccc; font-size: 11px; min-width: 60px;">Q:</label>
-                    <s-number data-el="bassQControl" value="${bandConfig.bass.q}" default="1.0" min="0.1" max="10" step="0.1" log-scale style="flex: 1;"></s-number>
+                    <s-number data-el="bassQControl" value="${bandConfig.bass.q}" default="1.0" min="0.5" max="10" step="0.1" log-scale style="flex: 1;"></s-number>
                 </div>
 
                 <div style="color: #66ff66; font-size: 11px; font-weight: bold; margin-bottom: 0.25rem; margin-top: 0.5rem;">Mid</div>
@@ -120,7 +120,7 @@ export function createBandEQControlsHTML(bandConfig) {
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <label style="color: #ccc; font-size: 11px; min-width: 60px;">Q:</label>
-                    <s-number data-el="midQControl" value="${bandConfig.mid.q}" default="1.0" min="0.1" max="10" step="0.1" log-scale style="flex: 1;"></s-number>
+                    <s-number data-el="midQControl" value="${bandConfig.mid.q}" default="1.0" min="0.5" max="10" step="0.1" log-scale style="flex: 1;"></s-number>
                 </div>
 
                 <div style="color: #6666ff; font-size: 11px; font-weight: bold; margin-bottom: 0.25rem; margin-top: 0.5rem;">High</div>
@@ -130,7 +130,7 @@ export function createBandEQControlsHTML(bandConfig) {
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <label style="color: #ccc; font-size: 11px; min-width: 60px;">Q:</label>
-                    <s-number data-el="highQControl" value="${bandConfig.high.q}" default="1.0" min="0.1" max="10" step="0.1" log-scale style="flex: 1;"></s-number>
+                    <s-number data-el="highQControl" value="${bandConfig.high.q}" default="1.0" min="0.5" max="10" step="0.1" log-scale style="flex: 1;"></s-number>
                 </div>
             </div>
         </details>
