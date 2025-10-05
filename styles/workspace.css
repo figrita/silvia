@@ -1,0 +1,112 @@
+/* styles/workspace.css - Workspace navigation and controls */
+
+/* ===== WORKSPACE SELECTOR ===== */
+#workspace-selector {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+}
+
+#workspace-toggle-btn {
+    background: var(--bg-interactive);
+    color: var(--text-primary);
+    border: 1px solid var(--border-normal);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+#workspace-toggle-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
+}
+
+#workspace-toggle-btn:active {
+    background: var(--bg-active);
+}
+
+/* ===== SAVE WORKSPACES BUTTON STATES ===== */
+#save-workspaces-btn {
+    transition: all 0.3s ease;
+}
+
+#save-workspaces-btn .btn-icon {
+    transition: all 0.3s ease;
+    display: inline-block;
+    width: 1em; /* Fixed width to prevent reflow */
+}
+
+#save-workspaces-btn.saving {
+    background: var(--primary-color);
+    animation: pulse-bright 1.5s ease-in-out infinite;
+}
+
+#save-workspaces-btn.saved {
+    background: var(--primary-light);
+}
+
+#save-workspaces-btn.failed {
+    background: var(--error-color);
+    color: var(--text-primary);
+}
+
+@keyframes pulse-bright {
+    0%, 100% {
+        background: var(--primary-color);
+        box-shadow: 0 0 0 0 var(--primary-color);
+    }
+    50% {
+        background: var(--primary-bright);
+        box-shadow: 0 0 8px 2px var(--primary-muted);
+        transform: scale(1.01);
+    }
+}
+
+/* ===== WORKSPACE CONTROLS ===== */
+#workspace-controls {
+    position: fixed;
+    bottom: 20px;
+    right: 340px; /* 320px mixer panel + 20px padding */
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#workspace-controls button {
+    font-family: monospace;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    font-size: 24px;
+    font-weight: bold;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    padding-bottom: 2px;
+}
+
+#workspace-controls button:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
+    transform: scale(1.1);
+}
+
+#workspace-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-primary);
+    transform: none;
+    pointer-events: none;
+}

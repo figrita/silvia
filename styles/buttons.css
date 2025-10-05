@@ -1,0 +1,82 @@
+/* styles/buttons.css - Button styles organized by context */
+
+/* ===== FLOATING BUTTONS ===== */
+.floating-btn-container {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    display: flex;
+    gap: 10px;
+}
+
+.floating-btn {
+    font-family: monospace;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    /* Only animate GPU-accelerated properties */
+    transition: transform 0.2s ease;
+}
+
+.floating-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
+}
+
+/* ===== MODAL BUTTONS ===== */
+.modal-actions button {
+    font-family: monospace;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.modal-actions button:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
+}
+
+.modal-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-primary);
+}
+
+.modal-actions button.cancel-btn {
+    background: hsla(calc(var(--theme-hue) + 180), calc(var(--theme-sat) * 0.40), 25%, 0.75);
+}
+
+.modal-actions button.cancel-btn:hover {
+    background: hsla(calc(var(--theme-hue) + 180), calc(var(--theme-sat) * 0.50), 35%, 0.85);
+}
+
+/* ===== FORM BUTTONS ===== */
+.form-group button {
+    font-family: monospace;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.form-group button:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
+}
+
+.form-group button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-primary);
+}

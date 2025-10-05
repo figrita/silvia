@@ -1,0 +1,57 @@
+/* styles/midi.css - MIDI learning and mapping visual indicators */
+
+/* ===== MIDI LEARN STYLES ===== */
+@keyframes midi-learning-pulse {
+    0% {
+        box-shadow: 0 0 0 0 hsla(var(--theme-hue), var(--theme-sat), var(--theme-light), 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px hsla(var(--theme-hue), var(--theme-sat), var(--theme-light), 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 hsla(var(--theme-hue), var(--theme-sat), var(--theme-light), 0);
+    }
+}
+
+/* Color the dot for action buttons - using actual theme variables */
+.action-control-button.midi-mapped::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    background: hsla(var(--event-hue), var(--event-sat), var(--event-light), 1);
+    border-radius: 50%;
+    z-index: 10;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* Hover tooltip */
+.midi-mapping-info {
+    position: absolute;
+    background: var(--bg-interactive);
+    border: 1px solid var(--primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 1000;
+    pointer-events: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+/* MIDI trigger feedback */
+.midi-triggered {
+    background: var(--primary) !important;
+    color: var(--bg-primary) !important;
+}
+
+/* Action button MIDI styles */
+.action-control-button.midi-mapped {
+    border-color: var(--primary-muted);
+}
+
+.action-control-button.midi-learning {
+    background: hsla(var(--theme-hue), var(--theme-sat), var(--theme-light), 0.2);
+}

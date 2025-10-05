@@ -1,0 +1,12 @@
+/* styles/video.css - Background video display */
+
+/* ===== BACKGROUND VIDEO ===== */
+#background-video {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 300px; /* Account for Master Mixer width */
+    height: 100vh;
+    object-fit: cover;
+    z-index: -1;
+}
