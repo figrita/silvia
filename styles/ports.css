@@ -40,3 +40,9 @@ body.hide-port-borders .port {
     filter: drop-shadow(1px 1px 3px hsla(var(--theme-hue), var(--theme-sat-high), 100%, 0.3)) saturate(1.15);
     cursor: crosshair !important;
 }
+
+/* Hover highlight state for ports */
+.port.highlighted {
+    transform: scale(1.25);
+    filter: drop-shadow(0 0 var(--glow-amount) var(--primary-color)) brightness(1.5) saturate(1.3);
+}

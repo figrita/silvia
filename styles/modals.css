@@ -49,7 +49,7 @@
     color: var(--text-secondary);
 }
 
-.form-group input[type="text"],
+.form-group input[type="text"]:not(.s-number-input),
 .form-group textarea {
     width: 100%;
     background: var(--bg-secondary);
@@ -62,7 +62,7 @@
     flex-grow: 1;
 }
 
-.form-group input:focus,
+.form-group input[type="text"]:not(.s-number-input):focus,
 .form-group textarea:focus {
     outline: none;
     border-color: var(--primary-color);

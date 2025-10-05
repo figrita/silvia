@@ -27,6 +27,9 @@
     --theme-sat: 91%;
     --theme-light: 57%;
 
+    /* Glow settings */
+    --glow-amount: 8px;
+
     --number-hue: 159;
     --number-sat: 64%;
     --number-light: 52%;
@@ -127,6 +130,12 @@ body {
 .connection-path.action {
     stroke-width: 2px;
     stroke-dasharray: 4, 4;
+}
+
+/* Hover highlight state for connections */
+.connection-path.highlighted {
+    stroke-width: 6px !important;
+    filter: drop-shadow(0 0 var(--glow-amount) var(--primary-color)) brightness(1.4);
 }
 
 /* Theme-based wire colors - ONLY active when parent has .theme-wires class */

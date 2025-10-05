@@ -393,13 +393,16 @@ export class Connection{
             pathData = `M ${this.source.x} ${this.source.y} C ${sourceControl.x} ${sourceControl.y}, ${destControl.x} ${destControl.y}, ${this.destination.x} ${this.destination.y}`
         }
 
+        // Create unique identifier for this connection
+        const connectionId = `conn-${this.source.parent.id}-${this.source.key}-${this.destination.parent.id}-${this.destination.key}`
+
         // Create solid colored wire + optional black dashed shadow layer
         const strokeColor = settings.phiSpacedWires ? this.color : null
         const strokeAttr = strokeColor ? `stroke="${strokeColor}"` : ''
-        let result = `<path d="${pathData}" class="connection-path ${this.type}" ${strokeAttr}></path>`
+        let result = `<path d="${pathData}" class="connection-path ${this.type}" ${strokeAttr} data-connection-id="${connectionId}"></path>`
 
         if(settings.stripedWires && this.type !== 'action') {
-            result += `<path d="${pathData}" class="connection-path connection-shadow" stroke="#000"></path>`
+            result += `<path d="${pathData}" class="connection-path connection-shadow" stroke="#000" data-connection-id="${connectionId}-shadow"></path>`
         }
 
         return result

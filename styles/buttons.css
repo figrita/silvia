@@ -59,7 +59,7 @@
 }
 
 /* ===== FORM BUTTONS ===== */
-.form-group button {
+.form-group button:not(.s-number-btn) {
     font-family: monospace;
     background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
     color: var(--text-primary);
@@ -70,12 +70,12 @@
     transition: transform 0.2s ease;
 }
 
-.form-group button:hover {
+.form-group button:not(.s-number-btn):hover {
     background: var(--bg-hover);
     border-color: var(--primary-muted);
 }
 
-.form-group button:disabled {
+.form-group button:not(.s-number-btn):disabled {
     opacity: 0.5;
     cursor: not-allowed;
     background: var(--bg-primary);

@@ -11,7 +11,9 @@ export const settings = {
     phiSpacedWires: true,  // Default to phi-spaced mode
     showPortBorders: true,  // Default to show port border colors
     stripedWires: true,    // Default to show striped wire effect
-    reverseScrolling: false // Default to normal scrolling
+    reverseScrolling: false, // Default to normal scrolling
+    glowOnHover: true,     // Default to show glow on port hover
+    glowAmount: 8          // Default glow amount in pixels (1-20)
 }
 
 // --- Module-level state ---
@@ -107,7 +109,20 @@ function createSettingsModal(){
                 </label>
                 <p class="help-text" style="margin-top: 5px;">Show colored borders around ports to match their connection wire colors.</p>
             </div>
-            
+
+            <div class="form-group">
+                <label for="setting-glow-on-hover" style="cursor:pointer; display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="setting-glow-on-hover" data-setting="glowOnHover">
+                    <span>Glow Connections on Port Hover</span>
+                </label>
+                <p class="help-text" style="margin-top: 5px;">Highlight connections and connected ports when hovering over a port.</p>
+
+                <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 1rem;">
+                    <label style="font-size: 0.9rem; color: var(--text-secondary); min-width: 100px;">Glow Amount</label>
+                    <s-number id="setting-glow-amount" data-setting="glowAmount" min="1" max="20" step="1" value="${settings.glowAmount}" unit="px" style="width: 120px;"></s-number>
+                </div>
+            </div>
+
             <div class="form-group">
                 <label for="setting-reverse-scrolling" style="cursor:pointer; display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" id="setting-reverse-scrolling" data-setting="reverseScrolling">
@@ -173,7 +188,7 @@ function saveSettings(){
  * Updates the modal UI controls to reflect the current state of the settings object.
  */
 function updateModalUI(){
-    // Update checkboxes
+    // Update checkboxes and other controls
     settingsModal.querySelectorAll('[data-setting]').forEach(control => {
         const key = control.dataset.setting
         if(Object.hasOwn(settings, key)){
@@ -184,7 +199,7 @@ function updateModalUI(){
             }
         }
     })
-    
+
     // Update color pickers
     if(mainColorPicker) mainColorPicker.value = themeManager.getColor('main')
     if(numberColorPicker) numberColorPicker.value = themeManager.getColor('number')
@@ -197,9 +212,10 @@ function updateModalUI(){
  */
 export function initSettings(){
     loadSettings()
-    
+
     // Apply loaded settings
     Connection.updatePortBorderVisibility()
+    updateGlowStyles()
 
     let closeBtn;
     ({closeBtn, settingsModal, mainColorPicker, numberColorPicker, colorColorPicker, eventColorPicker} = createSettingsModal())
@@ -257,7 +273,7 @@ export function initSettings(){
         if(settingKey && Object.hasOwn(settings, settingKey)){
             if(target.type === 'checkbox'){
                 settings[settingKey] = target.checked
-            } else if(target.type === 'number'){
+            } else if(target.type === 'number' || target.type === 'range'){
                 settings[settingKey] = Number(target.value)
             } else {
                 settings[settingKey] = target.value
@@ -274,7 +290,22 @@ export function initSettings(){
                 Connection.redrawAllConnections()
             } else if(settingKey === 'showPortBorders'){
                 Connection.updatePortBorderVisibility()
+            } else if(settingKey === 'glowAmount'){
+                updateGlowStyles()
             }
+        }
+    })
+
+    // Listen for input events on s-number controls
+    settingsModal.addEventListener('input', (e) => {
+        const {target} = e
+        const settingKey = target.dataset?.setting
+
+        // Handle s-number inputs (they fire input events)
+        if(settingKey === 'glowAmount' && target.tagName === 'S-NUMBER'){
+            settings.glowAmount = Number(target.value)
+            saveSettings()
+            updateGlowStyles()
         }
     })
 
@@ -323,6 +354,14 @@ function applyThemePreset(presetName){
     themeManager.setColor('number', preset.number)  
     themeManager.setColor('color', preset.color)
     themeManager.setColor('event', preset.event)
+}
+
+/**
+ * Updates the glow CSS custom properties based on current settings
+ */
+function updateGlowStyles(){
+    const glowAmount = settings.glowAmount
+    document.documentElement.style.setProperty('--glow-amount', `${glowAmount}px`)
 }
 
 /**
