@@ -71,7 +71,7 @@ function createSaveModal(){
                     </div>
                     <div class="form-group electron-only-field" style="display: none;">
                         <label for="subfolder-select">Save to Folder</label>
-                        <select id="subfolder-select" data-el="subfolderSelectEl">
+                        <select class="slct" id="subfolder-select" data-el="subfolderSelectEl">
                             <option value="">Root</option>
                         </select>
                     </div>

@@ -161,106 +161,31 @@ export const AssetManager = {
             // Create main overlay
             const overlay = document.createElement('div')
             overlay.className = 'global-asset-manager-overlay'
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.8);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 2000;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            `
 
             // Create main window (renamed to avoid shadowing global window)
             const windowEl = document.createElement('div')
             windowEl.className = 'global-asset-manager-window'
-            windowEl.style.cssText = `
-                background: var(--bg-primary);
-                border: 1px solid var(--border-normal);
-                border-radius: 12px;
-                width: 90vw;
-                height: 80vh;
-                max-width: 1200px;
-                max-height: 800px;
-                display: flex;
-                flex-direction: column;
-                overflow: hidden;
-                box-shadow: 0 20px 60px var(--shadow-primary);
-                color: var(--text-primary);
-            `
 
             // Create header
             const header = document.createElement('div')
-            header.style.cssText = `
-                padding: 16px 24px;
-                border-bottom: 1px solid var(--border-normal);
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                background: var(--bg-secondary);
-            `
+            header.className = 'asset-manager-header'
 
             const title = document.createElement('h2')
             title.textContent = nodeType ? `📂 Select ${nodeType.charAt(0).toUpperCase() + nodeType.slice(1)} Asset` : '📂 Asset Manager'
-            title.style.cssText = `
-                margin: 0;
-                color: var(--text-primary);
-                font-size: 18px;
-                font-weight: 600;
-            `
 
             // Create header controls container
             const headerControls = document.createElement('div')
-            headerControls.style.cssText = `
-                display: flex;
-                gap: 12px;
-                align-items: center;
-            `
+            headerControls.className = 'asset-manager-header-controls'
 
             // Upload button (available in both modes)
             const uploadBtn = document.createElement('button')
-                uploadBtn.textContent = '➕ Upload'
-                uploadBtn.style.cssText = `
-                    padding: 8px 16px;
-                    background: var(--primary-color);
-                    border: none;
-                    border-radius: 6px;
-                    color: white;
-                    cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 600;
-                    transition: background 0.2s;
-                `
-                uploadBtn.addEventListener('mouseenter', () => {
-                    uploadBtn.style.background = 'var(--primary-dark)'
-                })
-                uploadBtn.addEventListener('mouseleave', () => {
-                    uploadBtn.style.background = 'var(--primary-color)'
-                })
-                headerControls.appendChild(uploadBtn)
+            uploadBtn.textContent = '➕ Upload'
+            uploadBtn.className = 'asset-upload-btn'
+            headerControls.appendChild(uploadBtn)
 
             const closeBtn = document.createElement('button')
             closeBtn.textContent = '✕ Close'
-            closeBtn.style.cssText = `
-                padding: 8px 16px;
-                background: var(--bg-interactive);
-                border: 1px solid var(--border-normal);
-                border-radius: 6px;
-                color: var(--text-primary);
-                cursor: pointer;
-                font-size: 14px;
-                transition: background 0.2s;
-            `
-            closeBtn.addEventListener('mouseenter', () => {
-                closeBtn.style.background = 'var(--bg-hover)'
-            })
-            closeBtn.addEventListener('mouseleave', () => {
-                closeBtn.style.background = 'var(--bg-interactive)'
-            })
+            closeBtn.className = 'asset-close-btn'
             closeBtn.onclick = () => overlay.remove()
             headerControls.appendChild(closeBtn)
 
@@ -362,11 +287,7 @@ export const AssetManager = {
 
             // Create tab bar
             const tabBar = document.createElement('div')
-            tabBar.style.cssText = `
-                display: flex;
-                border-bottom: 1px solid var(--border-normal);
-                background: var(--bg-secondary);
-            `
+            tabBar.className = 'asset-tab-bar'
 
             const tabs = [
                 { name: 'Images', type: 'image', icon: '🖼️' },
@@ -379,37 +300,15 @@ export const AssetManager = {
 
             // Create main content container (holds both content area and edit panel)
             const mainContainer = document.createElement('div')
-            mainContainer.style.cssText = `
-                flex: 1;
-                display: flex;
-                overflow: hidden;
-                background: var(--bg-tertiary);
-            `
+            mainContainer.className = 'asset-main-container'
 
             // Create content area
             const contentArea = document.createElement('div')
             contentArea.className = 'asset-content-area'
-            contentArea.style.cssText = `
-                flex: 1;
-                overflow: auto;
-                padding: 24px;
-                background: var(--bg-tertiary);
-                transition: flex 0.3s ease;
-                min-height: 0;
-            `
 
             // Create edit panel (initially hidden)
             const editPanel = document.createElement('div')
             editPanel.className = 'asset-edit-panel'
-            editPanel.style.cssText = `
-                width: 0;
-                overflow: hidden;
-                background: var(--bg-secondary);
-                border-left: 1px solid var(--border-normal);
-                transition: width 0.3s ease;
-                display: flex;
-                flex-direction: column;
-            `
 
             mainContainer.appendChild(contentArea)
             mainContainer.appendChild(editPanel)
@@ -421,46 +320,23 @@ export const AssetManager = {
                 const isActiveTab = tab.type === activeTab
                 const isDisabled = nodeType && tab.type !== nodeType
 
-                tabElement.style.cssText = `
-                    padding: 12px 20px;
-                    border: none;
-                    background: ${isActiveTab ? 'var(--bg-tertiary)' : 'transparent'};
-                    color: ${isDisabled ? 'var(--text-disabled)' : 'var(--text-primary)'};
-                    cursor: ${isDisabled ? 'not-allowed' : 'pointer'};
-                    font-size: 14px;
-                    border-bottom: 3px solid ${isActiveTab ? 'var(--primary-color)' : 'transparent'};
-                    opacity: ${isDisabled ? '0.5' : '1'};
-                `
+                if (isActiveTab) tabElement.classList.add('asset-tab-active')
+                if (isDisabled) tabElement.classList.add('asset-tab-disabled')
+
                 tabElement.innerHTML = `${tab.icon} ${tab.name}`
-                
+
                 tabElement.addEventListener('click', async () => {
                     if (isDisabled) return // Don't allow clicking disabled tabs
 
                     // Update tab appearances
-                    tabElements.forEach((el, i) => {
-                        el.style.background = 'transparent'
-                        el.style.borderBottomColor = 'transparent'
+                    tabElements.forEach((el) => {
+                        el.classList.remove('asset-tab-active')
                     })
-                    tabElement.style.background = 'var(--bg-tertiary)'
-                    tabElement.style.borderBottomColor = 'var(--primary-color)'
+                    tabElement.classList.add('asset-tab-active')
 
                     activeTab = tab.type
                     await loadTabContent(tab.type)
                 })
-
-                // Add hover effect (only for enabled tabs)
-                if (!isDisabled) {
-                    tabElement.addEventListener('mouseenter', () => {
-                        if (tabElement.style.borderBottomColor !== getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim()) {
-                            tabElement.style.background = 'var(--bg-hover)'
-                        }
-                    })
-                    tabElement.addEventListener('mouseleave', () => {
-                        if (tabElement.style.borderBottomColor !== getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim()) {
-                            tabElement.style.background = 'transparent'
-                        }
-                    })
-                }
 
                 tabElements.push(tabElement)
                 tabBar.appendChild(tabElement)
@@ -468,55 +344,19 @@ export const AssetManager = {
 
             // Create filter bar
             const filterBar = document.createElement('div')
-            filterBar.style.cssText = `
-                padding: 12px 24px;
-                border-bottom: 1px solid var(--border-normal);
-                background: var(--bg-tertiary);
-                display: flex;
-                align-items: center;
-                gap: 12px;
-            `
+            filterBar.className = 'asset-filter-bar'
 
             const filterLabel = document.createElement('label')
             filterLabel.textContent = 'Filter by tags:'
-            filterLabel.style.cssText = `
-                color: var(--text-secondary);
-                font-size: 12px;
-                font-family: monospace;
-                white-space: nowrap;
-            `
+            filterLabel.className = 'asset-filter-label'
 
             const filterContainer = document.createElement('div')
-            filterContainer.id = 'filter-tags-container'
-            filterContainer.style.cssText = `
-                flex: 1;
-                min-height: 32px;
-                padding: 4px 8px;
-                background: var(--bg-interactive);
-                border: 1px solid var(--border-normal);
-                border-radius: 4px;
-                display: flex;
-                flex-wrap: wrap;
-                gap: 4px;
-                align-items: flex-start;
-                cursor: text;
-            `
+            filterContainer.className = 'asset-filter-tags-container'
 
             const filterInput = document.createElement('input')
             filterInput.type = 'text'
-            filterInput.id = 'filter-tag-input'
             filterInput.placeholder = 'Add tag filter...'
-            filterInput.style.cssText = `
-                border: none;
-                background: none;
-                outline: none;
-                color: var(--text-primary);
-                font-family: monospace;
-                font-size: 12px;
-                flex: 1;
-                min-width: 120px;
-                padding: 2px;
-            `
+            filterInput.className = 'asset-filter-tag-input'
             filterInput.maxLength = 20
 
             filterContainer.appendChild(filterInput)
@@ -530,53 +370,12 @@ export const AssetManager = {
             const createFilterTag = (tagText) => {
                 const tagEl = document.createElement('div')
                 tagEl.className = 'filter-tag-item'
-                tagEl.style.cssText = `
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 4px;
-                    padding: 2px 6px;
-                    background: var(--primary-color);
-                    color: white;
-                    border-radius: 12px;
-                    font-size: 11px;
-                    font-family: monospace;
-                    white-space: nowrap;
-                    max-width: 120px;
-                `
 
                 const textSpan = document.createElement('span')
                 textSpan.textContent = tagText
-                textSpan.style.cssText = `
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                `
 
                 const removeBtn = document.createElement('button')
                 removeBtn.textContent = '×'
-                removeBtn.style.cssText = `
-                    background: none;
-                    border: none;
-                    color: white;
-                    cursor: pointer;
-                    font-size: 12px;
-                    font-weight: bold;
-                    padding: 0;
-                    width: 14px;
-                    height: 14px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 50%;
-                    transition: background 0.15s;
-                `
-
-                removeBtn.addEventListener('mouseenter', () => {
-                    removeBtn.style.background = 'var(--bg-hover)'
-                })
-                removeBtn.addEventListener('mouseleave', () => {
-                    removeBtn.style.background = 'none'
-                })
 
                 removeBtn.onclick = () => {
                     activeFilters.delete(tagText)
@@ -632,122 +431,37 @@ export const AssetManager = {
             const showEditPanel = (asset, nameEl) => {
                 // Create edit panel content
                 editPanel.innerHTML = `
-                    <div style="padding: 20px; flex: 1; display: flex; flex-direction: column; overflow-y: auto;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="margin: 0; color: var(--text-primary); font-size: 16px;">Edit Asset</h3>
-                            <button id="close-edit-panel" style="
-                                background: none;
-                                border: none;
-                                color: var(--text-secondary);
-                                cursor: pointer;
-                                font-size: 18px;
-                                padding: 4px;
-                            ">✕</button>
+                    <div class="asset-edit-panel-content">
+                        <div class="asset-edit-panel-header">
+                            <h3>Edit Asset</h3>
+                            <button id="close-edit-panel" class="asset-edit-panel-close">✕</button>
                         </div>
 
-                        <div style="margin-bottom: 20px;">
-                            <div style="display: flex; justify-content: center; margin-bottom: 15px;">
-                                <div style="
-                                    width: 120px;
-                                    height: 120px;
-                                    background: var(--bg-secondary);
-                                    border: 1px solid var(--border-normal);
-                                    border-radius: 8px;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    overflow: hidden;
-                                " id="edit-preview"></div>
+                        <div class="asset-edit-preview-container">
+                            <div class="asset-edit-preview" id="edit-preview"></div>
+                        </div>
+
+                        <div class="asset-edit-field">
+                            <label class="asset-edit-label">Display Name</label>
+                            <input type="text" id="asset-name-input" value="${asset.originalName}" class="asset-edit-input">
+                        </div>
+
+                        <div class="asset-edit-field">
+                            <label class="asset-edit-label">Tags</label>
+                            <div id="tags-container" class="asset-edit-tags-container">
+                                <input type="text" id="tag-input" placeholder="Add tag..." class="asset-edit-tag-input" maxlength="20">
                             </div>
+                            <div class="asset-edit-tag-hint">Press Enter to add tag, click × to remove</div>
                         </div>
 
-                        <div style="margin-bottom: 15px;">
-                            <label style="display: block; color: var(--text-secondary); font-size: 12px; margin-bottom: 5px; font-family: monospace;">
-                                Display Name
-                            </label>
-                            <input type="text" id="asset-name-input" value="${asset.originalName}" style="
-                                width: 100%;
-                                padding: 8px;
-                                background: var(--bg-interactive);
-                                border: 1px solid var(--border-normal);
-                                border-radius: 4px;
-                                color: var(--text-primary);
-                                font-family: monospace;
-                                font-size: 14px;
-                                box-sizing: border-box;
-                            ">
+                        <div class="asset-edit-field">
+                            <label class="asset-edit-label">File Path</label>
+                            <div class="asset-edit-filepath">${asset.path}</div>
                         </div>
 
-                        <div style="margin-bottom: 15px;">
-                            <label style="display: block; color: var(--text-secondary); font-size: 12px; margin-bottom: 5px; font-family: monospace;">
-                                Tags
-                            </label>
-                            <div id="tags-container" style="
-                                min-height: 40px;
-                                padding: 6px;
-                                background: var(--bg-interactive);
-                                border: 1px solid var(--border-normal);
-                                border-radius: 4px;
-                                display: flex;
-                                flex-wrap: wrap;
-                                gap: 4px;
-                                align-items: flex-start;
-                                cursor: text;
-                            ">
-                                <input type="text" id="tag-input" placeholder="Add tag..." style="
-                                    border: none;
-                                    background: none;
-                                    outline: none;
-                                    color: var(--text-primary);
-                                    font-family: monospace;
-                                    font-size: 12px;
-                                    flex: 1;
-                                    min-width: 80px;
-                                    padding: 2px;
-                                " maxlength="20">
-                            </div>
-                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: monospace;">
-                                Press Enter to add tag, click × to remove
-                            </div>
-                        </div>
-
-                        <div style="margin-bottom: 15px;">
-                            <label style="display: block; color: var(--text-secondary); font-size: 12px; margin-bottom: 5px; font-family: monospace;">
-                                File Path
-                            </label>
-                            <div style="
-                                padding: 8px;
-                                background: var(--bg-secondary);
-                                border: 1px solid var(--border-subtle);
-                                border-radius: 4px;
-                                color: var(--text-secondary);
-                                font-family: monospace;
-                                font-size: 12px;
-                                word-break: break-all;
-                            ">${asset.path}</div>
-                        </div>
-
-                        <div style="margin-top: auto; display: flex; gap: 10px;">
-                            <button id="save-asset-changes" style="
-                                flex: 1;
-                                padding: 10px;
-                                background: var(--primary-color);
-                                border: none;
-                                border-radius: 6px;
-                                color: white;
-                                font-weight: 600;
-                                cursor: pointer;
-                                transition: background 0.2s;
-                            ">Save Changes</button>
-                            <button id="cancel-edit" style="
-                                padding: 10px 20px;
-                                background: var(--bg-interactive);
-                                border: 1px solid var(--border-normal);
-                                border-radius: 6px;
-                                color: var(--text-secondary);
-                                cursor: pointer;
-                                transition: background 0.2s;
-                            ">Cancel</button>
+                        <div class="asset-edit-actions">
+                            <button id="save-asset-changes" class="asset-edit-save-btn">Save Changes</button>
+                            <button id="cancel-edit" class="asset-edit-cancel-btn">Cancel</button>
                         </div>
                     </div>
                 `
@@ -758,12 +472,6 @@ export const AssetManager = {
                     this.getLoadableUrl(asset.path).then(loadableUrl => {
                         const img = document.createElement('img')
                         img.src = loadableUrl
-                        img.style.cssText = `
-                            width: 100%;
-                            height: 100%;
-                            object-fit: cover;
-                            border-radius: 6px;
-                        `
                         img.onerror = () => {
                             editPreview.innerHTML = '<span style="font-size: 32px;">🖼️</span>'
                         }
@@ -776,12 +484,6 @@ export const AssetManager = {
                     this.getLoadableUrl(asset.thumbnailPath).then(thumbnailUrl => {
                         const img = document.createElement('img')
                         img.src = thumbnailUrl
-                        img.style.cssText = `
-                            width: 100%;
-                            height: 100%;
-                            object-fit: cover;
-                            border-radius: 6px;
-                        `
                         img.onerror = () => {
                             editPreview.innerHTML = '<span style="font-size: 32px;">📼</span>'
                         }
@@ -802,53 +504,12 @@ export const AssetManager = {
                 const createTagElement = (tagText) => {
                     const tagEl = document.createElement('div')
                     tagEl.className = 'tag-item'
-                    tagEl.style.cssText = `
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 4px;
-                        padding: 2px 6px;
-                        background: var(--primary-color);
-                        color: white;
-                        border-radius: 12px;
-                        font-size: 11px;
-                        font-family: monospace;
-                        white-space: nowrap;
-                        max-width: 120px;
-                    `
 
                     const textSpan = document.createElement('span')
                     textSpan.textContent = tagText
-                    textSpan.style.cssText = `
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                        white-space: nowrap;
-                    `
 
                     const removeBtn = document.createElement('button')
                     removeBtn.textContent = '×'
-                    removeBtn.style.cssText = `
-                        background: none;
-                        border: none;
-                        color: white;
-                        cursor: pointer;
-                        font-size: 12px;
-                        font-weight: bold;
-                        padding: 0;
-                        width: 14px;
-                        height: 14px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        border-radius: 50%;
-                        transition: background 0.15s;
-                    `
-
-                    removeBtn.addEventListener('mouseenter', () => {
-                        removeBtn.style.background = 'var(--bg-hover)'
-                    })
-                    removeBtn.addEventListener('mouseleave', () => {
-                        removeBtn.style.background = 'none'
-                    })
 
                     removeBtn.onclick = () => {
                         currentTags.delete(tagText)
@@ -990,53 +651,33 @@ export const AssetManager = {
                             // Show different message when filtered results are empty
                             const filterList = Array.from(activeFilters).join(', ')
                             contentArea.innerHTML = `
-                                <div style="text-align: center; padding: 60px; color: var(--text-secondary);">
-                                    <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
-                                    <h3 style="color: var(--text-primary); font-size: 20px; margin: 16px 0 8px 0;">No ${type}s match filters</h3>
-                                    <p style="color: var(--text-secondary); margin: 0;">No ${type}s found with tags: <strong style="color: var(--success-color);">${filterList}</strong></p>
+                                <div class="asset-empty-state">
+                                    <div class="asset-empty-state-icon">🔍</div>
+                                    <h3>No ${type}s match filters</h3>
+                                    <p>No ${type}s found with tags: <strong style="color: var(--success-color);">${filterList}</strong></p>
                                     <p style="color: var(--text-muted); margin: 8px 0 0 0; font-size: 12px;">Try removing some filters to see more results.</p>
                                 </div>
                             `
                         } else {
                             // Create empty state with upload button (only in Global Mode)
                             const emptyStateContainer = document.createElement('div')
-                            emptyStateContainer.style.cssText = `
-                                text-align: center;
-                                padding: 60px;
-                                color: var(--text-secondary);
-                            `
+                            emptyStateContainer.className = 'asset-empty-state'
 
                             emptyStateContainer.innerHTML = `
-                                <div style="font-size: 48px; margin-bottom: 16px;">${type === 'image' ? '🖼️' : type === 'video' ? '📼' : '🔊'}</div>
-                                <h3 style="color: var(--text-primary); font-size: 20px; margin: 16px 0 8px 0;">No ${type}s found</h3>
-                                <p style="color: var(--text-secondary); margin: 0 0 20px 0;">Import some ${type}s using the media nodes to see them here.</p>
+                                <div class="asset-empty-state-icon">${type === 'image' ? '🖼️' : type === 'video' ? '📼' : '🔊'}</div>
+                                <h3>No ${type}s found</h3>
+                                <p>Import some ${type}s using the media nodes to see them here.</p>
                             `
 
                             // Add upload button
-                                const uploadEmptyBtn = document.createElement('button')
-                                uploadEmptyBtn.textContent = `➕ Upload ${type.charAt(0).toUpperCase() + type.slice(1)}s`
-                                uploadEmptyBtn.style.cssText = `
-                                    padding: 12px 24px;
-                                    background: var(--primary-color);
-                                    border: none;
-                                    border-radius: 6px;
-                                    color: white;
-                                    cursor: pointer;
-                                    font-size: 14px;
-                                    font-weight: 600;
-                                    transition: background 0.2s;
-                                    margin-top: 8px;
-                                `
-                                uploadEmptyBtn.addEventListener('mouseenter', () => {
-                                    uploadEmptyBtn.style.background = 'var(--primary-dark)'
-                                })
-                                uploadEmptyBtn.addEventListener('mouseleave', () => {
-                                    uploadEmptyBtn.style.background = 'var(--primary-color)'
-                                })
-                                uploadEmptyBtn.onclick = () => {
-                                    handleFileUpload(type)
-                                }
-                                emptyStateContainer.appendChild(uploadEmptyBtn)
+                            const uploadEmptyBtn = document.createElement('button')
+                            uploadEmptyBtn.textContent = `➕ Upload ${type.charAt(0).toUpperCase() + type.slice(1)}s`
+                            uploadEmptyBtn.className = 'asset-empty-upload-btn'
+                            uploadEmptyBtn.onclick = () => {
+                                fileInput.accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*'
+                                fileInput.click()
+                            }
+                            emptyStateContainer.appendChild(uploadEmptyBtn)
 
                             contentArea.innerHTML = ''
                             contentArea.appendChild(emptyStateContainer)
@@ -1047,63 +688,21 @@ export const AssetManager = {
 
                     // Create asset grid (matching asset browser layout)
                     const grid = document.createElement('div')
-                    grid.style.cssText = `
-                        display: grid;
-                        grid-template-columns: repeat(4, 1fr);
-                        gap: 10px;
-                        padding: 10px;
-                        overflow-y: auto;
-                        max-height: calc(100vh - 300px);
-                        border: 1px solid var(--border-subtle);
-                        border-radius: 6px;
-                        background: var(--bg-secondary);
-                    `
+                    grid.className = 'asset-grid'
 
                     for (const asset of assets) {
                         const assetCard = document.createElement('div')
                         assetCard.className = 'asset-card'
-                        assetCard.style.cssText = `
-                            width: 90px;
-                            height: 110px;
-                            background: var(--bg-interactive);
-                            border: 2px solid var(--border-subtle);
-                            border-radius: 6px;
-                            overflow: hidden;
-                            cursor: pointer;
-                            transition: border-color 0.15s ease;
-                            position: relative;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            margin: 0 auto;
-                        `
 
                         // Preview area
                         const preview = document.createElement('div')
-                        preview.style.cssText = `
-                            width: 70px;
-                            height: 70px;
-                            background: var(--bg-secondary);
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            overflow: hidden;
-                            border-radius: 4px;
-                            border: 1px solid var(--border-normal);
-                        `
+                        preview.className = 'asset-card-preview'
 
                         if (type === 'image') {
                             const img = document.createElement('img')
                             try {
                                 const loadableUrl = await this.getLoadableUrl(asset.path)
                                 img.src = loadableUrl
-                                img.style.cssText = `
-                                    width: 100%;
-                                    height: 100%;
-                                    object-fit: cover;
-                                    border-radius: 4px;
-                                `
                                 img.onerror = () => {
                                     preview.innerHTML = `<span style="font-size: 24px;">🖼️</span>`
                                 }
@@ -1117,12 +716,6 @@ export const AssetManager = {
                             try {
                                 const thumbnailUrl = await this.getLoadableUrl(asset.thumbnailPath)
                                 img.src = thumbnailUrl
-                                img.style.cssText = `
-                                    width: 100%;
-                                    height: 100%;
-                                    object-fit: cover;
-                                    border-radius: 4px;
-                                `
                                 img.onerror = () => {
                                     preview.innerHTML = `<span style="font-size: 24px;">📼</span>`
                                 }
@@ -1136,16 +729,8 @@ export const AssetManager = {
 
                         // Filename (styled like asset browser)
                         const nameEl = document.createElement('div')
+                        nameEl.className = 'asset-card-name'
                         nameEl.textContent = asset.originalName.length > 15 ? asset.originalName.substring(0, 12) + '...' : asset.originalName
-                        nameEl.style.cssText = `
-                            font-size: 0.8rem;
-                            text-align: center;
-                            word-break: break-all;
-                            color: var(--text-secondary);
-                            line-height: 1.2;
-                            font-family: monospace;
-                            margin-top: 8px;
-                        `
 
                         assetCard.appendChild(preview)
                         assetCard.appendChild(nameEl)
@@ -1153,22 +738,7 @@ export const AssetManager = {
                         // Delete button (only in global manager)
                         const deleteBtn = document.createElement('button')
                         deleteBtn.textContent = '🗑️'
-                        deleteBtn.style.cssText = `
-                            position: absolute;
-                            top: 4px;
-                            right: 4px;
-                            background: var(--bg-interactive);
-                            border: 1px solid var(--border-normal);
-                            border-radius: 4px;
-                            color: var(--text-secondary);
-                            cursor: pointer;
-                            padding: 2px 6px;
-                            font-size: 0.8rem;
-                            opacity: 0;
-                            transition: opacity 0.2s ease;
-                            z-index: 10;
-                        `
-                        
+                        deleteBtn.className = 'asset-card-delete-btn'
 
                         // Delete button functionality
                         deleteBtn.onclick = async (e) => {
@@ -1180,7 +750,6 @@ export const AssetManager = {
                                 // Close edit panel if this asset is currently being edited
                                 if (editPanel.style.width !== '0' && editPanel.style.width !== '0px') {
                                     editPanel.style.width = '0'
-                                    contentArea.style.flex = '1'
                                 }
 
                                 // Check if this was the last asset and show empty state
@@ -1188,43 +757,23 @@ export const AssetManager = {
                                 if (remainingCards.length === 0) {
                                     // Create empty state with upload button (only in Global Mode)
                                     const emptyStateContainer = document.createElement('div')
-                                    emptyStateContainer.style.cssText = `
-                                        text-align: center;
-                                        padding: 60px;
-                                        color: var(--text-secondary);
-                                    `
+                                    emptyStateContainer.className = 'asset-empty-state'
 
                                     emptyStateContainer.innerHTML = `
-                                        <div style="font-size: 48px; margin-bottom: 16px;">${type === 'image' ? '🖼️' : type === 'video' ? '📼' : '🔊'}</div>
-                                        <h3 style="color: var(--text-primary); font-size: 20px; margin: 16px 0 8px 0;">No ${type}s found</h3>
-                                        <p style="color: var(--text-secondary); margin: 0 0 20px 0;">Import some ${type}s using the media nodes to see them here.</p>
+                                        <div class="asset-empty-state-icon">${type === 'image' ? '🖼️' : type === 'video' ? '📼' : '🔊'}</div>
+                                        <h3>No ${type}s found</h3>
+                                        <p>Import some ${type}s using the media nodes to see them here.</p>
                                     `
 
                                     // Add upload button
-                                        const uploadEmptyBtn = document.createElement('button')
-                                        uploadEmptyBtn.textContent = `➕ Upload ${type.charAt(0).toUpperCase() + type.slice(1)}s`
-                                        uploadEmptyBtn.style.cssText = `
-                                            padding: 12px 24px;
-                                            background: var(--primary-color);
-                                            border: none;
-                                            border-radius: 6px;
-                                            color: white;
-                                            cursor: pointer;
-                                            font-size: 14px;
-                                            font-weight: 600;
-                                            transition: background 0.2s;
-                                            margin-top: 8px;
-                                        `
-                                        uploadEmptyBtn.addEventListener('mouseenter', () => {
-                                            uploadEmptyBtn.style.background = 'var(--primary-dark)'
-                                        })
-                                        uploadEmptyBtn.addEventListener('mouseleave', () => {
-                                            uploadEmptyBtn.style.background = 'var(--primary-color)'
-                                        })
-                                        uploadEmptyBtn.onclick = () => {
-                                            handleFileUpload(type)
-                                        }
-                                        emptyStateContainer.appendChild(uploadEmptyBtn)
+                                    const uploadEmptyBtn = document.createElement('button')
+                                    uploadEmptyBtn.textContent = `➕ Upload ${type.charAt(0).toUpperCase() + type.slice(1)}s`
+                                    uploadEmptyBtn.className = 'asset-empty-upload-btn'
+                                    uploadEmptyBtn.onclick = () => {
+                                        fileInput.accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*'
+                                        fileInput.click()
+                                    }
+                                    emptyStateContainer.appendChild(uploadEmptyBtn)
 
                                     contentArea.innerHTML = ''
                                     contentArea.appendChild(emptyStateContainer)
@@ -1232,26 +781,7 @@ export const AssetManager = {
                             }
                         }
 
-                        deleteBtn.addEventListener('mouseenter', () => {
-                            deleteBtn.style.background = 'var(--bg-hover)'
-                            deleteBtn.style.borderColor = 'var(--primary-muted)'
-                        })
-                        deleteBtn.addEventListener('mouseleave', () => {
-                            deleteBtn.style.background = 'var(--bg-interactive)'
-                            deleteBtn.style.borderColor = 'var(--border-normal)'
-                        })
-
                         assetCard.appendChild(deleteBtn)
-
-                        // Combined hover effects for card border and delete button
-                        assetCard.addEventListener('mouseenter', () => {
-                            assetCard.style.borderColor = 'var(--primary-muted)'
-                            deleteBtn.style.opacity = '1'
-                        })
-                        assetCard.addEventListener('mouseleave', () => {
-                            assetCard.style.borderColor = 'var(--border-subtle)'
-                            deleteBtn.style.opacity = '0'
-                        })
 
                         // Click handler - edit panel in global mode, selection in node mode
                         assetCard.addEventListener('click', () => {
@@ -1280,10 +810,10 @@ export const AssetManager = {
                 } catch (error) {
                     console.error('Failed to load assets:', error)
                     contentArea.innerHTML = `
-                        <div style="text-align: center; padding: 60px; color: var(--text-secondary);">
-                            <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
-                            <h3 style="color: var(--text-primary); font-size: 20px; margin: 16px 0 8px 0;">Failed to load assets</h3>
-                            <p style="color: var(--text-secondary); margin: 0;">Check the console for more details.</p>
+                        <div class="asset-empty-state">
+                            <div class="asset-empty-state-icon">❌</div>
+                            <h3>Failed to load assets</h3>
+                            <p>Check the console for more details.</p>
                         </div>
                     `
                 }

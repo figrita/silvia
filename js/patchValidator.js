@@ -1,5 +1,7 @@
 // patchValidator.js - Security validation for untrusted .svs patch files
 
+import { buildAssetPathRegex } from './assetConstants.js'
+
 /**
  * Validates and sanitizes patch data to prevent security vulnerabilities
  * when loading untrusted .svs files
@@ -28,8 +30,8 @@ export class PatchValidator {
         /\\u[0-9a-f]{4}/gi,  // Unicode escapes that could hide malicious content
     ]
 
-    // Validate asset paths - accept any file extension (validation happens at upload time)
-    static ASSET_PATH_REGEX = /^asset:\/\/(images|videos|audio)\/[a-f0-9]{16}\.[a-zA-Z0-9]+$/i
+    // Validate asset paths - uses shared constants for allowed extensions
+    static ASSET_PATH_REGEX = buildAssetPathRegex()
     static BLOB_URL_REGEX = /^blob:[a-z]+:\/\/[a-f0-9-]+$/i
 
     /**
@@ -170,10 +172,12 @@ export class PatchValidator {
                 sanitized.meta = this.sanitizeMetadata(sanitized.meta, errors)
             }
 
+            // ALWAYS return sanitized data - let the user decide if errors are critical
+            // Errors are just warnings now, not blockers
             return {
-                valid: errors.length === 0,
-                errors,
-                sanitized: errors.length === 0 ? sanitized : null
+                valid: true,  // Always valid - we sanitize and continue
+                errors,       // But report what we found/fixed
+                sanitized
             }
 
         } catch (e) {
@@ -338,27 +342,35 @@ export class PatchValidator {
 
             // Special handling for asset paths
             if (key === 'assetPath') {
-                if (value === null || value === undefined) {
-                    // null/undefined are safe - just means no asset selected
+                if (value === null || value === undefined || value === '') {
+                    // null/undefined/empty are safe - just means no asset selected
                     sanitized[key] = value
                 } else if (typeof value === 'string') {
-                    // Explicitly block file:// protocol in asset paths
+                    // Block file:// protocol
                     if (value.toLowerCase().includes('file://')) {
-                        errors.push(`${context}: file:// protocol not allowed in asset paths`)
+                        errors.push(`${context}: file:// protocol blocked, clearing asset path`)
+                        sanitized[key] = null  // Clear it but don't fail
                     } else if (typeof window !== 'undefined' && window.electronAPI) {
-                        // In Electron mode: only allow asset:// URLs or empty strings
+                        // In Electron mode: validate asset:// URLs
                         if (this.ASSET_PATH_REGEX.test(value) || value === '') {
                             sanitized[key] = value
+                        } else if (value.startsWith('blob:')) {
+                            // Web blob URL in Electron mode - just clear it
+                            errors.push(`${context}: Blob URL in Electron mode, clearing asset path`)
+                            sanitized[key] = null
                         } else {
-                            errors.push(`${context}: Invalid asset path for Electron mode`)
+                            // Invalid format - log warning but clear and continue
+                            errors.push(`${context}: Invalid asset path format, clearing (was: ${value.substring(0, 50)})`)
+                            sanitized[key] = null
                         }
                     } else {
-                        // In web mode: ignore asset paths completely (they're from Electron saves)
-                        // Just sanitize as a regular string but don't validate format
+                        // In web mode: accept blob URLs and asset URLs (for cross-compatibility)
+                        // Just sanitize as regular string - the node will handle missing assets
                         sanitized[key] = this.sanitizeString(value, errors)
                     }
                 } else {
-                    errors.push(`${context}: Asset path must be string, null, or undefined`)
+                    errors.push(`${context}: Asset path must be string/null/undefined, clearing`)
+                    sanitized[key] = null
                 }
             }
             // Numbers
@@ -431,20 +443,27 @@ export class PatchValidator {
         const sanitized = {}
 
         // Whitelist of allowed metadata fields
-        const allowedFields = ['name', 'author', 'description', 'version', 'timestamp', 'workspace']
+        const allowedFields = ['name', 'author', 'description', 'version', 'timestamp', 'workspace', 'thumbnail', 'savedAt']
 
         for (const field of allowedFields) {
             if (field in meta) {
                 if (typeof meta[field] === 'string') {
-                    sanitized[field] = this.sanitizeString(meta[field], errors)
+                    // Thumbnails are data URLs - allow them but validate format
+                    if (field === 'thumbnail') {
+                        if (meta[field].startsWith('data:image/')) {
+                            sanitized[field] = meta[field]
+                        } else {
+                            errors.push('Invalid thumbnail format, clearing')
+                            sanitized[field] = ''
+                        }
+                    } else {
+                        sanitized[field] = this.sanitizeString(meta[field], errors)
+                    }
                 } else if (typeof meta[field] === 'number' && isFinite(meta[field])) {
                     sanitized[field] = meta[field]
                 }
             }
         }
-
-        // Skip thumbnail data - could be large and dangerous
-        // Thumbnails should be regenerated, not loaded from untrusted sources
 
         return sanitized
     }
