@@ -1,6 +1,7 @@
 import {SNode} from './snode.js'
 import {Connection} from './connections.js'
 import {settings} from './settings.js'
+import {autoLayoutNodes} from './autoLayout.js'
 
 const editor = document.getElementById('editor')
 
@@ -152,6 +153,14 @@ document.addEventListener('DOMContentLoaded', () => {
         cropWorkspace()
         e.target.blur() // Remove focus after click to allow scrolling
     })
+
+    const autoLayoutBtn = document.getElementById('auto-layout-btn')
+    if (autoLayoutBtn) {
+        autoLayoutBtn.addEventListener('click', (e) => {
+            autoLayoutNodes()
+            e.target.blur() // Remove focus after click to allow scrolling
+        })
+    }
 
     const clearBtn = document.getElementById('clear-workspace-btn')
     clearBtn.addEventListener('click', (e) => {
