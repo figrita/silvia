@@ -12,7 +12,9 @@
     "build": "electron-builder --win --mac --linux",
     "build-win": "electron-builder --win",
     "build-mac": "electron-builder --mac", 
+    "prebuild-linux": "./bin/prebuild-linux.sh",
     "build-linux": "electron-builder --linux",
+    "postbuild-linux": "./bin/postbuild-linux.sh",
     "build-all": "electron-builder --win --mac --linux"
   },
   "keywords": [
@@ -45,7 +47,8 @@
       "!node_modules",
       "!dist",
       "!*.md",
-      "!.git*"
+      "!.git*",
+      "!bin"
     ],
     "win": {
       "target": {
