@@ -95,7 +95,11 @@ registerNode({
         startButton.style.margin = '0.5rem'
         startButton.style.width = 'calc(100% - 1rem)'
 
-        startButton.addEventListener('click', async() => {
+        // Store button reference for cleanup
+        this.elements.startButton = startButton
+
+        // Create named handler for cleanup to prevent listener leak
+        const clickHandler = async() => {
             // Guard 1: Prevent multiple requests while one is in progress
             if (startButton.disabled) {
                 return
@@ -144,13 +148,22 @@ registerNode({
                 startButton.textContent = 'Permission Denied'
                 // Keep button disabled on permission denial
             }
-        })
+        }
+
+        startButton.addEventListener('click', clickHandler)
+        this.runtimeState._buttonClickHandler = clickHandler
 
         this.customArea.appendChild(startButton)
         this.customArea.appendChild(this.elements.video)
     },
 
     onDestroy(){
+        // Clean up button click listener to prevent leak
+        if(this.elements.startButton && this.runtimeState._buttonClickHandler){
+            this.elements.startButton.removeEventListener('click', this.runtimeState._buttonClickHandler)
+            this.runtimeState._buttonClickHandler = null
+        }
+
         if(this.runtimeState.stream){
             this.runtimeState.stream.getTracks().forEach(track => track.stop())
             this.runtimeState.stream = null

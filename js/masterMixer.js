@@ -4,7 +4,7 @@ import {BackgroundRenderer} from './nodes/_background.js'
 export class MasterMixer {
     constructor() {
         this.channelA = null  // Output node reference
-        this.channelB = null  // Output node reference  
+        this.channelB = null  // Output node reference
         this.mixValue = 0.0   // 0=A, 1=B
         this.canvas = null    // Hidden mixing canvas
         this.renderer = null  // WebGL renderer instance
@@ -16,6 +16,8 @@ export class MasterMixer {
         this.useViewportResolution = true  // Track if using viewport matching
         this.resizeListener = null  // For cleanup
         this.crossfadeMethod = 0  // 0 = simple mix
+        this._lastStreamWidth = 0  // Track canvas dimensions for stream recreation
+        this._lastStreamHeight = 0
     }
     
     init() {
@@ -207,8 +209,22 @@ export class MasterMixer {
     _updateBackgroundStream() {
         if (!this.bgVideoElement) return
 
-        if (!this.projectorStream) {
+        // Check if stream needs to be recreated (first time or canvas size changed)
+        const needsRecreation = !this.projectorStream ||
+                               this._lastStreamWidth !== this.canvas.width ||
+                               this._lastStreamHeight !== this.canvas.height
+
+        if (needsRecreation) {
+            // Stop old stream before creating new one to prevent leak
+            if (this.projectorStream) {
+                this.projectorStream.getTracks().forEach(track => track.stop())
+                this.projectorStream = null
+            }
+
+            // Create new stream with current canvas dimensions
             this.projectorStream = this.canvas.captureStream(60)
+            this._lastStreamWidth = this.canvas.width
+            this._lastStreamHeight = this.canvas.height
             this.reconnectProjector()
         }
 

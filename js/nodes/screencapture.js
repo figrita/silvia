@@ -80,7 +80,11 @@ registerNode({
         startButton.style.margin = '0.5rem'
         startButton.style.width = 'calc(100% - 1rem)'
 
-        startButton.addEventListener('click', async() => {
+        // Store button reference for cleanup
+        this.elements.startButton = startButton
+
+        // Create named handler for cleanup to prevent listener leak
+        const clickHandler = async() => {
             // Guard 1: Prevent multiple requests while one is in progress
             if (startButton.disabled) {
                 return
@@ -125,12 +129,14 @@ registerNode({
                 }
 
                 // Add a listener to reset the UI if the user stops sharing via browser controls.
-                this.runtimeState.stream.getVideoTracks()[0].addEventListener('ended', () => {
+                // Store handler for cleanup to prevent listener leak
+                const trackEndedHandler = () => {
                     if(this.elements.video){
                         this.elements.video.srcObject = null
                         this.elements.video.style.display = 'none'
                     }
                     this.runtimeState.stream = null
+                    this.runtimeState._trackEndedHandler = null
                     startButton.style.display = 'block'
                     startButton.textContent = 'Start Screen Capture'
                     startButton.disabled = false
@@ -141,20 +147,40 @@ registerNode({
                     this.updatePortPoints()
                     Connection.redrawAllConnections()
                     SNode.refreshDownstreamOutputs(this)
-                })
+                }
+
+                this.runtimeState.stream.getVideoTracks()[0].addEventListener('ended', trackEndedHandler)
+                this.runtimeState._trackEndedHandler = trackEndedHandler
 
             } catch(err){
                 console.error('Error starting screen capture:', err)
                 startButton.textContent = 'Capture Canceled'
                 // Keep button disabled on error
             }
-        })
+        }
+
+        startButton.addEventListener('click', clickHandler)
+        this.runtimeState._buttonClickHandler = clickHandler
 
         this.customArea.appendChild(startButton)
         this.customArea.appendChild(this.elements.video)
     },
 
     onDestroy(){
+        // Clean up button click listener to prevent leak
+        if(this.elements.startButton && this.runtimeState._buttonClickHandler){
+            this.elements.startButton.removeEventListener('click', this.runtimeState._buttonClickHandler)
+            this.runtimeState._buttonClickHandler = null
+        }
+
+        // Clean up 'ended' event listener to prevent leak
+        if(this.runtimeState.stream && this.runtimeState._trackEndedHandler){
+            this.runtimeState.stream.getVideoTracks().forEach(track => {
+                track.removeEventListener('ended', this.runtimeState._trackEndedHandler)
+            })
+            this.runtimeState._trackEndedHandler = null
+        }
+
         if(this.runtimeState.stream){
             this.runtimeState.stream.getTracks().forEach(track => track.stop())
             this.runtimeState.stream = null
