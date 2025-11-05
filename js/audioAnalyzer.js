@@ -1,5 +1,7 @@
 // audioAnalyzer.js
 
+import { getAudioContext } from './audioSystem.js'
+
 // With fftSize = 1024, sample rate is typically 48000Hz
 // Each bin is sampleRate / fftSize = 48000 / 1024 = ~46.875Hz wide
 // Default bands (can be overridden):
@@ -95,8 +97,12 @@ export class AudioAnalyzer{
 
         this.#visibleElement = visibleMediaElement
 
-        // @ts-ignore
-        this.#audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        // Use shared global AudioContext
+        this.#audioCtx = getAudioContext()
+        if (!this.#audioCtx) {
+            console.error('Failed to get AudioContext')
+            return
+        }
         this.#analyser = this.#audioCtx.createAnalyser()
         this.#configureAnalyser()
 
@@ -135,8 +141,12 @@ export class AudioAnalyzer{
     initFromStream(stream){
         if(this.#audioCtx){return} // Already initialized
 
-        // @ts-ignore
-        this.#audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        // Use shared global AudioContext
+        this.#audioCtx = getAudioContext()
+        if (!this.#audioCtx) {
+            console.error('Failed to get AudioContext')
+            return
+        }
         this.#analyser = this.#audioCtx.createAnalyser()
         this.#configureAnalyser()
 
@@ -171,7 +181,7 @@ export class AudioAnalyzer{
             this.#visibleElement = null
         }
         this.#sourceNode?.disconnect()
-        this.#audioCtx?.close().catch(e => console.error('Error closing AudioContext', e))
+        // Do NOT close the shared AudioContext - other analyzers may be using it
 
         this.#sourceNode = null
         this.#analyser = null

@@ -53,7 +53,7 @@ class SColor extends HTMLElement{
         }
         // Clean up resize listener
         if(this._resizeHandler){
-            window.removeEventListener('resize', this._resizeHandler)
+            window.removeEventListener('silvia-resized', this._resizeHandler)
         }
     }
     
@@ -103,7 +103,7 @@ class SColor extends HTMLElement{
                 this._positionPopup()
             }
         }
-        window.addEventListener('resize', this._resizeHandler)
+        window.addEventListener('silvia-resized', this._resizeHandler)
         this.setAttribute('value', this.value)
 
         // 4. Add event listeners for subsequent user interactions.

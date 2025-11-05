@@ -64,7 +64,10 @@ function onWindowResize() {
         // 4. Update the state of the workspace UI controls
         updateCropButtonState()
 
-        // 5. Allow the next resize event to be scheduled
+        // 5. Dispatch custom event for components that need to respond to resize
+        window.dispatchEvent(new CustomEvent('silvia-resized'))
+
+        // 6. Allow the next resize event to be scheduled
         resizeRequestPending = false
     })
 }

@@ -23,7 +23,7 @@ export const BackgroundRenderer = {
         bgVideo.width = editorRect.width
         bgVideo.height = Math.floor(editorRect.width * (9 / 16))
 
-        window.addEventListener('resize', () => {
+        window.addEventListener('silvia-resized', () => {
             const editorRect = editor.getBoundingClientRect()
             bgVideo.width = editorRect.width
             bgVideo.height = Math.floor(editorRect.width * (9 / 16))

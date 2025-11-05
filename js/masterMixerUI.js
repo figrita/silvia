@@ -174,7 +174,13 @@ export class MasterMixerUI {
     
     _startVideoPreview(previewVideo, sourceCanvas) {
         try {
-            // Capture stream directly from source canvas (GPU-accelerated)
+            // Check and Stop Old Stream (fix for memory leak)
+            if (previewVideo._previewStream) {
+                previewVideo._previewStream.getTracks().forEach(track => track.stop())
+                previewVideo._previewStream = null
+            }
+
+            // Create New Stream
             const stream = sourceCanvas.captureStream(30) // 30fps stream
             previewVideo.srcObject = stream
             previewVideo.play().catch(e => {
@@ -182,10 +188,10 @@ export class MasterMixerUI {
                 // Fallback to placeholder on play failure
                 previewVideo.parentElement.innerHTML = '<span>Preview Error</span>'
             })
-            
-            // Store stream reference for cleanup
+
+            // Store new stream reference for future cleanup
             previewVideo._previewStream = stream
-            
+
         } catch (error) {
             console.warn('Failed to create preview stream:', error)
             // Fallback to placeholder on capture failure

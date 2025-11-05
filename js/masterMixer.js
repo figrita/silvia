@@ -63,7 +63,7 @@ export class MasterMixer {
     
     setViewportResolution() {
         if (!this.canvas) return
-        
+
         this.useViewportResolution = true
         this._updateViewportSize()
         this._setupResizeListener()
@@ -108,12 +108,12 @@ export class MasterMixer {
                 this._updateViewportSize()
             }
         }
-        window.addEventListener('resize', this.resizeListener)
+        window.addEventListener('silvia-resized', this.resizeListener)
     }
-    
+
     _removeResizeListener() {
         if (this.resizeListener) {
-            window.removeEventListener('resize', this.resizeListener)
+            window.removeEventListener('silvia-resized', this.resizeListener)
             this.resizeListener = null
         }
     }

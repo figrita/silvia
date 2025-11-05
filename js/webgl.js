@@ -23,6 +23,10 @@ export class WebGLRenderer{
         this.currentIndex = 0
         this.frameBufferSize = initialFrameBufferSize // Store the dynamic size
 
+        // Cache last known dimensions to avoid unnecessary framebuffer recreation
+        this.lastWidth = 0
+        this.lastHeight = 0
+
         // Async shader compilation support
         this.parallelShaderCompileExt = this.gl.getExtension('KHR_parallel_shader_compile')
         this.pendingProgram = null
@@ -283,7 +287,16 @@ export class WebGLRenderer{
 
     onResize(){
         const {gl} = this
-        this._initFramebuffers()
+
+        // Only recreate framebuffers if dimensions actually changed
+        if (this.lastWidth === gl.canvas.width && this.lastHeight === gl.canvas.height) {
+            return // No size change, do nothing
+        }
+
+        this.lastWidth = gl.canvas.width
+        this.lastHeight = gl.canvas.height
+
+        this._initFramebuffers() // Only recreate on actual change
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
     }
 

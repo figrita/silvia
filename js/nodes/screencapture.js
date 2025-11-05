@@ -81,7 +81,28 @@ registerNode({
         startButton.style.width = 'calc(100% - 1rem)'
 
         startButton.addEventListener('click', async() => {
+            // Guard 1: Prevent multiple requests while one is in progress
+            if (startButton.disabled) {
+                return
+            }
+
+            // Guard 2: If a stream already exists, do nothing
+            if (this.runtimeState.stream) {
+                console.warn('Screen capture stream already active.')
+                return
+            }
+
             try {
+                // Disable button immediately to prevent multiple clicks
+                startButton.disabled = true
+                startButton.textContent = 'Initializing...'
+
+                // Stop any previous stream (defensive programming)
+                if (this.runtimeState.stream) {
+                    this.runtimeState.stream.getTracks().forEach(track => track.stop())
+                    this.runtimeState.stream = null
+                }
+
                 // Request screen capture
                 this.runtimeState.stream = await navigator.mediaDevices.getDisplayMedia({video: true, audio: false})
 
@@ -109,6 +130,7 @@ registerNode({
                         this.elements.video.srcObject = null
                         this.elements.video.style.display = 'none'
                     }
+                    this.runtimeState.stream = null
                     startButton.style.display = 'block'
                     startButton.textContent = 'Start Screen Capture'
                     startButton.disabled = false
@@ -124,7 +146,7 @@ registerNode({
             } catch(err){
                 console.error('Error starting screen capture:', err)
                 startButton.textContent = 'Capture Canceled'
-                startButton.disabled = true
+                // Keep button disabled on error
             }
         })
 
