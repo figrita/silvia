@@ -96,12 +96,6 @@ export class MasterMixer {
                 this.renderer.onResize()
             }
 
-            // Reset stream to pick up new resolution
-            if (this.projectorStream) {
-                this.projectorStream.getTracks().forEach(track => track.stop())
-                this.projectorStream = null
-            }
-
             // Update projector window size to match
             BackgroundRenderer.updateProjectorSize()
         }
