@@ -112,8 +112,8 @@ function createWindow() {
         return {
             action: 'allow',
             overrideBrowserWindowOptions: {
+                title: 'Silvia - Projector Window',
                 icon: path.join(__dirname, 'favicon-32x32.png'),
-                autoHideMenuBar: true,  // Hide menu bar for projector windows
                 frame: true,           // Keep window frame but hide menu
                 webPreferences: {
                     backgroundThrottling: false,
@@ -823,7 +823,9 @@ app.whenReady().then(async () => {
                 { type: 'separator' },
                 { role: 'toggleDevTools' },
                 { role: 'reload' },
-                { role: 'forceReload' }
+                { role: 'forceReload' },
+                { type: 'separator' },
+                { role: 'togglefullscreen' }
             ]
         }
     ]
