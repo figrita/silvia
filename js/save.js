@@ -384,25 +384,29 @@ async function handleSave(){
 export function serializeWorkspace(){
     const nodes = Array.from(SNode.getNodesInCurrentWorkspace()).map((node) => {
         const controls = {}
-        const controlRanges = {} // Store edited min/max values
+        const controlRanges = {} // Store edited min/max/step values
         Object.entries(node.input).forEach(([key, input]) => {
             if(input.control !== null){
                 const controlEl = node.nodeEl.querySelector(`[data-input-el="${key}"]`)
                 if(controlEl){
                     controls[key] = controlEl.value
                     
-                    // Check if this is an s-number with edited min/max
+                    // Check if this is an s-number with edited min/max/step
                     if(controlEl.tagName === 'S-NUMBER'){
                         const currentMin = parseFloat(controlEl.getAttribute('min'))
                         const currentMax = parseFloat(controlEl.getAttribute('max'))
+                        const currentStep = parseFloat(controlEl.getAttribute('step'))
+                        
                         const defaultMin = input.control.min ?? -Infinity
                         const defaultMax = input.control.max ?? Infinity
+                        const defaultStep = input.control.step ?? 1
                         
                         // Only store if different from defaults
-                        if(currentMin !== defaultMin || currentMax !== defaultMax){
+                        if(currentMin !== defaultMin || currentMax !== defaultMax || currentStep !== defaultStep){
                             controlRanges[key] = {
                                 min: currentMin,
-                                max: currentMax
+                                max: currentMax,
+                                step: currentStep
                             }
                         }
                     }
