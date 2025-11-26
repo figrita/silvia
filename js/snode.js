@@ -248,6 +248,27 @@ export class SNode{
         if(this.onCreate){
             this.onCreate()
         }
+
+        // Restore custom control ranges (min/max/step) AND values for custom nodes.
+        // This happens AFTER onCreate so the elements exist.
+        // Critical: The element might have rounded the value during creation because
+        // the default step wasn't precise enough. Now we fix the step then restore the value.
+        if(nodeData?.customControlRanges){
+            Object.entries(nodeData.customControlRanges).forEach(([key, ranges]) => {
+                const el = this.nodeEl.querySelector(`.node-custom [data-el="${key}"]`)
+                if(el && el.tagName === 'S-NUMBER'){
+                    // First update the constraints
+                    if(ranges.min !== undefined) el.setAttribute('min', ranges.min)
+                    if(ranges.max !== undefined) el.setAttribute('max', ranges.max)
+                    if(ranges.step !== undefined) el.setAttribute('step', ranges.step)
+
+                    // Then restore the value - this re-validates against correct step
+                    if(ranges.value !== undefined){
+                        el.value = ranges.value
+                    }
+                }
+            })
+        }
     }
 
     /**
