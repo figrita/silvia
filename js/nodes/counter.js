@@ -121,8 +121,12 @@ registerNode({
     
     _updateDisplay(){
         if(this.elements.displayEl){
-            const decimals = this.values.step < 1 ? Math.max(2, -Math.floor(Math.log10(this.values.step))) : 0
-            this.elements.displayEl.textContent = this.values.current.toFixed(decimals)
+            function decimalPlaces(num) {
+                const numStr = num.toString();
+                const dotIndex = numStr.indexOf('.');
+                return dotIndex === -1 ? 0 : numStr.length - dotIndex - 1;
+            }
+            this.elements.displayEl.textContent = this.values.current.toFixed(decimalPlaces(this.values.step))
         }
     },
     
@@ -155,50 +159,30 @@ registerNode({
         const fragment = StringToFragment(html)
         this.elements = autowire(fragment)
         this.customArea.appendChild(fragment)
-        
-        // Add listeners
-        this.elements.minControl.addEventListener('input', (e) => {
-            const newMin = parseFloat(e.target.value)
-            if(!isNaN(newMin)){
-                if(newMin > this.values.max){
-                    // Swap if min > max
-                    this.values.min = this.values.max
-                    this.values.max = newMin
-                    this.elements.maxControl.value = newMin
-                    this.elements.minControl.value = this.values.min
-                } else {
-                    this.values.min = newMin
-                }
-                // Clamp current value to new range
-                this.values.current = Math.max(this.values.min, Math.min(this.values.max, this.values.current))
-                this._updateDisplay()
+
+        this.customArea.addEventListener('input', (e) => {
+            const el = e.target
+            const val = parseFloat(el.value)
+            if(isNaN(val)) return
+
+            switch(el.dataset.el){
+                case 'minControl':
+                    this.values.min = val
+                    this.values.current = Math.max(this.values.min, Math.min(this.values.max, this.values.current))
+                    break
+                case 'maxControl':
+                    this.values.max = val
+                    this.values.current = Math.max(this.values.min, Math.min(this.values.max, this.values.current))
+                    break
+                case 'stepControl':
+                    if(val > 0) this.values.step = val
+                    break
+                default:
+                    return
             }
+            this._updateDisplay()
         })
-        this.elements.maxControl.addEventListener('input', (e) => {
-            const newMax = parseFloat(e.target.value)
-            if(!isNaN(newMax)){
-                if(newMax < this.values.min){
-                    // Swap if max < min
-                    this.values.max = this.values.min
-                    this.values.min = newMax
-                    this.elements.minControl.value = newMax
-                    this.elements.maxControl.value = this.values.max
-                } else {
-                    this.values.max = newMax
-                }
-                // Clamp current value to new range
-                this.values.current = Math.max(this.values.min, Math.min(this.values.max, this.values.current))
-                this._updateDisplay()
-            }
-        })
-        this.elements.stepControl.addEventListener('input', (e) => {
-            const newStep = parseFloat(e.target.value)
-            if(!isNaN(newStep) && newStep > 0){
-                this.values.step = newStep
-                this._updateDisplay()
-            }
-        })
-        
+
         this._updateDisplay()
     },
     
