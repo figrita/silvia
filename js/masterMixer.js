@@ -33,10 +33,10 @@ export class MasterMixer {
         
         // Create WebGL renderer (minimal frame buffer)
         this.renderer = new WebGLRenderer(this.canvas, 2)
-        
+
         // Compile static mixing shader
         this.renderer.updateProgram(MIXING_FRAGMENT_SHADER)
-        
+
         this.isInitialized = true
         console.log('Master Mixer initialized')
     }
@@ -49,6 +49,30 @@ export class MasterMixer {
     assignToChannelB(outputNode) {
         this.channelB = outputNode
         console.log('Channel B assigned:', outputNode)
+    }
+
+    clearChannel(outputNode) {
+        if (this.channelA === outputNode) {
+            this.channelA = null
+            console.log('Channel A cleared')
+        }
+        if (this.channelB === outputNode) {
+            this.channelB = null
+            console.log('Channel B cleared')
+        }
+    }
+
+    _clearToBlack() {
+        if (!this.renderer || !this.canvas) return
+        const gl = this.renderer.gl
+        if (!gl) return
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        gl.viewport(0, 0, this.canvas.width, this.canvas.height)
+        gl.clearColor(0, 0, 0, 1)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.flush()
+        console.log('Master mixer cleared to black')
     }
     
     setResolution(resolutionString) {
@@ -143,8 +167,14 @@ export class MasterMixer {
     }
     
     updateMasterOutput() {
-        if (!this.isInitialized || (!this.channelA && !this.channelB)) return
-        
+        if (!this.isInitialized) return
+
+        // If both channels are empty, just clear to black and return
+        if (!this.channelA && !this.channelB) {
+            this._clearToBlack()
+            return
+        }
+
         // Calculate aspect ratios for the assigned channels
         const getAspectRatio = (channel) => {
             if (channel && channel.elements && channel.elements.canvas) {
