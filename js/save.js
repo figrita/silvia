@@ -384,29 +384,47 @@ async function handleSave(){
 export function serializeWorkspace(){
     const nodes = Array.from(SNode.getNodesInCurrentWorkspace()).map((node) => {
         const controls = {}
-        const controlRanges = {} // Store edited min/max values
+        const controlRanges = {} // Store edited min/max/step values
         Object.entries(node.input).forEach(([key, input]) => {
             if(input.control !== null){
                 const controlEl = node.nodeEl.querySelector(`[data-input-el="${key}"]`)
                 if(controlEl){
                     controls[key] = controlEl.value
-                    
-                    // Check if this is an s-number with edited min/max
+
+                    // Check if this is an s-number with edited min/max/step
                     if(controlEl.tagName === 'S-NUMBER'){
                         const currentMin = parseFloat(controlEl.getAttribute('min'))
                         const currentMax = parseFloat(controlEl.getAttribute('max'))
+                        const currentStep = parseFloat(controlEl.getAttribute('step'))
+
                         const defaultMin = input.control.min ?? -Infinity
                         const defaultMax = input.control.max ?? Infinity
-                        
+                        const defaultStep = input.control.step ?? 1
+
                         // Only store if different from defaults
-                        if(currentMin !== defaultMin || currentMax !== defaultMax){
+                        if(currentMin !== defaultMin || currentMax !== defaultMax || currentStep !== defaultStep){
                             controlRanges[key] = {
                                 min: currentMin,
-                                max: currentMax
+                                max: currentMax,
+                                step: currentStep
                             }
                         }
                     }
                 }
+            }
+        })
+
+        // Handle custom s-numbers in the custom area (e.g., Counter node)
+        const customControlRanges = {}
+        const customSNumbers = node.nodeEl.querySelectorAll('.node-custom s-number[data-el]')
+        customSNumbers.forEach(el => {
+            const id = el.dataset.el
+            // Save min/max/step AND current value to ensure precision is restored correctly
+            customControlRanges[id] = {
+                min: parseFloat(el.getAttribute('min')),
+                max: parseFloat(el.getAttribute('max')),
+                step: parseFloat(el.getAttribute('step')),
+                value: parseFloat(el.getAttribute('value'))
             }
         })
 
@@ -437,13 +455,23 @@ export function serializeWorkspace(){
         if(Object.keys(controlRanges).length > 0){
             nodeData.controlRanges = controlRanges
         }
-        
+
+        // Add custom control ranges if they exist
+        if(Object.keys(customControlRanges).length > 0){
+            nodeData.customControlRanges = customControlRanges
+        }
+
         // Add MIDI mappings for this node
         const midiMappings = {}
-        // Check all controls for MIDI mappings
-        Object.keys(node.input).forEach(key => {
-            const controlEl = node.nodeEl.querySelector(`[data-input-el="${key}"]`)
-            if(controlEl){
+        // Check all controls for MIDI mappings (both input ports and custom controls)
+        const allControls = [
+            ...node.nodeEl.querySelectorAll('[data-input-el]'),
+            ...node.nodeEl.querySelectorAll('.node-custom [data-el]')
+        ]
+
+        allControls.forEach(controlEl => {
+            const key = controlEl.dataset.inputEl || controlEl.dataset.el
+            if(key){
                 if(controlEl.dataset.midiCc){
                     midiMappings[key] = {type: 'cc', value: parseInt(controlEl.dataset.midiCc)}
                 } else if(controlEl.dataset.midiNote){

@@ -385,11 +385,16 @@ registerNode({
         // Showing status - check master mixer channel assignments
         let showingText = '○ Hidden'
         let showingColor = '#999'
+        const onA = masterMixer.channelA === this
+        const onB = masterMixer.channelB === this
 
-        if(masterMixer.channelA === this){
+        if(onA && onB){
+            showingText = '● A & B'
+            showingColor = '#10b981'
+        } else if(onA){
             showingText = '● On A'
             showingColor = '#10b981'
-        } else if(masterMixer.channelB === this){
+        } else if(onB){
             showingText = '● On B'
             showingColor = '#10b981'
         }
@@ -492,7 +497,12 @@ registerNode({
         if(this.runtimeState.isRecording){
             this._stopRecording()
         }
-        
+
+        // Clear master mixer channel assignment and update UI
+        masterMixer.clearChannel(this)
+        masterMixerUI.updateChannelStatus('A', masterMixer.channelA)
+        masterMixerUI.updateChannelStatus('B', masterMixer.channelB)
+
         SNode.outputs.delete(this)
         if(BackgroundRenderer.outputNode == this){
             BackgroundRenderer.outputNode = null

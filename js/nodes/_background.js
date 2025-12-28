@@ -17,6 +17,7 @@ export const BackgroundRenderer = {
     init(){
         const bgVideo = document.createElement('video')
         bgVideo.id = 'background-video'
+        bgVideo.style.background = 'black'
         document.body.appendChild(bgVideo)
         bgVideoRef = bgVideo
         const editorRect = editor.getBoundingClientRect()

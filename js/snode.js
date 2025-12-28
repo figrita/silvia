@@ -248,6 +248,27 @@ export class SNode{
         if(this.onCreate){
             this.onCreate()
         }
+
+        // Restore custom control ranges (min/max/step) AND values for custom nodes.
+        // This happens AFTER onCreate so the elements exist.
+        // Critical: The element might have rounded the value during creation because
+        // the default step wasn't precise enough. Now we fix the step then restore the value.
+        if(nodeData?.customControlRanges){
+            Object.entries(nodeData.customControlRanges).forEach(([key, ranges]) => {
+                const el = this.nodeEl.querySelector(`.node-custom [data-el="${key}"]`)
+                if(el && el.tagName === 'S-NUMBER'){
+                    // First update the constraints
+                    if(ranges.min !== undefined) el.setAttribute('min', ranges.min)
+                    if(ranges.max !== undefined) el.setAttribute('max', ranges.max)
+                    if(ranges.step !== undefined) el.setAttribute('step', ranges.step)
+
+                    // Then restore the value - this re-validates against correct step
+                    if(ranges.value !== undefined){
+                        el.value = ranges.value
+                    }
+                }
+            })
+        }
     }
 
     /**
@@ -564,14 +585,18 @@ export class SNode{
                     if(controlEl.tagName === 'S-NUMBER'){
                         const currentMin = parseFloat(controlEl.getAttribute('min'))
                         const currentMax = parseFloat(controlEl.getAttribute('max'))
+                        const currentStep = parseFloat(controlEl.getAttribute('step'))
+                        
                         const defaultMin = input.control.min ?? -Infinity
                         const defaultMax = input.control.max ?? Infinity
+                        const defaultStep = input.control.step ?? 1
                         
                         // Only store if different from defaults
-                        if(currentMin !== defaultMin || currentMax !== defaultMax){
+                        if(currentMin !== defaultMin || currentMax !== defaultMax || currentStep !== defaultStep){
                             controlRanges[key] = {
                                 min: currentMin,
-                                max: currentMax
+                                max: currentMax,
+                                step: currentStep
                             }
                         }
                     }
@@ -871,7 +896,7 @@ export class SNode{
         `<s-number 
                             min="${nodeData?.controlRanges?.[key]?.min ?? input.control.min}" 
                             max="${nodeData?.controlRanges?.[key]?.max ?? input.control.max}" 
-                            step="${input.control.step}" 
+                            step="${nodeData?.controlRanges?.[key]?.step ?? input.control.step}" 
                             value="${nodeData?.controls[key] !== undefined ? nodeData.controls[key] : input.control.default}"
                             default="${input.control.default}"
                             ${input.control.unit ? `unit="${input.control.unit}"` : ``} 
