@@ -4,10 +4,15 @@ import {midiManager} from './midiManager.js'
 
 const clamp = (num, min, max) => Math.min(Math.max(num, min), max)
 const getPrecision = (step) => {
-    if(!isFinite(step) || Math.floor(step) === step){return 0}
-    const stepStr = step.toString()
-    const decimalIndex = stepStr.indexOf('.')
-    return decimalIndex === -1 ? 0 : stepStr.length - decimalIndex - 1
+    if(!isFinite(step) || step === 0){return 0}
+    // Handle both regular decimals and scientific notation (e.g., 1e-7)
+    const absStep = Math.abs(step)
+    if(absStep >= 1){
+        // For values >= 1, check if it's a whole number
+        return Math.floor(step) === step ? 0 : Math.max(0, -Math.floor(Math.log10(absStep % 1)))
+    }
+    // For values < 1, calculate decimal places needed
+    return Math.max(0, Math.ceil(-Math.log10(absStep)))
 }
 
 // Logarithmic scale conversion functions
@@ -66,6 +71,9 @@ class SNumber extends HTMLElement{
     }
 
     connectedCallback(){
+        // Flag to prevent event dispatching during initialization
+        this._initializing = true
+
         this._upgradeProperty('value')
         this._upgradeProperty('default')
         this._upgradeProperty('min')
@@ -92,6 +100,8 @@ class SNumber extends HTMLElement{
         this._updateInput()
         this._addEventListeners()
         this._addMinMaxEditability()
+
+        this._initializing = false
     }
 
     _upgradeProperty(prop){
@@ -108,9 +118,21 @@ class SNumber extends HTMLElement{
         switch(name){
             case 'value': this.value = newValue; break
             case 'default': this._default = parseFloat(newValue); break
-            case 'min': this._min = parseFloat(newValue); break
-            case 'max': this._max = parseFloat(newValue); break
-            case 'step': this._step = parseFloat(newValue); break
+            case 'min':
+                this._min = parseFloat(newValue)
+                if(this.minEl){this.minEl.textContent = this._formatMinMax(this._min)}
+                this._requestUpdate()
+                break
+            case 'max':
+                this._max = parseFloat(newValue)
+                if(this.maxEl){this.maxEl.textContent = this._formatMinMax(this._max)}
+                this._requestUpdate()
+                break
+            case 'step':
+                this._step = parseFloat(newValue)
+                if(this.stepEl){this.stepEl.textContent = this._formatStep(this._step)}
+                this._requestUpdate()
+                break
             case 'disabled':
                 this.inputEl.disabled = this.hasAttribute('disabled')
                 this.decrBtn.disabled = this.hasAttribute('disabled')
@@ -132,12 +154,10 @@ class SNumber extends HTMLElement{
 
     _roundToStep(value){
         if(this._step <= 0 || !isFinite(this._step)){return value}
-        const min = isFinite(this._min) ? this._min : 0
-        const valueWithoutOffset = value - min
-        const numSteps = Math.round(valueWithoutOffset / this._step)
-        const roundedValue = min + numSteps * this._step
-
+        // Round to nearest step, using step's precision to avoid floating point errors
         const precision = getPrecision(this._step)
+        const numSteps = Math.round(value / this._step)
+        const roundedValue = numSteps * this._step
         return parseFloat(roundedValue.toFixed(precision))
     }
 
@@ -148,8 +168,8 @@ class SNumber extends HTMLElement{
         const numericVal = parseFloat(val)
         if(isNaN(numericVal)){return}
 
-        const roundedVal = this._roundToStep(numericVal)
-        const clampedVal = clamp(roundedVal, this._min, this._max)
+        // Only clamp, don't round - preserve exact values set programmatically
+        const clampedVal = clamp(numericVal, this._min, this._max)
 
         // Use a tolerance for float comparison to prevent re-renders
         if(Math.abs(this._value - clampedVal) < 1e-9){return}
@@ -274,11 +294,16 @@ class SNumber extends HTMLElement{
 
     // --- FIX: Added dispatcher for 'input' event ---
     _dispatchInput(){
+        // Don't dispatch events during initialization
+        if(this._initializing) return
         this.dispatchEvent(new Event('input', {bubbles: true, composed: true}))
     }
 
     _commitValue(newValue){
-        this.value = newValue
+        // Round to step for user-initiated changes
+        this.value = this._roundToStep(newValue)
+        // Don't dispatch events during initialization
+        if(this._initializing) return
         this.dispatchEvent(new Event('change', {bubbles: true, composed: true}))
     }
 
@@ -693,9 +718,13 @@ class SNumber extends HTMLElement{
         if(!isFinite(value) || value <= 0){
             return '1'
         }
-        // Format step with appropriate precision
+        // Format step with appropriate precision, avoiding scientific notation
         const precision = getPrecision(value)
-        return precision > 0 ? value.toFixed(precision) : value.toString()
+        if(precision > 0){
+            // toFixed avoids scientific notation and shows full decimal
+            return value.toFixed(precision)
+        }
+        return value.toString()
     }
     
     _makeEditable(element, type){
@@ -703,7 +732,13 @@ class SNumber extends HTMLElement{
         const input = document.createElement('input')
         input.type = 'text'
         input.className = 's-number-minmax-edit'
-        input.value = isFinite(currentValue) ? currentValue : ''
+        // Format the value to avoid scientific notation in the edit field
+        if(isFinite(currentValue)){
+            const precision = getPrecision(currentValue)
+            input.value = precision > 0 ? currentValue.toFixed(precision) : currentValue.toString()
+        } else {
+            input.value = ''
+        }
         input.placeholder = isFinite(currentValue) ? '' : (type === 'min' ? '-\u221e' : (type === 'max' ? '\u221e' : '1'))
         
         element.style.display = 'none'

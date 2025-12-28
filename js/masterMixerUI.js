@@ -164,12 +164,12 @@ export class MasterMixerUI {
             // Start video stream preview
             this._startVideoPreview(previewVideo, node.elements.canvas)
         } else {
-            previewElement.innerHTML = '<span>No Preview</span>'
+            previewElement.innerHTML = ''
         }
     }
     
     _clearChannelPreview(previewElement) {
-        previewElement.innerHTML = '<span>Unassigned</span>'
+        previewElement.innerHTML = ''
     }
     
     _startVideoPreview(previewVideo, sourceCanvas) {
