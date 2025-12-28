@@ -340,15 +340,15 @@ class MidiManager {
     }
     
     cancelLearning() {
+        this.hideLearningIndicator()
+
         if (!this.learningTarget) return
-        
+
         clearTimeout(this.learningTimeout)
-        
+
         const element = this.learningTarget.element
         element.classList.remove('midi-learning')
-        
-        this.hideLearningIndicator()
-        
+
         this.isLearning = false
         this.learningTarget = null
     }
@@ -478,12 +478,27 @@ class MidiManager {
         }
     }
     
+    hideFirefoxModal() {
+        const warning = document.querySelector('.midi-browser-warning')
+        if (warning) {
+            warning.remove()
+        }
+    }
+
     showFirefoxModal() {
         // Don't show multiple modals
         if (document.querySelector('.midi-browser-warning')) return
-        
+
         const warning = document.createElement('div')
         warning.className = 'midi-browser-warning'
+
+        // Close on escape
+        const escapeHandler = () => {
+            this.hideFirefoxModal()
+            document.removeEventListener('escape-pressed', escapeHandler)
+        }
+        document.addEventListener('escape-pressed', escapeHandler)
+
         warning.innerHTML = `
             <div style="
                 position: fixed;
