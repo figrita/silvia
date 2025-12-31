@@ -207,7 +207,10 @@ class MidiManager {
             }
             return
         }
-        
+
+        // Cancel any existing learning session first
+        this.cancelLearning()
+
         console.log('Starting MIDI learn:', { element, type })
         this.isLearning = true
         this.learningTarget = { element, type }
@@ -340,14 +343,20 @@ class MidiManager {
     }
     
     cancelLearning() {
+        // Always clean up UI state first, regardless of internal state
         this.hideLearningIndicator()
-
-        if (!this.learningTarget) return
-
         clearTimeout(this.learningTimeout)
 
-        const element = this.learningTarget.element
-        element.classList.remove('midi-learning')
+        // Remove midi-learning class from any element that might have it
+        // This is a safety net for any orphaned learning states
+        document.querySelectorAll('.midi-learning').forEach(el => {
+            el.classList.remove('midi-learning')
+        })
+
+        // Clean up internal state
+        if (this.learningTarget) {
+            this.learningTarget.element.classList.remove('midi-learning')
+        }
 
         this.isLearning = false
         this.learningTarget = null
