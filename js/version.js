@@ -12,7 +12,7 @@
  * - 0.1: Initial patch format
  * - 0.2: Current version (updated from 0.1)
  */
-export const PATCH_VERSION = '0.2.3'
+export const PATCH_VERSION = '0.2.4'
 
 /**
  * Get the current patch format version

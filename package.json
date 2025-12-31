@@ -1,6 +1,6 @@
 {
   "name": "silvia",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "A browser-based modular video synthesizer",
   "main": "electron/main.electron.js",
   "homepage": ".",
