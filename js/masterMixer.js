@@ -42,12 +42,22 @@ export class MasterMixer {
     }
     
     assignToChannelA(outputNode) {
+        const oldNode = this.channelA
         this.channelA = outputNode
+        // Notify old node to update its status line (it's no longer on A)
+        if (oldNode && oldNode !== outputNode && oldNode._updateStatusLine) {
+            oldNode._updateStatusLine()
+        }
         console.log('Channel A assigned:', outputNode)
     }
-    
+
     assignToChannelB(outputNode) {
+        const oldNode = this.channelB
         this.channelB = outputNode
+        // Notify old node to update its status line (it's no longer on B)
+        if (oldNode && oldNode !== outputNode && oldNode._updateStatusLine) {
+            oldNode._updateStatusLine()
+        }
         console.log('Channel B assigned:', outputNode)
     }
 
@@ -220,8 +230,8 @@ export class MasterMixer {
         }
         
         const textureProviders = {
-            'u_channelA': () => this.channelA?.elements?.canvas || null,
-            'u_channelB': () => this.channelB?.elements?.canvas || null
+            'u_channelA': () => (this.channelA?.runtimeState?.isActive && this.channelA?.elements?.canvas) || null,
+            'u_channelB': () => (this.channelB?.runtimeState?.isActive && this.channelB?.elements?.canvas) || null
         }
         
         this.renderer.render(performance.now() * 0.001, shaderInfo, this.textureMap, {

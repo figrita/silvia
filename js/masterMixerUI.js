@@ -148,8 +148,9 @@ export class MasterMixerUI {
     _updateChannelPreview(previewElement, node) {
         // Clear existing content
         previewElement.innerHTML = ''
-        
-        if (node && node.elements && node.elements.canvas) {
+
+        // Only create preview if node is active (has compiled shader rendering)
+        if (node && node.elements && node.elements.canvas && node.runtimeState?.isActive) {
             // Create a video element for stream preview
             const previewVideo = document.createElement('video')
             previewVideo.style.width = '100%'
@@ -179,8 +180,6 @@ export class MasterMixerUI {
             previewVideo.srcObject = stream
             previewVideo.play().catch(e => {
                 console.warn('Preview video play failed:', e)
-                // Fallback to placeholder on play failure
-                previewVideo.parentElement.innerHTML = '<span>Preview Error</span>'
             })
             
             // Store stream reference for cleanup
@@ -189,7 +188,7 @@ export class MasterMixerUI {
         } catch (error) {
             console.warn('Failed to create preview stream:', error)
             // Fallback to placeholder on capture failure
-            previewVideo.parentElement.innerHTML = '<span>Preview Unavailable</span>'
+            previewVideo.innerHTML = '<span>Preview Unavailable</span>'
         }
     }
     

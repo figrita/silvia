@@ -55,7 +55,7 @@ body {
 .channel-preview {
     width: 100%;
     aspect-ratio: 16 / 9;
-    background: var(--bg-tertiary);
+    background: #000;
     border: 1px solid var(--border-normal);
     border-radius: 4px;
     margin-bottom: 8px;
@@ -75,7 +75,7 @@ body {
     object-fit: cover;
     border: none !important;
     border-radius: 3px;
-    background: transparent;
+    background: #000;
 }
 
 .channel-preview span {

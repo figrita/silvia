@@ -29,8 +29,7 @@ registerNode({
         mediaRecorder: null,
         isRecording: false,
         recordedChunks: [],
-        isCompiling: false,
-        compilationProgress: ''
+        isCompiling: false
     },
 
     input: {
@@ -182,9 +181,11 @@ registerNode({
             console.log(`Output node ${this.id} recompiled and is active.`)
         } else {
             this.runtimeState.isActive = false
+            this._clearCanvasToBlack()
             console.warn(`Output node ${this.id} is inactive due to compilation failure.`)
         }
         this._updateStatusLine()
+        this._refreshMixerPreview()
     },
 
     async recompileAsync(){
@@ -193,27 +194,16 @@ registerNode({
             return
         }
 
-        // Reset any previous failed compilation state
-        this.runtimeState.compilationProgress = ''
-
         this.runtimeState.isCompiling = true
-        this.runtimeState.compilationProgress = 'Starting compilation...'
-        this._updateStatusLine()
 
         try {
             const compilationResult = await compileAsync(
                 this.input.input,
-                this.values.frameHistorySize,
-                (progress) => {
-                    this.runtimeState.compilationProgress = progress
-                    this._updateStatusLine()
-                }
+                this.values.frameHistorySize
             )
 
             if(compilationResult){
                 this.runtimeState.shaderInfo = compilationResult
-                this.runtimeState.compilationProgress = 'Compiling...'
-                this._updateStatusLine()
 
                 this.runtimeState.renderer.updateProgram(
                     this.runtimeState.shaderInfo.shaderCode,
@@ -221,29 +211,31 @@ registerNode({
                         this.runtimeState.isCompiling = false
                         if(success){
                             this.runtimeState.isActive = true
-                            this.runtimeState.compilationProgress = ''
                             console.log(`Output node ${this.id} async recompiled and is active.`)
                         } else {
                             this.runtimeState.isActive = false
-                            this.runtimeState.compilationProgress = 'GPU compilation failed'
+                            this._clearCanvasToBlack()
                             console.warn(`Output node ${this.id} is inactive due to GPU compilation failure.`)
                         }
                         this._updateStatusLine()
+                        this._refreshMixerPreview()
                     }
                 )
             } else {
                 this.runtimeState.isCompiling = false
                 this.runtimeState.isActive = false
-                this.runtimeState.compilationProgress = 'Compilation failed'
+                this._clearCanvasToBlack()
                 console.warn(`Output node ${this.id} is inactive due to compilation failure.`)
                 this._updateStatusLine()
+                this._refreshMixerPreview()
             }
         } catch(error){
             this.runtimeState.isCompiling = false
             this.runtimeState.isActive = false
-            this.runtimeState.compilationProgress = `Error: ${error.message}`
+            this._clearCanvasToBlack()
             console.error(`Async compilation error for output node ${this.id}:`, error)
             this._updateStatusLine()
+            this._refreshMixerPreview()
         }
     },
 
@@ -365,6 +357,26 @@ registerNode({
         this.elements.vramDisplay.textContent = `VRAM: ${formatBytes(totalBytes)}`
     },
 
+    _clearCanvasToBlack(){
+        if(!this.runtimeState.renderer){return}
+        const gl = this.runtimeState.renderer.gl
+        if(!gl){return}
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        gl.viewport(0, 0, this.elements.canvas.width, this.elements.canvas.height)
+        gl.clearColor(0, 0, 0, 1)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+    },
+
+    _refreshMixerPreview(){
+        // If this output is assigned to a mixer channel, refresh its preview
+        if(masterMixer.channelA === this){
+            masterMixerUI.updateChannelStatus('A', this)
+        }
+        if(masterMixer.channelB === this){
+            masterMixerUI.updateChannelStatus('B', this)
+        }
+    },
+
     _updateStatusLine(){
         if(!this.elements.statusLine){return}
 
@@ -372,15 +384,10 @@ registerNode({
         const showingStatus = this.elements.statusLine.querySelector('[data-status="showing"]')
         const recordingStatus = this.elements.statusLine.querySelector('[data-status="recording"]')
 
-        // Connection status (green if connected, gray if not, orange if compiling)
+        // Connection status (green if connected, gray if not)
         const isConnected = this.input.input.connection !== null && this.input.input.connection !== undefined
-        if(this.runtimeState.isCompiling){
-            connectionStatus.style.color = '#f59e0b'
-            connectionStatus.textContent = this.runtimeState.compilationProgress || '⟳ Compiling...'
-        } else {
-            connectionStatus.style.color = isConnected ? '#10b981' : '#999'
-            connectionStatus.textContent = isConnected ? '● Input' : '○ No Input'
-        }
+        connectionStatus.style.color = isConnected ? '#10b981' : '#999'
+        connectionStatus.textContent = isConnected ? '● Input' : '○ No Input'
 
         // Showing status - check master mixer channel assignments
         let showingText = '○ Hidden'
@@ -489,7 +496,6 @@ registerNode({
     updateOutput(time){
         if(!this.runtimeState.isActive || !this.runtimeState.renderer){return}
         this.runtimeState.renderer.render(time, this.runtimeState.shaderInfo, this.runtimeState.textureMap)
-        this._updateStatusLine() // Update status line each frame to catch connection changes
     },
 
     onDestroy(){
