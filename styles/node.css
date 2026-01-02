@@ -11,6 +11,9 @@ html {
 body {
     user-select: none;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
 }
 
 body.s-number-scrubbing .node .input-control s-color {
@@ -21,7 +24,8 @@ body.s-number-scrubbing .node .input-control s-color {
     overflow-y: hidden;
     overflow-x: scroll;
     position: relative;
-    height: 100vh;
+    flex: 1;
+    min-height: 0; /* Allow flex child to shrink below content size */
 
     #node-root {
         position: absolute;

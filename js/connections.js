@@ -4,6 +4,7 @@ import {getGoldenRatioColor, mapJoin} from './utils.js'
 import {settings} from './settings.js'
 import {SNode, getDescendants} from './snode.js'
 import {canConvert, createConversionMenu, removeConversionMenu} from './typeConversions.js'
+import {WorkspaceManager} from './workspaceManager.js'
 
 export class CursorWire{
     port
@@ -272,11 +273,20 @@ export class Connection{
     }
 
     static updateConnectionVisibility() {
-        // Filter connections to only show those in current workspace
-        const currentWorkspace = SNode.currentWorkspace
+        // Filter connections based on both workspace AND layer visibility
+        const activeWs = WorkspaceManager.getActiveWorkspace()
+        const activeLayerId = activeWs?.activeLayerId
+
         this.connections.forEach(connection => {
-            // Since nodes can only connect within the same workspace, just check source
-            connection.visible = connection.source.parent.workspace === currentWorkspace
+            const sourceVisible =
+                connection.source.parent.workspaceId === activeWs?.id &&
+                connection.source.parent.layerVisibility.has(activeLayerId)
+            const destVisible =
+                connection.destination.parent.workspaceId === activeWs?.id &&
+                connection.destination.parent.layerVisibility.has(activeLayerId)
+
+            // Connection visible only if BOTH endpoints are visible
+            connection.visible = sourceVisible && destVisible
         })
     }
 
