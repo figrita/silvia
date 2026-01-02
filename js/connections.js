@@ -273,17 +273,22 @@ export class Connection{
     }
 
     static updateConnectionVisibility() {
-        // Filter connections based on both workspace AND layer visibility
-        const activeWs = WorkspaceManager.getActiveWorkspace()
-        const activeLayerId = activeWs?.activeLayerId
+        // Filter connections based on workspace visibility
+        // Node is visible if any of its workspaceVisibility IDs are in the active path
+        const activePathSet = new Set(WorkspaceManager.activePath || [])
+
+        // Helper to check if node is visible
+        const isNodeVisible = (node) => {
+            if (!node.workspaceVisibility) return false
+            for (const wsId of node.workspaceVisibility) {
+                if (activePathSet.has(wsId)) return true
+            }
+            return false
+        }
 
         this.connections.forEach(connection => {
-            const sourceVisible =
-                connection.source.parent.workspaceId === activeWs?.id &&
-                connection.source.parent.layerVisibility.has(activeLayerId)
-            const destVisible =
-                connection.destination.parent.workspaceId === activeWs?.id &&
-                connection.destination.parent.layerVisibility.has(activeLayerId)
+            const sourceVisible = isNodeVisible(connection.source.parent)
+            const destVisible = isNodeVisible(connection.destination.parent)
 
             // Connection visible only if BOTH endpoints are visible
             connection.visible = sourceVisible && destVisible

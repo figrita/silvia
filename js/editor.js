@@ -47,10 +47,10 @@ const cropBtn = document.getElementById('workspace-crop-btn')
 const EXTEND_AMOUNT = 500 // px
 
 function getRightmostNodeEdge(){
-    const currentWorkspaceNodes = SNode.getNodesInCurrentWorkspace()
-    if(currentWorkspaceNodes.length === 0){return 0}
+    const visibleNodes = SNode.getVisibleNodes()
+    if(visibleNodes.length === 0){return 0}
     let maxRight = 0
-    for(const node of currentWorkspaceNodes){
+    for(const node of visibleNodes){
         const rightEdge = node.nodeEl.offsetLeft + node.nodeEl.offsetWidth
         if(rightEdge > maxRight){
             maxRight = rightEdge
@@ -120,12 +120,12 @@ export function clearWorkspace(){
     setWorkspaceWidth(editorWidth)
     editor.scrollLeft = 0
 
-    // Only clear nodes in current workspace
-    const currentWorkspaceOutputs = SNode.getOutputsInCurrentWorkspace()
-    currentWorkspaceOutputs.forEach((outNode) => outNode.isDestroyed = true)
+    // Clear visible nodes (current workspace path)
+    const visibleOutputs = SNode.getOutputsInCurrentWorkspace()
+    visibleOutputs.forEach((outNode) => outNode.isDestroyed = true)
 
-    const currentWorkspaceNodes = SNode.getNodesInCurrentWorkspace()
-    currentWorkspaceNodes.forEach((node) => node.destroy())
+    const visibleNodes = SNode.getVisibleNodes()
+    visibleNodes.forEach((node) => node.destroy())
 
     // Clear connections involving destroyed nodes (handled by destroy method)
     Connection.redrawAllConnections()

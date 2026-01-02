@@ -1,15 +1,14 @@
 /**
- * WorkspaceTabBar - Hierarchical stacked tab bars for workspace/layer navigation
+ * WorkspaceTabBar - Unified recursive tab bars for workspace tree navigation
  *
- * Features:
- * - Top tab bar shows workspaces
- * - Below that, stacked tab bars show layers at each depth level
- * - Layers can have sub-layers, adding more stacked bars vertically
- * - Only sibling layers (same parent) appear in the same tab bar
- * - Click tab: Switch to that item
+ * Clean tree design:
+ * - Everything is a workspace (no separate "layer" concept)
+ * - Each depth level shows sibling workspaces (same parent)
+ * - Tab bars stack vertically as you go deeper in the tree
+ * - Click tab: Switch to that workspace
  * - Double-click tab name: Inline rename
- * - Right-click tab: Context menu (delete, add sub-layer)
- * - (+) button: Create new item at that level
+ * - Right-click tab: Context menu (delete, add child)
+ * - (+) button: Create new workspace at that level
  */
 
 import { WorkspaceManager } from './workspaceManager.js'
@@ -21,8 +20,7 @@ import { masterMixerUI } from './masterMixerUI.js'
 class WorkspaceTabBar {
     constructor() {
         this.containerEl = null
-        this.workspaceBarEl = null
-        this.layerBars = []  // Array of layer tab bar elements, one per depth
+        this.tabBars = []  // Array of tab bar elements, one per depth
     }
 
     /**
@@ -66,84 +64,99 @@ class WorkspaceTabBar {
      */
     render() {
         this.containerEl.innerHTML = ''
+        this.tabBars = []
 
-        // Always render workspace tab bar
-        this.workspaceBarEl = this.createTabBar('workspace')
-        this.containerEl.appendChild(this.workspaceBarEl)
-        this.renderWorkspaceTabs()
+        // Render tab bars recursively starting from root (parentId = null)
+        this.renderTabBarsRecursive(null, 0)
+    }
 
-        // Render layer tab bar if active workspace has layers (show when > 1 layer)
-        const activeWs = WorkspaceManager.getActiveWorkspace()
-        if (activeWs && activeWs.layers.size > 1) {
-            this.layerBarEl = this.createTabBar('layer')
-            this.containerEl.appendChild(this.layerBarEl)
-            this.renderLayerTabs(activeWs)
-        } else {
-            this.layerBarEl = null
+    /**
+     * Recursively render tab bars for each depth level.
+     * @param {number|null} parentId - Parent workspace ID (null for root)
+     * @param {number} depth - Current depth level
+     */
+    renderTabBarsRecursive(parentId, depth) {
+        // Get workspaces at this depth (children of parentId)
+        const workspacesAtDepth = parentId === null
+            ? WorkspaceManager.getRootWorkspaces()
+            : WorkspaceManager.getChildren(parentId)
+
+        // Show tab bar if there are any workspaces at this depth
+        if (workspacesAtDepth.length > 0) {
+            const tabBar = this.createTabBar(depth, parentId)
+            this.containerEl.appendChild(tabBar)
+            this.tabBars.push(tabBar)
+            this.renderTabs(workspacesAtDepth, tabBar, depth)
+        }
+
+        // Get active workspace at this depth to recurse into its children
+        const activeAtDepth = WorkspaceManager.getActiveAtDepth(depth)
+        if (activeAtDepth) {
+            // Check if this workspace has children
+            const children = WorkspaceManager.getChildren(activeAtDepth.id)
+            if (children.length > 0) {
+                this.renderTabBarsRecursive(activeAtDepth.id, depth + 1)
+            }
         }
     }
 
     /**
      * Create a tab bar element.
+     * @param {number} depth - Depth level (0 for root workspaces)
+     * @param {number|null} parentId - Parent workspace ID for this bar's workspaces
      */
-    createTabBar(level) {
+    createTabBar(depth, parentId) {
         const tabBar = document.createElement('div')
-        tabBar.className = `workspace-tab-bar workspace-tab-bar-${level}`
-        tabBar.dataset.level = level
+        tabBar.className = 'workspace-tab-bar'
+        if (depth > 0) {
+            tabBar.classList.add('workspace-tab-bar-nested')
+        }
+        tabBar.dataset.depth = depth
+        if (parentId !== null) {
+            tabBar.dataset.parentId = parentId
+        }
         tabBar.innerHTML = `
             <div class="workspace-tabs-container"></div>
-            <button class="workspace-tab-add" title="New ${level === 'workspace' ? 'Workspace' : 'Layer'}">+</button>
+            <button class="workspace-tab-add" title="New Workspace">+</button>
         `
 
         const addBtn = tabBar.querySelector('.workspace-tab-add')
         addBtn.addEventListener('click', () => {
-            if (level === 'workspace') {
-                this.createNewWorkspace()
-            } else {
-                this.createNewLayer()
-            }
+            this.createNewWorkspace(parentId)
         })
 
         return tabBar
     }
 
     /**
-     * Render workspace tabs.
+     * Render workspace tabs in a tab bar.
+     * @param {Array} workspaces - Workspaces to render at this depth
+     * @param {HTMLElement} tabBar - The tab bar element
+     * @param {number} depth - Depth level
      */
-    renderWorkspaceTabs() {
-        const container = this.workspaceBarEl.querySelector('.workspace-tabs-container')
+    renderTabs(workspaces, tabBar, depth) {
+        const container = tabBar.querySelector('.workspace-tabs-container')
         container.innerHTML = ''
 
-        WorkspaceManager.workspaces.forEach(workspace => {
-            const tab = this.createWorkspaceTab(workspace)
-            container.appendChild(tab)
-        })
-    }
-
-    /**
-     * Render layer tabs for a workspace.
-     */
-    renderLayerTabs(workspace) {
-        if (!this.layerBarEl) return
-
-        const container = this.layerBarEl.querySelector('.workspace-tabs-container')
-        container.innerHTML = ''
-
-        workspace.layers.forEach(layer => {
-            const tab = this.createLayerTab(layer, workspace)
+        workspaces.forEach(workspace => {
+            const tab = this.createTab(workspace, depth)
             container.appendChild(tab)
         })
     }
 
     /**
      * Create a single workspace tab element.
+     * @param {object} workspace - The workspace object
+     * @param {number} depth - Depth level
      */
-    createWorkspaceTab(workspace) {
-        const isActive = workspace.id === WorkspaceManager.activeWorkspaceId
+    createTab(workspace, depth) {
+        // Workspace is active if it's in the activePath at this depth
+        const isActive = WorkspaceManager.activePath[depth] === workspace.id
 
         const tab = document.createElement('div')
         tab.className = `workspace-tab ${isActive ? 'active' : ''}`
         tab.dataset.workspaceId = workspace.id
+        tab.dataset.depth = depth
 
         tab.innerHTML = `
             <span class="workspace-tab-name">${workspace.name}</span>
@@ -161,53 +174,14 @@ class WorkspaceTabBar {
         const nameEl = tab.querySelector('.workspace-tab-name')
         nameEl.addEventListener('dblclick', (e) => {
             e.stopPropagation()
-            this.startRenaming(nameEl, workspace, 'workspace')
+            this.startRenaming(nameEl, workspace)
         })
 
         // Right-click context menu
         tab.addEventListener('contextmenu', (e) => {
             e.preventDefault()
             e.stopPropagation()
-            this.showContextMenu(workspace, null, e.clientX, e.clientY, 'workspace')
-        })
-
-        return tab
-    }
-
-    /**
-     * Create a single layer tab element.
-     */
-    createLayerTab(layer, workspace) {
-        const isActive = layer.id === workspace.activeLayerId
-
-        const tab = document.createElement('div')
-        tab.className = `workspace-tab workspace-tab-layer ${isActive ? 'active' : ''}`
-        tab.dataset.layerId = layer.id
-
-        tab.innerHTML = `
-            <span class="workspace-tab-name">${layer.name}</span>
-        `
-
-        // Click to switch layer
-        tab.addEventListener('click', (e) => {
-            if (e.target.classList.contains('workspace-tab-name') &&
-                e.target.getAttribute('contenteditable') === 'true') return
-
-            this.switchToLayer(workspace.id, layer.id)
-        })
-
-        // Double-click to rename
-        const nameEl = tab.querySelector('.workspace-tab-name')
-        nameEl.addEventListener('dblclick', (e) => {
-            e.stopPropagation()
-            this.startRenaming(nameEl, layer, 'layer')
-        })
-
-        // Right-click context menu
-        tab.addEventListener('contextmenu', (e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            this.showContextMenu(workspace, layer, e.clientX, e.clientY, 'layer')
+            this.showContextMenu(workspace, e.clientX, e.clientY)
         })
 
         return tab
@@ -215,47 +189,21 @@ class WorkspaceTabBar {
 
     /**
      * Switch to a different workspace.
+     * If already active, clicking again hides child workspaces.
      */
     switchToWorkspace(workspaceId) {
-        if (WorkspaceManager.activeWorkspaceId === workspaceId) return
-
-        SNode.setCurrentWorkspace(workspaceId)
-        this.render()
-        window.markDirty()
-    }
-
-    /**
-     * Switch to a different layer.
-     */
-    switchToLayer(workspaceId, layerId) {
-        const ws = WorkspaceManager.workspaces.get(workspaceId)
-        if (!ws || ws.activeLayerId === layerId) return
-
-        WorkspaceManager.setActiveLayer(workspaceId, layerId)
+        WorkspaceManager.setActive(workspaceId)
         SNode.updateVisibility()
         this.render()
         window.markDirty()
     }
 
     /**
-     * Create a new workspace and switch to it.
+     * Create a new workspace at a specific level.
+     * @param {number|null} parentId - Parent workspace ID (null for root)
      */
-    createNewWorkspace() {
-        const workspace = WorkspaceManager.createWorkspace()
-        SNode.setCurrentWorkspace(workspace.id)
-        this.render()
-        window.markDirty()
-    }
-
-    /**
-     * Create a new layer in the active workspace.
-     */
-    createNewLayer() {
-        const activeWs = WorkspaceManager.getActiveWorkspace()
-        if (!activeWs) return
-
-        const layer = WorkspaceManager.createLayer(activeWs)
-        WorkspaceManager.setActiveLayer(activeWs.id, layer.id)
+    createNewWorkspace(parentId) {
+        const workspace = WorkspaceManager.create(null, parentId)
         SNode.updateVisibility()
         this.render()
         window.markDirty()
@@ -264,7 +212,7 @@ class WorkspaceTabBar {
     /**
      * Start inline renaming.
      */
-    startRenaming(nameEl, item, type) {
+    startRenaming(nameEl, workspace) {
         nameEl.contentEditable = 'true'
         nameEl.focus()
 
@@ -278,11 +226,11 @@ class WorkspaceTabBar {
         const finishRename = () => {
             nameEl.contentEditable = 'false'
             const newName = nameEl.textContent.trim()
-            if (newName && newName !== item.name) {
-                item.name = newName
+            if (newName && newName !== workspace.name) {
+                WorkspaceManager.rename(workspace.id, newName)
                 window.markDirty()
             } else {
-                nameEl.textContent = item.name
+                nameEl.textContent = workspace.name
             }
         }
 
@@ -293,7 +241,7 @@ class WorkspaceTabBar {
                 nameEl.blur()
             }
             if (e.key === 'Escape') {
-                nameEl.textContent = item.name
+                nameEl.textContent = workspace.name
                 nameEl.blur()
             }
         })
@@ -315,7 +263,7 @@ class WorkspaceTabBar {
     /**
      * Show context menu for a tab.
      */
-    showContextMenu(workspace, layer, x, y, type) {
+    showContextMenu(workspace, x, y) {
         // Remove existing menu
         const existing = document.getElementById('workspace-tab-context-menu')
         if (existing) existing.remove()
@@ -325,37 +273,46 @@ class WorkspaceTabBar {
         menu.className = 'node-context-menu'
         menu.style.cssText = `position: fixed; left: ${x}px; top: ${y}px; z-index: 10000;`
 
-        const items = []
+        // Get siblings for delete check
+        const siblings = WorkspaceManager.getSiblings(workspace.id)
+        // Can delete if:
+        // 1. Has siblings (another workspace at same level to switch to), OR
+        // 2. Has a parent (this is a child workspace, parent remains after deletion)
+        // Cannot delete the ONLY root workspace (no siblings and no parent)
+        const isOnlyRootWorkspace = workspace.parentId === null && siblings.length === 0
+        const canDelete = !isOnlyRootWorkspace
 
-        if (type === 'workspace') {
-            const canDelete = WorkspaceManager.workspaces.size > 1
-
-            items.push({
+        const items = [
+            {
                 label: 'Rename',
                 icon: '✏️',
                 action: () => {
                     menu.remove()
-                    const tab = this.workspaceBarEl.querySelector(`[data-workspace-id="${workspace.id}"]`)
+                    // Find the tab
+                    let tab = null
+                    for (const bar of this.tabBars) {
+                        tab = bar.querySelector(`[data-workspace-id="${workspace.id}"]`)
+                        if (tab) break
+                    }
                     const nameEl = tab?.querySelector('.workspace-tab-name')
-                    if (nameEl) this.startRenaming(nameEl, workspace, 'workspace')
+                    if (nameEl) this.startRenaming(nameEl, workspace)
                 }
-            })
-
-            items.push({
-                label: 'Add Layer',
+            },
+            {
+                label: 'Add Workspace',
                 icon: '➕',
                 action: () => {
                     menu.remove()
-                    // Switch to this workspace first
-                    if (WorkspaceManager.activeWorkspaceId !== workspace.id) {
-                        SNode.setCurrentWorkspace(workspace.id)
+                    // Switch to this workspace first if needed
+                    if (!WorkspaceManager.activePath.includes(workspace.id)) {
+                        WorkspaceManager.setActive(workspace.id)
                     }
-                    this.createNewLayer()
+                    // Create child workspace
+                    this.createNewWorkspace(workspace.id)
                 }
-            })
-
-            items.push({
-                label: 'Delete Workspace',
+            },
+            {
+                label: 'Delete',
                 icon: '🗑️',
                 disabled: !canDelete,
                 action: () => {
@@ -364,42 +321,8 @@ class WorkspaceTabBar {
                         this.deleteWorkspace(workspace)
                     }
                 }
-            })
-        } else if (type === 'layer') {
-            const canDelete = workspace.layers.size > 1
-
-            items.push({
-                label: 'Rename',
-                icon: '✏️',
-                action: () => {
-                    menu.remove()
-                    const tab = this.layerBarEl?.querySelector(`[data-layer-id="${layer.id}"]`)
-                    const nameEl = tab?.querySelector('.workspace-tab-name')
-                    if (nameEl) this.startRenaming(nameEl, layer, 'layer')
-                }
-            })
-
-            items.push({
-                label: 'Add Layer',
-                icon: '➕',
-                action: () => {
-                    menu.remove()
-                    this.createNewLayer()
-                }
-            })
-
-            items.push({
-                label: 'Delete Layer',
-                icon: '🗑️',
-                disabled: !canDelete,
-                action: () => {
-                    menu.remove()
-                    if (canDelete) {
-                        this.deleteLayer(workspace, layer)
-                    }
-                }
-            })
-        }
+            }
+        ]
 
         items.forEach(item => {
             const menuItem = document.createElement('div')
@@ -426,79 +349,170 @@ class WorkspaceTabBar {
     }
 
     /**
-     * Delete a layer.
+     * Delete a workspace with a proper modal dialog.
+     * Offers choice to promote nodes to parent or delete them.
      */
-    deleteLayer(workspace, layer) {
-        if (workspace.layers.size <= 1) return
+    deleteWorkspace(workspace) {
+        // Collect all workspaces being deleted (this workspace and descendants)
+        const workspacesToDelete = new Set()
+        const collectDescendants = (wsId) => {
+            workspacesToDelete.add(wsId)
+            WorkspaceManager.getChildren(wsId).forEach(child => {
+                collectDescendants(child.id)
+            })
+        }
+        collectDescendants(workspace.id)
 
-        // Handle nodes on this layer
-        const nodesOnLayer = SNode.getNodesOnLayer(workspace.id, layer.id)
-        const remainingLayerIds = [...workspace.layers.keys()].filter(id => id !== layer.id)
-
-        if (remainingLayerIds.length === 0) return
-
-        const targetLayerId = remainingLayerIds[0]
-
-        nodesOnLayer.forEach(node => {
-            // If node is ONLY on this layer, move to target
-            if (node.layerVisibility.size === 1) {
-                node.layerVisibility.clear()
-                node.layerVisibility.add(targetLayerId)
-            } else {
-                // Just remove from this layer
-                node.layerVisibility.delete(layer.id)
+        // Find nodes that would be orphaned (ONLY on deleted workspaces, not also on others)
+        const orphanedNodes = [...SNode.nodes].filter(node => {
+            if (!node.workspaceVisibility) return false
+            // Check if ALL of the node's workspaces are being deleted
+            for (const wsId of node.workspaceVisibility) {
+                if (!workspacesToDelete.has(wsId)) {
+                    return false // Node is also on a non-deleted workspace
+                }
             }
+            return true // All workspaces are being deleted
         })
 
-        // Delete the layer
-        WorkspaceManager.deleteLayer(workspace, layer.id)
-        SNode.updateVisibility()
-        this.render()
-        window.markDirty()
+        const hasParent = workspace.parentId !== null
+        const parentWs = hasParent ? WorkspaceManager.workspaces.get(workspace.parentId) : null
+
+        // If no orphaned nodes, just delete
+        if (orphanedNodes.length === 0) {
+            this.executeWorkspaceDeletion(workspace, workspacesToDelete, [], 'none')
+            return
+        }
+
+        // Show modal for user choice
+        this.showDeleteModal(workspace, workspacesToDelete, orphanedNodes, hasParent, parentWs)
     }
 
     /**
-     * Delete a workspace with confirmation.
+     * Show modal dialog for workspace deletion options.
      */
-    deleteWorkspace(workspace) {
-        if (WorkspaceManager.workspaces.size <= 1) return
+    showDeleteModal(workspace, workspacesToDelete, orphanedNodes, hasParent, parentWs) {
+        const existing = document.getElementById('workspace-delete-modal')
+        if (existing) existing.remove()
 
-        // Check for nodes and mixer assignments
-        const nodesInWorkspace = SNode.getNodesInWorkspace(workspace.id)
-        const hasAssignedOutput = nodesInWorkspace.some(node =>
-            masterMixer.channelA === node || masterMixer.channelB === node
-        )
+        const modal = document.createElement('div')
+        modal.id = 'workspace-delete-modal'
+        modal.className = 'workspace-delete-modal'
 
-        let confirmMsg = `Delete workspace "${workspace.name}"?`
-        if (nodesInWorkspace.length > 0) {
-            confirmMsg += `\n\nThis will delete ${nodesInWorkspace.length} node(s).`
+        const childCount = workspacesToDelete.size - 1
+        const childText = childCount > 0 ? ` and ${childCount} child workspace${childCount > 1 ? 's' : ''}` : ''
+
+        modal.innerHTML = `
+            <div class="workspace-delete-modal-content">
+                <h3>Delete "${workspace.name}"${childText}?</h3>
+                <p><strong>${orphanedNodes.length}</strong> node${orphanedNodes.length > 1 ? 's' : ''} will be orphaned.</p>
+                <div class="workspace-delete-modal-buttons">
+                    ${hasParent ? `
+                        <button class="modal-btn promote-btn">
+                            <strong>Move to "${parentWs.name}"</strong>
+                            <span class="modal-btn-desc">Promote nodes to parent workspace</span>
+                        </button>
+                    ` : ''}
+                    <button class="modal-btn delete-btn">
+                        <strong>Delete nodes</strong>
+                        <span class="modal-btn-desc">Permanently remove ${orphanedNodes.length} node${orphanedNodes.length > 1 ? 's' : ''}</span>
+                    </button>
+                    <button class="modal-btn cancel-btn">Cancel</button>
+                </div>
+            </div>
+        `
+
+        document.body.appendChild(modal)
+
+        // Event handlers
+        const promoteBtn = modal.querySelector('.promote-btn')
+        const deleteBtn = modal.querySelector('.delete-btn')
+        const cancelBtn = modal.querySelector('.cancel-btn')
+
+        if (promoteBtn) {
+            promoteBtn.addEventListener('click', () => {
+                modal.remove()
+                this.executeWorkspaceDeletion(workspace, workspacesToDelete, orphanedNodes, 'promote')
+            })
         }
-        if (hasAssignedOutput) {
-            confirmMsg += '\n\nWarning: This workspace has outputs assigned to the mixer.'
-        }
 
-        if (!confirm(confirmMsg)) return
+        deleteBtn.addEventListener('click', () => {
+            modal.remove()
+            this.executeWorkspaceDeletion(workspace, workspacesToDelete, orphanedNodes, 'delete')
+        })
 
-        // Clear mixer assignments for nodes in this workspace
-        nodesInWorkspace.forEach(node => {
-            if (masterMixer.channelA === node) {
-                masterMixer.assignToChannelA(null)
-                masterMixerUI.updateChannelStatus('A', null)
-            }
-            if (masterMixer.channelB === node) {
-                masterMixer.assignToChannelB(null)
-                masterMixerUI.updateChannelStatus('B', null)
+        cancelBtn.addEventListener('click', () => {
+            modal.remove()
+        })
+
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove()
             }
         })
 
-        // Destroy all nodes in this workspace
-        nodesInWorkspace.forEach(node => node.destroy())
+        // Close on Escape
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                modal.remove()
+                document.removeEventListener('keydown', handleEscape)
+            }
+        }
+        document.addEventListener('keydown', handleEscape)
+    }
+
+    /**
+     * Execute the workspace deletion with the chosen action for orphaned nodes.
+     * @param {object} workspace - The workspace to delete
+     * @param {Set} workspacesToDelete - All workspace IDs being deleted
+     * @param {Array} orphanedNodes - Nodes that will be orphaned
+     * @param {string} action - 'promote', 'delete', or 'none'
+     */
+    executeWorkspaceDeletion(workspace, workspacesToDelete, orphanedNodes, action) {
+        // Handle orphaned nodes based on user choice
+        if (action === 'promote' && workspace.parentId !== null) {
+            orphanedNodes.forEach(node => {
+                // Remove from deleted workspaces
+                for (const deletedId of workspacesToDelete) {
+                    node.workspaceVisibility.delete(deletedId)
+                }
+                // Add to parent
+                node.workspaceVisibility.add(workspace.parentId)
+            })
+        } else if (action === 'delete') {
+            orphanedNodes.forEach(node => {
+                // Clear mixer assignments first
+                if (masterMixer.channelA === node) {
+                    masterMixer.assignToChannelA(null)
+                    masterMixerUI.updateChannelStatus('A', null)
+                }
+                if (masterMixer.channelB === node) {
+                    masterMixer.assignToChannelB(null)
+                    masterMixerUI.updateChannelStatus('B', null)
+                }
+                node.destroy()
+            })
+        }
+
+        // For nodes that are on both deleted and non-deleted workspaces,
+        // just remove the deleted workspace IDs
+        const nonOrphanedAffectedNodes = [...SNode.nodes].filter(node => {
+            if (!node.workspaceVisibility) return false
+            const isOnDeletedWs = [...node.workspaceVisibility].some(wsId => workspacesToDelete.has(wsId))
+            const isOnOtherWs = [...node.workspaceVisibility].some(wsId => !workspacesToDelete.has(wsId))
+            return isOnDeletedWs && isOnOtherWs
+        })
+
+        nonOrphanedAffectedNodes.forEach(node => {
+            for (const deletedId of workspacesToDelete) {
+                node.workspaceVisibility.delete(deletedId)
+            }
+        })
 
         // Delete workspace
-        WorkspaceManager.deleteWorkspace(workspace.id)
-
-        // Switch to remaining workspace
-        SNode.setCurrentWorkspace(WorkspaceManager.activeWorkspaceId)
+        WorkspaceManager.delete(workspace.id)
+        SNode.updateVisibility()
         this.render()
         window.markDirty()
     }

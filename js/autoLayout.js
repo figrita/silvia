@@ -8,7 +8,7 @@ import { Connection } from './connections.js'
  * Uses topological ranking to organize nodes into columns
  */
 export function autoLayoutNodes() {
-    const nodes = SNode.getNodesInCurrentWorkspace()
+    const nodes = SNode.getVisibleNodes()
     if (nodes.length === 0) return
 
     const VERTICAL_MARGIN = 50
