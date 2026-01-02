@@ -29,6 +29,8 @@ import { themeManager } from './js/themeManager.js'
 import { AssetManager } from './js/assetManager.js'
 import { masterMixer } from './js/masterMixer.js'
 import { masterMixerUI } from './js/masterMixerUI.js'
+import { WorkspaceManager } from './js/workspaceManager.js'
+import { workspaceTabBar } from './js/workspaceTabBar.js'
 
 // Global dirty tracking
 window.isDirty = false
@@ -69,169 +71,271 @@ function onWindowResize() {
     })
 }
 
-// --- Workspace Save Functions ---
-const WORKSPACE_SAVE_KEYS = {
+// --- Session Save/Load Functions ---
+const SESSION_STORAGE_KEY = 'silvia_session'
+const SESSION_FILENAME = 'session'
+
+// Legacy keys for migration
+const LEGACY_WORKSPACE_KEYS = {
     1: 'silvia_workspace_1',
     2: 'silvia_workspace_2'
 }
-const WORKSPACE_SAVE_FILENAMES = {
+const LEGACY_WORKSPACE_FILENAMES = {
     1: 'workspace_1',
     2: 'workspace_2'
 }
 
-
-function isWorkspaceEmpty(workspaceNumber) {
-    const currentWorkspace = SNode.currentWorkspace
-    SNode.currentWorkspace = workspaceNumber
-    const nodes = SNode.getNodesInCurrentWorkspace()
-    SNode.currentWorkspace = currentWorkspace
+/**
+ * Check if a workspace has any nodes.
+ */
+function isWorkspaceEmpty(workspaceId) {
+    const nodes = SNode.getNodesInWorkspace(workspaceId)
     return nodes.length === 0
 }
 
-async function saveWorkspace(workspaceNumber) {
-    try {
-        // Delete if workspace is empty
-        if (isWorkspaceEmpty(workspaceNumber)) {
-            console.log(`Workspace ${workspaceNumber} is empty, deleting saved workspace`)
+/**
+ * Serialize the entire session (all workspaces with their nodes and connections).
+ */
+function serializeSession() {
+    const session = {
+        version: '0.3.0',
+        ...WorkspaceManager.serializeSession(),
+        workspaces: []
+    }
 
-            const storageKey = WORKSPACE_SAVE_KEYS[workspaceNumber]
-            const filename = `${WORKSPACE_SAVE_FILENAMES[workspaceNumber]}.svs`
-
-            if (window.electronAPI) {
-                try {
-                    await window.electronAPI.deletePatchFile(filename)
-                } catch (error) {
-                    // File might not exist, that's fine
-                }
-            }
-            localStorage.removeItem(storageKey)
-
-            window.markClean()
-            return true
-        }
-
-        // Temporarily switch to the workspace we want to save
-        const originalWorkspace = SNode.currentWorkspace
-        SNode.currentWorkspace = workspaceNumber
+    // Serialize each workspace with its nodes and connections
+    for (const ws of WorkspaceManager.workspaces.values()) {
+        const originalActiveWsId = WorkspaceManager.activeWorkspaceId
+        WorkspaceManager.activeWorkspaceId = ws.id
 
         const patch = serializeWorkspace()
 
-        // Restore original workspace
-        SNode.currentWorkspace = originalWorkspace
-
-        // Add save metadata with formatted datetime
-        const now = new Date()
-        const formattedDateTime = now.toLocaleString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        })
-
-        patch.meta = {
-            name: `Workspace ${workspaceNumber}`,
-            description: `Saved workspace ${workspaceNumber} on ${formattedDateTime}`,
-            author: 'System',
-            timestamp: now.toISOString(),
-            workspace: workspaceNumber
+        // Add workspace metadata
+        const wsData = {
+            ...WorkspaceManager.serializeWorkspace(ws),
+            nodes: patch.nodes,
+            connections: patch.connections,
+            editorWidth: patch.editorWidth
         }
 
-        // Add version number to workspace save
-        addVersionToPatch(patch)
+        session.workspaces.push(wsData)
+        WorkspaceManager.activeWorkspaceId = originalActiveWsId
+    }
 
-        const storageKey = WORKSPACE_SAVE_KEYS[workspaceNumber]
-        const filename = WORKSPACE_SAVE_FILENAMES[workspaceNumber]
+    // Add save metadata
+    const now = new Date()
+    session.savedAt = now.toISOString()
+
+    return session
+}
+
+/**
+ * Save the entire session to storage.
+ */
+async function saveSession() {
+    try {
+        const session = serializeSession()
+        const sessionJson = JSON.stringify(session)
 
         // Check if running in Electron mode
         if (typeof window !== 'undefined' && window.electronAPI) {
             try {
-                await window.electronAPI.savePatchFile(patch, filename)
-                console.log(`Saved workspace ${workspaceNumber} to file`)
+                await window.electronAPI.savePatchFile(session, SESSION_FILENAME)
+                console.log('Session saved to file')
             } catch (error) {
-                console.warn(`Could not save workspace ${workspaceNumber} to file, falling back to localStorage:`, error)
-                localStorage.setItem(storageKey, JSON.stringify(patch))
+                console.warn('Could not save session to file, falling back to localStorage:', error)
+                localStorage.setItem(SESSION_STORAGE_KEY, sessionJson)
             }
         } else {
             // Web mode: use localStorage
-            localStorage.setItem(storageKey, JSON.stringify(patch))
+            localStorage.setItem(SESSION_STORAGE_KEY, sessionJson)
         }
+
         window.markClean()
         return true
     } catch (e) {
-        console.warn(`Could not save workspace ${workspaceNumber}:`, e)
+        console.error('Could not save session:', e)
         return false
     }
 }
 
-async function loadWorkspaceSave(workspaceNumber) {
+/**
+ * Load the session from storage.
+ */
+async function loadSession() {
     try {
-        const storageKey = WORKSPACE_SAVE_KEYS[workspaceNumber]
-        const filename = `${WORKSPACE_SAVE_FILENAMES[workspaceNumber]}.svs`
+        let sessionData = null
 
         // Check if running in Electron mode
         if (typeof window !== 'undefined' && window.electronAPI) {
             try {
-                const patchData = await window.electronAPI.loadPatchFile(filename)
-                // Switch to target workspace and load
-                SNode.setCurrentWorkspace(workspaceNumber)
-                deserializeWorkspace(patchData)
-                window.markClean()
-                console.log(`Restored workspace ${workspaceNumber} from file`)
-                return true
+                sessionData = await window.electronAPI.loadPatchFile(`${SESSION_FILENAME}.svs`)
+                console.log('Session loaded from file')
             } catch (error) {
-                console.log(`No saved file found for workspace ${workspaceNumber}, checking localStorage`)
-                // Fall back to localStorage if file doesn't exist
+                console.log('No saved session file found, checking localStorage')
             }
         }
 
-        // Web mode or fallback: use localStorage
-        const saveData = localStorage.getItem(storageKey)
-        if (saveData) {
-            const patch = JSON.parse(saveData)
-            // Switch to target workspace and load
-            SNode.setCurrentWorkspace(workspaceNumber)
-            deserializeWorkspace(patch)
+        // Fall back to localStorage
+        if (!sessionData) {
+            const saveData = localStorage.getItem(SESSION_STORAGE_KEY)
+            if (saveData) {
+                sessionData = JSON.parse(saveData)
+                console.log('Session loaded from localStorage')
+            }
+        }
+
+        if (sessionData && sessionData.workspaces && sessionData.workspaces.length > 0) {
+            // Restore WorkspaceManager state
+            WorkspaceManager.workspaces.clear()
+            WorkspaceManager.nextWorkspaceId = sessionData.nextWorkspaceId || 1
+            WorkspaceManager.activeWorkspaceId = sessionData.activeWorkspaceId
+
+            // Create workspaces first (without nodes)
+            for (const wsData of sessionData.workspaces) {
+                const workspace = WorkspaceManager.deserializeWorkspace(wsData)
+                WorkspaceManager.workspaces.set(workspace.id, workspace)
+
+                // Track next workspace ID
+                if (workspace.id >= WorkspaceManager.nextWorkspaceId) {
+                    WorkspaceManager.nextWorkspaceId = workspace.id + 1
+                }
+            }
+
+            // Ensure activeWorkspaceId is valid
+            if (!WorkspaceManager.workspaces.has(WorkspaceManager.activeWorkspaceId)) {
+                WorkspaceManager.activeWorkspaceId = WorkspaceManager.workspaces.keys().next().value
+            }
+
+            // Now load nodes and connections for each workspace
+            for (const wsData of sessionData.workspaces) {
+                WorkspaceManager.activeWorkspaceId = wsData.id
+
+                // Deserialize workspace content
+                if (wsData.nodes && wsData.nodes.length > 0) {
+                    deserializeWorkspace({
+                        nodes: wsData.nodes,
+                        connections: wsData.connections || [],
+                        workspace: wsData,
+                        editorWidth: wsData.editorWidth
+                    }, true) // Clear before loading (shouldn't have anything yet)
+                }
+            }
+
+            // Restore active workspace
+            WorkspaceManager.activeWorkspaceId = sessionData.activeWorkspaceId
+            if (!WorkspaceManager.workspaces.has(WorkspaceManager.activeWorkspaceId)) {
+                WorkspaceManager.activeWorkspaceId = WorkspaceManager.workspaces.keys().next().value
+            }
+
+            SNode.updateVisibility()
             window.markClean()
-            console.log(`Restored workspace ${workspaceNumber} from localStorage`)
             return true
         }
     } catch (e) {
-        console.warn(`Could not load workspace save for workspace ${workspaceNumber}:`, e)
-        if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem(WORKSPACE_SAVE_KEYS[workspaceNumber])
-        }
+        console.warn('Could not load session:', e)
     }
     return false
 }
 
-async function saveAllWorkspaces() {
-    console.log('Saving all workspaces...')
-    const results = await Promise.all([
-        saveWorkspace(1),
-        saveWorkspace(2)
-    ])
-    const success = results.every(result => result)
-    return success
+/**
+ * Migrate from old workspace_1/workspace_2 format to new session format.
+ */
+async function migrateFromLegacyFormat() {
+    console.log('Checking for legacy workspace format...')
+
+    let migrated = false
+
+    for (const [wsNum, storageKey] of Object.entries(LEGACY_WORKSPACE_KEYS)) {
+        let legacyData = null
+
+        // Try to load from Electron file first
+        if (typeof window !== 'undefined' && window.electronAPI) {
+            try {
+                const filename = `${LEGACY_WORKSPACE_FILENAMES[wsNum]}.svs`
+                legacyData = await window.electronAPI.loadPatchFile(filename)
+                console.log(`Found legacy file: ${filename}`)
+            } catch (error) {
+                // File doesn't exist, try localStorage
+            }
+        }
+
+        // Fall back to localStorage
+        if (!legacyData) {
+            const saveData = localStorage.getItem(storageKey)
+            if (saveData) {
+                legacyData = JSON.parse(saveData)
+                console.log(`Found legacy localStorage: ${storageKey}`)
+            }
+        }
+
+        if (legacyData && legacyData.nodes && legacyData.nodes.length > 0) {
+            // Create a new workspace for this legacy data
+            const workspace = WorkspaceManager.createWorkspace(`Workspace ${wsNum}`)
+
+            // Load the legacy data into this workspace
+            WorkspaceManager.activeWorkspaceId = workspace.id
+            deserializeWorkspace(legacyData, true)
+
+            migrated = true
+            console.log(`Migrated legacy workspace ${wsNum} to new format`)
+        }
+    }
+
+    if (migrated) {
+        // Switch to first workspace
+        const firstWsId = WorkspaceManager.workspaces.keys().next().value
+        WorkspaceManager.activeWorkspaceId = firstWsId
+        SNode.updateVisibility()
+
+        // Save in new format
+        await saveSession()
+        console.log('Migration complete, saved in new session format')
+
+        // Clean up legacy storage (but leave files for safety)
+        for (const storageKey of Object.values(LEGACY_WORKSPACE_KEYS)) {
+            localStorage.removeItem(storageKey)
+        }
+
+        return true
+    }
+
+    return false
 }
 
+/**
+ * Load all workspaces - tries new format first, then migrates from legacy.
+ */
 async function loadAllWorkspaces() {
-    // Load workspace 1 first
-    const loaded1 = await loadWorkspaceSave(1)
+    // Try new session format first
+    const loaded = await loadSession()
+    if (loaded) {
+        return true
+    }
 
-    // Load workspace 2
-    const loaded2 = await loadWorkspaceSave(2)
+    // Try to migrate from legacy format
+    const migrated = await migrateFromLegacyFormat()
+    if (migrated) {
+        return true
+    }
 
-    // Switch back to workspace 1 as default
-    SNode.setCurrentWorkspace(1)
+    return false
+}
 
-    return loaded1 || loaded2
+/**
+ * Save all workspaces using the new session format.
+ */
+async function saveAllWorkspaces() {
+    console.log('Saving session...')
+    return await saveSession()
 }
 
 
 // Initialize after DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
+    // 0. Initialize WorkspaceManager FIRST (before any nodes can be created)
+    WorkspaceManager.init()
+
     // 1. Initialize theme system (required for CSS variables)
     themeManager.applyTheme()
 
@@ -257,15 +361,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
     }
 
-    // 5. Setup workspace toggle functionality
-    const workspaceToggleBtn = document.getElementById('workspace-toggle-btn')
-    if (workspaceToggleBtn) {
-        workspaceToggleBtn.addEventListener('click', () => {
-            const newWorkspace = SNode.currentWorkspace === 1 ? 2 : 1
-            SNode.setCurrentWorkspace(newWorkspace)
-            workspaceToggleBtn.textContent = `Workspace ${newWorkspace}`
-        })
-    }
+    // 5. Initialize workspace tab bar
+    workspaceTabBar.init()
+    window.workspaceTabBar = workspaceTabBar // Expose for load.js
 
     // Setup save workspaces button
     const saveWorkspacesBtn = document.getElementById('save-workspaces-btn')
@@ -423,8 +521,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.markClean()
     }
 
-    // Ensure initial workspace visibility is correct
-    SNode.updateWorkspaceVisibility()
+    // Ensure initial workspace/layer visibility is correct
+    SNode.updateVisibility()
+
+    // Re-render the tab bar after session load (in case workspaces were loaded)
+    workspaceTabBar.render()
 
     // 8. Start the global render loop
     renderLoop(0)
@@ -463,10 +564,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 11. Global key handlers for system functions
     document.addEventListener('keydown', (e) => {
+        const activeEl = document.activeElement
+        const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.contentEditable === 'true')
+
         if (e.key === 'Escape') {
             // Blur any focused input/textarea elements
-            const activeEl = document.activeElement
-            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+            if (isTyping) {
                 activeEl.blur()
             }
 
@@ -474,15 +577,65 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.dispatchEvent(new CustomEvent('escape-pressed'))
         }
 
-        if (e.key === 'p' || e.key === 'P') {
-            // Only dispatch if not typing in an input field
-            const activeEl = document.activeElement
-            if (!activeEl || (activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
-                // Dispatch custom event for putting down dragging nodes
-                document.dispatchEvent(new CustomEvent('p-key-pressed'))
-            }
+        if ((e.key === 'p' || e.key === 'P') && !isTyping) {
+            // Dispatch custom event for putting down dragging nodes
+            document.dispatchEvent(new CustomEvent('p-key-pressed'))
         }
 
+        // Workspace/Layer keyboard shortcuts (only when not typing)
+        if (!isTyping) {
+            // Ctrl+T: New workspace
+            if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+                e.preventDefault()
+                workspaceTabBar.createNewWorkspace()
+            }
+
+            // Ctrl+W: Close workspace (with confirmation)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
+                e.preventDefault()
+                const activeWs = WorkspaceManager.getActiveWorkspace()
+                if (activeWs && WorkspaceManager.workspaces.size > 1) {
+                    workspaceTabBar.deleteWorkspace(activeWs)
+                }
+            }
+
+            // Ctrl+L: New layer
+            if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+                e.preventDefault()
+                const activeWs = WorkspaceManager.getActiveWorkspace()
+                if (activeWs) {
+                    WorkspaceManager.createLayer(activeWs)
+                    workspaceTabBar.render()
+                    window.markDirty()
+                }
+            }
+
+            // Ctrl+1-9: Switch to workspace 1-9
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key >= '1' && e.key <= '9') {
+                e.preventDefault()
+                const wsIndex = parseInt(e.key) - 1
+                const wsIds = [...WorkspaceManager.workspaces.keys()]
+                if (wsIndex < wsIds.length) {
+                    SNode.setCurrentWorkspace(wsIds[wsIndex])
+                    workspaceTabBar.render()
+                }
+            }
+
+            // Ctrl+Shift+1-9: Switch to layer 1-9
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key >= '1' && e.key <= '9') {
+                e.preventDefault()
+                const layerIndex = parseInt(e.key) - 1
+                const activeWs = WorkspaceManager.getActiveWorkspace()
+                if (activeWs) {
+                    const layerIds = [...activeWs.layers.keys()]
+                    if (layerIndex < layerIds.length) {
+                        WorkspaceManager.setActiveLayer(activeWs.id, layerIds[layerIndex])
+                        SNode.updateVisibility()
+                        workspaceTabBar.render()
+                    }
+                }
+            }
+        }
     })
 
     // 12. Add global dirty tracking for control changes
@@ -568,7 +721,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Populate modal content
         const workspaceEl = document.getElementById('close-current-workspace')
-        workspaceEl.textContent = `Workspace ${SNode.currentWorkspace}`
+        const ws = WorkspaceManager.getActiveWorkspace()
+        workspaceEl.textContent = ws?.name || 'Workspace'
 
         modal.style.display = 'flex'
 

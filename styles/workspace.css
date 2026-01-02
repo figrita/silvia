@@ -110,3 +110,191 @@
     transform: none;
     pointer-events: none;
 }
+
+/* ===== WORKSPACE TAB CONTAINER ===== */
+.workspace-tab-container {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+/* ===== WORKSPACE TAB BAR ===== */
+.workspace-tab-bar {
+    display: flex;
+    align-items: center;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-normal);
+    padding: 4px 8px;
+    gap: 4px;
+    min-height: 32px;
+    flex-shrink: 0;
+}
+
+/* Layer bar is slightly indented and has different styling */
+.workspace-tab-bar-layer {
+    background: var(--bg-secondary);
+    padding-left: 16px;
+    min-height: 28px;
+}
+
+.workspace-tabs-container {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-normal) transparent;
+}
+
+.workspace-tabs-container::-webkit-scrollbar {
+    height: 4px;
+}
+
+.workspace-tabs-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.workspace-tabs-container::-webkit-scrollbar-thumb {
+    background: var(--border-normal);
+    border-radius: 2px;
+}
+
+/* Individual workspace tab */
+.workspace-tab {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    min-width: 60px;
+    max-width: 200px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+/* Layer tabs are smaller */
+.workspace-tab-layer {
+    padding: 3px 10px;
+    min-width: 50px;
+    font-size: 0.9em;
+}
+
+.workspace-tab:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-normal);
+}
+
+.workspace-tab.active {
+    background: var(--bg-interactive);
+    border-color: var(--primary-muted);
+    border-bottom-color: var(--bg-interactive);
+}
+
+.workspace-tab-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    min-width: 40px;
+}
+
+.workspace-tab.active .workspace-tab-name {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.workspace-tab-name[contenteditable="true"] {
+    outline: none;
+    background: var(--bg-primary);
+    padding: 2px 4px;
+    border-radius: 3px;
+    cursor: text;
+}
+
+/* Add workspace/layer button */
+.workspace-tab-add {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.workspace-tab-add:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
+    color: var(--primary-color);
+}
+
+/* ===== NODE CONTEXT MENU LAYER SECTION ===== */
+.context-menu-layer-section {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 4px;
+    margin-top: 4px;
+}
+
+.context-menu-layer-header {
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.context-menu-layer-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.context-menu-layer-item:hover {
+    background: var(--bg-hover);
+}
+
+.context-menu-layer-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.context-menu-layer-checkbox {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--border-normal);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: var(--primary-color);
+    background: var(--bg-primary);
+}
+
+.context-menu-layer-checkbox.checked {
+    background: var(--primary-muted);
+    border-color: var(--primary-color);
+}
+
+.context-menu-layer-label {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}

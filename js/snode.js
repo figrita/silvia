@@ -4,6 +4,7 @@ import {Connection, CursorWire} from './connections.js'
 import {updateCropButtonState} from './editor.js'
 import {midiManager} from './midiManager.js'
 import {settings} from './settings.js'
+import {WorkspaceManager} from './workspaceManager.js'
 
 const editor = document.getElementById('editor')
 export class SNode{
@@ -12,7 +13,14 @@ export class SNode{
     static nodes = new Set()
     static outputs = new Set()
     static rootDIV
-    static currentWorkspace = 1
+
+    // Legacy compatibility - delegate to WorkspaceManager
+    static get currentWorkspace() {
+        return WorkspaceManager.activeWorkspaceId
+    }
+    static set currentWorkspace(value) {
+        WorkspaceManager.activeWorkspaceId = value
+    }
 
     static {
         this.rootDIV = document.getElementById('node-root')
@@ -48,18 +56,24 @@ export class SNode{
         }
     }
 
-    static setCurrentWorkspace(workspace) {
-        this.currentWorkspace = workspace
-        this.updateWorkspaceVisibility()
+    static setCurrentWorkspace(workspaceId) {
+        WorkspaceManager.setActiveWorkspace(workspaceId)
+        this.updateVisibility()
     }
 
-    static updateWorkspaceVisibility() {
+    /**
+     * Update visibility of all nodes based on active workspace and layer.
+     * Replaces the old updateWorkspaceVisibility method.
+     */
+    static updateVisibility() {
+        const activeWs = WorkspaceManager.getActiveWorkspace()
+        const activeLayerId = activeWs?.activeLayerId
+
         for(const node of this.nodes) {
-            if(node.workspace === this.currentWorkspace) {
-                node.nodeEl.style.display = 'block'
-            } else {
-                node.nodeEl.style.display = 'none'
-            }
+            const visible =
+                node.workspaceId === activeWs?.id &&
+                node.layerVisibility.has(activeLayerId)
+            node.nodeEl.style.display = visible ? 'block' : 'none'
         }
 
         // Update workspace width to fit current workspace nodes
@@ -67,26 +81,64 @@ export class SNode{
         requestAnimationFrame(() => {
             this.recalculateWorkspaceWidth()
 
-            // Update connection visibility based on current workspace
+            // Update connection visibility based on current workspace and layer
             Connection.updateConnectionVisibility()
             Connection.redrawAllConnections()
         })
     }
 
+    // Legacy alias for backwards compatibility
+    static updateWorkspaceVisibility() {
+        this.updateVisibility()
+    }
+
+    /**
+     * Get all visible nodes (on active workspace AND active layer).
+     */
+    static getVisibleNodes() {
+        const ws = WorkspaceManager.getActiveWorkspace()
+        const layerId = ws?.activeLayerId
+        return [...this.nodes].filter(node =>
+            node.workspaceId === ws?.id &&
+            node.layerVisibility.has(layerId)
+        )
+    }
+
+    /**
+     * Get ALL nodes in a workspace (for saving - includes all layers).
+     */
+    static getNodesInWorkspace(workspaceId) {
+        return [...this.nodes].filter(node => node.workspaceId === workspaceId)
+    }
+
+    /**
+     * Get nodes on a specific layer within a workspace.
+     */
+    static getNodesOnLayer(workspaceId, layerId) {
+        return [...this.nodes].filter(node =>
+            node.workspaceId === workspaceId &&
+            node.layerVisibility.has(layerId)
+        )
+    }
+
+    // Legacy - now returns visible nodes (same behavior as before for active workspace)
     static getNodesInCurrentWorkspace() {
-        return [...this.nodes].filter(node => node.workspace === this.currentWorkspace)
+        return this.getVisibleNodes()
     }
 
     static getOutputsInCurrentWorkspace() {
-        return [...this.outputs].filter(node => node.workspace === this.currentWorkspace)
+        const ws = WorkspaceManager.getActiveWorkspace()
+        return [...this.outputs].filter(node => node.workspaceId === ws?.id)
     }
 
     static recalculateWorkspaceWidth() {
-        // Calculate the rightmost edge of nodes in current workspace
+        // Calculate the rightmost edge of ALL nodes in current workspace (across all layers)
+        // This ensures switching layers doesn't shrink the workspace
         let rightmostEdge = 0
-        const currentWorkspaceNodes = this.getNodesInCurrentWorkspace()
+        const ws = WorkspaceManager.getActiveWorkspace()
+        const allWorkspaceNodes = ws ? this.getNodesInWorkspace(ws.id) : []
 
-        for(const node of currentWorkspaceNodes) {
+        for(const node of allWorkspaceNodes) {
             const nodeRight = parseInt(node.nodeEl.style.left) + node.nodeEl.offsetWidth
             if(nodeRight > rightmostEdge) {
                 rightmostEdge = nodeRight
@@ -109,7 +161,16 @@ export class SNode{
     id
     nodeEl
     isDestroyed
-    workspace
+    workspaceId
+    layerVisibility
+
+    // Legacy getter for backwards compatibility
+    get workspace() {
+        return this.workspaceId
+    }
+    set workspace(value) {
+        this.workspaceId = value
+    }
 
     constructor(slug, X, Y, nodeData = null){
         Object.assign(this, nodeList[slug].create())
@@ -125,7 +186,18 @@ export class SNode{
         this.id = SNode.nextID++
         this.isDestroyed = false
         this.collapsed = false
-        this.workspace = SNode.currentWorkspace
+
+        // Workspace and layer assignment
+        const activeWs = WorkspaceManager.getActiveWorkspace()
+        const activeLayer = WorkspaceManager.getActiveLayer()
+        this.workspaceId = activeWs?.id
+
+        // Restore layerVisibility from patch data, or default to active layer
+        if (nodeData?.layerVisibility && Array.isArray(nodeData.layerVisibility)) {
+            this.layerVisibility = new Set(nodeData.layerVisibility)
+        } else {
+            this.layerVisibility = new Set([activeLayer?.id])
+        }
 
         // Bind methods to `this` and set up port metadata
         mapJoin(this.output, (output, key) => {
@@ -705,18 +777,73 @@ export class SNode{
         } else {
             this.nodeEl.classList.remove('collapsed')
         }
-        
+
         // Immediately recalculate port positions for this node
         this.updatePortPoints()
-        
+
         // Immediately redraw all connections
         Connection.redrawAllConnections()
-        
+
         // Close the context menu if it exists
         const existingMenu = document.getElementById('node-context-menu')
         if(existingMenu){
             existingMenu.remove()
         }
+    }
+
+    /**
+     * Check if this node is visible on a specific layer.
+     * @param {number} layerId - The layer ID to check
+     * @returns {boolean} True if node is on this layer
+     */
+    isVisibleOnLayer(layerId) {
+        return this.layerVisibility.has(layerId)
+    }
+
+    /**
+     * Toggle this node's visibility on a layer.
+     * Cannot remove from last layer (node must be on at least one).
+     * @param {number} layerId - The layer ID to toggle
+     * @returns {boolean} True if toggle was successful
+     */
+    toggleLayerVisibility(layerId) {
+        if (this.layerVisibility.has(layerId)) {
+            // Don't allow removing from all layers
+            if (this.layerVisibility.size > 1) {
+                this.layerVisibility.delete(layerId)
+                window.markDirty()
+                return true
+            }
+            return false
+        } else {
+            this.layerVisibility.add(layerId)
+            window.markDirty()
+            return true
+        }
+    }
+
+    /**
+     * Add this node to a layer.
+     * @param {number} layerId - The layer ID to add to
+     */
+    addToLayer(layerId) {
+        this.layerVisibility.add(layerId)
+        window.markDirty()
+    }
+
+    /**
+     * Remove this node from a layer.
+     * Cannot remove from last layer.
+     * @param {number} layerId - The layer ID to remove from
+     * @returns {boolean} True if removal was successful
+     */
+    removeFromLayer(layerId) {
+        if (this.layerVisibility.size > 1) {
+            this.layerVisibility.delete(layerId)
+            window.markDirty()
+            return true
+        }
+        return false
     }
 
     highlightPortConnections(portEl){
@@ -847,6 +974,66 @@ export class SNode{
             menuItem.addEventListener('click', item.action)
             menu.appendChild(menuItem)
         })
+
+        // Add layer toggles section if workspace has multiple layers
+        const ws = WorkspaceManager.workspaces.get(this.workspaceId)
+        if (ws && ws.layers.size > 0) {
+            // Add separator
+            const separator = document.createElement('hr')
+            separator.style.cssText = 'margin: 4px 0; border: 0; border-top: 1px solid var(--border-subtle);'
+            menu.appendChild(separator)
+
+            // Add section header
+            const layerHeader = document.createElement('div')
+            layerHeader.className = 'context-menu-section-header'
+            layerHeader.innerHTML = '<span style="font-size: 11px; color: var(--text-secondary); padding: 4px 12px;">Layers:</span>'
+            menu.appendChild(layerHeader)
+
+            // Add layer checkboxes
+            ws.layers.forEach(layer => {
+                const isOn = this.layerVisibility.has(layer.id)
+                const isOnly = this.layerVisibility.size === 1 && isOn
+
+                const layerItem = document.createElement('label')
+                layerItem.className = 'context-menu-layer-toggle'
+                layerItem.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 4px 12px;
+                    cursor: ${isOnly ? 'not-allowed' : 'pointer'};
+                    opacity: ${isOnly ? '0.6' : '1'};
+                    font-size: 12px;
+                `
+                layerItem.innerHTML = `
+                    <input type="checkbox"
+                           ${isOn ? 'checked' : ''}
+                           ${isOnly ? 'disabled' : ''}
+                           style="margin: 0; accent-color: var(--primary-color);">
+                    <span>${layer.name}</span>
+                `
+
+                const checkbox = layerItem.querySelector('input')
+                checkbox.addEventListener('change', (e) => {
+                    e.stopPropagation()
+                    const toggled = this.toggleLayerVisibility(layer.id)
+                    if (toggled) {
+                        SNode.updateVisibility()
+                        Connection.redrawAllConnections()
+                    } else {
+                        // Revert checkbox if toggle failed
+                        checkbox.checked = true
+                    }
+                })
+
+                // Prevent menu close when clicking layer toggles
+                layerItem.addEventListener('click', (e) => {
+                    e.stopPropagation()
+                })
+
+                menu.appendChild(layerItem)
+            })
+        }
 
         // Add menu to document
         document.body.appendChild(menu)

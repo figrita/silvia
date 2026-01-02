@@ -14,6 +14,7 @@ function getRegularPatchesFromLocalStorage(){
 import {autowire, StringToFragment} from './utils.js'
 import {SNode} from './snode.js'
 import {Connection} from './connections.js'
+import {WorkspaceManager} from './workspaceManager.js'
 
 // --- Module-level state ---
 let thumbnailOutputIndex = 0
@@ -382,7 +383,15 @@ async function handleSave(){
 }
 
 export function serializeWorkspace(){
-    const nodes = Array.from(SNode.getNodesInCurrentWorkspace()).map((node) => {
+    // Get active workspace info for serialization
+    const activeWs = WorkspaceManager.getActiveWorkspace()
+
+    // Get ALL nodes in workspace (not just visible ones - include all layers)
+    const workspaceNodes = activeWs
+        ? SNode.getNodesInWorkspace(activeWs.id)
+        : SNode.getVisibleNodes()
+
+    const nodes = Array.from(workspaceNodes).map((node) => {
         const controls = {}
         const controlRanges = {} // Store edited min/max/step values
         Object.entries(node.input).forEach(([key, input]) => {
@@ -433,7 +442,9 @@ export function serializeWorkspace(){
             slug: node.slug,
             x: Number.parseInt(node.nodeEl.style.left, 10),
             y: Number.parseInt(node.nodeEl.style.top, 10),
-            controls
+            controls,
+            // Save layer visibility as array (Set not JSON-serializable)
+            layerVisibility: [...node.layerVisibility]
         }
 
         // Add collapsed state if collapsed
@@ -486,11 +497,12 @@ export function serializeWorkspace(){
         return nodeData
     })
 
-    const currentWorkspaceNodes = new Set(SNode.getNodesInCurrentWorkspace().map(node => node.id))
+    // Build set of node IDs in this workspace for connection filtering
+    const workspaceNodeIds = new Set(workspaceNodes.map(node => node.id))
     const connections = Array.from(Connection.connections)
         .filter(conn =>
-            currentWorkspaceNodes.has(conn.source.parent.id) &&
-            currentWorkspaceNodes.has(conn.destination.parent.id)
+            workspaceNodeIds.has(conn.source.parent.id) &&
+            workspaceNodeIds.has(conn.destination.parent.id)
         )
         .map((conn) => ({
             fromNode: conn.source.parent.id,
@@ -512,7 +524,12 @@ export function serializeWorkspace(){
     })
 
     const result = {nodes, connections, editorWidth}
-    
+
+    // Add workspace metadata (name, layers)
+    if (activeWs) {
+        result.workspace = WorkspaceManager.serializeWorkspace(activeWs)
+    }
+
     // Add asset references if any exist (Electron mode)
     if (assetReferences.size > 0) {
         result.assetReferences = Array.from(assetReferences)

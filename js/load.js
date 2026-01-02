@@ -4,6 +4,7 @@ import {Connection} from './connections.js'
 import {clearWorkspace, setWorkspaceWidth} from './editor.js'
 import {PatchValidator} from './patchValidator.js'
 import {nodeList} from './registry.js'
+import {WorkspaceManager} from './workspaceManager.js'
 
 // --- Module-level state ---
 let selectedPatchData = null
@@ -450,7 +451,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
         ${patchFile ? `<div class="patch-card-meta" style="font-size: 10px; color: var(--text-muted); margin-top: auto;">
             ${modifiedDate} • ${fileSize}
         </div>` : ''}
-        <div class="patch-card-actions" style="margin-top: auto; display: flex; gap: 4px;">
+        <div class="patch-card-actions" style="margin-top: auto; display: flex; gap: 4px; flex-wrap: wrap;">
             <button class="patch-load-btn" title="Load this patch" style="
                 flex: 1;
                 padding: 4px 8px;
@@ -460,7 +461,18 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                 color: white;
                 font-size: 10px;
                 cursor: pointer;
+                min-width: 40px;
             ">Load</button>
+            <button class="patch-layer-btn" title="Import as new layer" style="
+                padding: 4px 6px;
+                background: var(--bg-interactive);
+                border: 1px solid var(--border-normal);
+                border-radius: 4px;
+                color: var(--text-secondary);
+                font-size: 10px;
+                cursor: pointer;
+                transition: background 0.2s;
+            ">+Layer</button>
             <button class="patch-download-btn" title="Download .svs file" style="
                 padding: 4px 6px;
                 background: var(--bg-interactive);
@@ -493,6 +505,14 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
         // Directly load the patch
         selectedPatchData = patch
         deserializeWorkspace(patch, clearWorkspaceCheckbox.checked)
+        loadModal.style.display = 'none'
+    })
+
+    // Add "Import as Layer" button functionality
+    const layerBtn = item.querySelector('.patch-layer-btn')
+    layerBtn.addEventListener('click', (e) => {
+        e.stopPropagation() // Prevent card selection
+        loadPatchAsLayer(patch)
         loadModal.style.display = 'none'
     })
 
@@ -545,14 +565,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                     }
                 } else {
                     // Web mode: delete from localStorage
-                    // Check if this is a workspace restore entry
-                    if(patch.isWorkspaceRestore) {
-                        // Delete the workspace save data directly
-                        const workspaceKey = patch.targetWorkspace === 1 ? 'silvia_workspace_1' : 'silvia_workspace_2'
-                        localStorage.removeItem(workspaceKey)
-                    } else {
-                        deletePatchFromLocalStorage(patchIndex, patch)
-                    }
+                    deletePatchFromLocalStorage(patchIndex, patch)
                     populateLoadModal() // Refresh the list
                 }
             }
@@ -560,6 +573,165 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
     }
 
     return item
+}
+
+/**
+ * Load a patch as a new layer in the current workspace.
+ * Creates a new layer and places all nodes from the patch onto that layer.
+ */
+export function loadPatchAsLayer(patchData) {
+    const loadErrors = []
+
+    try {
+        // SECURITY: Validate and sanitize patch data before loading
+        const validation = PatchValidator.validate(patchData)
+
+        if (validation.errors.length > 0) {
+            console.warn('Patch validation warnings:', validation.errors)
+        }
+
+        patchData = validation.sanitized
+
+        if (!patchData || !patchData.nodes) {
+            throw new Error('Patch data is invalid or missing "nodes" array.')
+        }
+
+        // Get active workspace
+        const activeWs = WorkspaceManager.getActiveWorkspace()
+        if (!activeWs) {
+            throw new Error('No active workspace')
+        }
+
+        // Create a new layer for the imported patch
+        const layerName = patchData.meta?.name || 'Imported Layer'
+        const newLayer = WorkspaceManager.createLayer(activeWs, layerName)
+
+        // All nodes from patch go onto the new layer
+        patchData.nodes.forEach(nodeData => {
+            nodeData.layerVisibility = [newLayer.id]
+        })
+
+        const oldIdToNodeInstanceMap = new Map()
+        const failedNodeIds = new Set()
+
+        // Phase 1: Create nodes
+        patchData.nodes.forEach(nodeDataFromPatch => {
+            const oldId = nodeDataFromPatch.id
+
+            try {
+                const newNode = new SNode(nodeDataFromPatch.slug, nodeDataFromPatch.x, nodeDataFromPatch.y, nodeDataFromPatch)
+                oldIdToNodeInstanceMap.set(oldId, newNode)
+            } catch (nodeError) {
+                const errorMsg = `Failed to create node "${nodeDataFromPatch.slug}" (ID: ${oldId}): ${nodeError.message}`
+                console.error(errorMsg, nodeError)
+                loadErrors.push(errorMsg)
+                failedNodeIds.add(oldId)
+            }
+        })
+
+        // Phase 2: Re-establish connections
+        const outputConnections = []
+        const regularConnections = []
+
+        if (patchData.connections) {
+            patchData.connections.forEach(connData => {
+                if (failedNodeIds.has(connData.fromNode) || failedNodeIds.has(connData.toNode)) {
+                    const errorMsg = `Skipping connection from ${connData.fromNode}.${connData.fromPort} to ${connData.toNode}.${connData.toPort} (involves failed node)`
+                    console.warn(errorMsg)
+                    loadErrors.push(errorMsg)
+                    return
+                }
+
+                const destNode = oldIdToNodeInstanceMap.get(connData.toNode)
+                if (destNode && destNode.slug === 'output') {
+                    outputConnections.push(connData)
+                } else {
+                    regularConnections.push(connData)
+                }
+            })
+
+            // Create regular connections first
+            regularConnections.forEach(connData => {
+                const sourceNode = oldIdToNodeInstanceMap.get(connData.fromNode)
+                const destNode = oldIdToNodeInstanceMap.get(connData.toNode)
+
+                if (sourceNode && destNode) {
+                    const sourcePort = sourceNode.output[connData.fromPort]
+                    const destPort = destNode.input[connData.toPort]
+                    if (sourcePort && destPort) {
+                        try {
+                            new Connection(sourcePort, destPort)
+                        } catch (connError) {
+                            const errorMsg = `Failed to create connection: ${connError.message}`
+                            console.error(errorMsg, connError)
+                            loadErrors.push(errorMsg)
+                        }
+                    }
+                }
+            })
+
+            // Create Output connections last
+            outputConnections.forEach(connData => {
+                const sourceNode = oldIdToNodeInstanceMap.get(connData.fromNode)
+                const destNode = oldIdToNodeInstanceMap.get(connData.toNode)
+
+                if (sourceNode && destNode) {
+                    const sourcePort = sourceNode.output[connData.fromPort]
+                    const destPort = destNode.input[connData.toPort]
+                    if (sourcePort && destPort) {
+                        try {
+                            new Connection(sourcePort, destPort)
+                        } catch (connError) {
+                            const errorMsg = `Failed to create connection: ${connError.message}`
+                            console.error(errorMsg, connError)
+                            loadErrors.push(errorMsg)
+                        }
+                    }
+                }
+            })
+        }
+
+        // Expand workspace width if patch is wider than current workspace
+        if (patchData.editorWidth) {
+            const nodeRoot = document.getElementById('node-root')
+            const currentWidth = nodeRoot ? nodeRoot.offsetWidth : 0
+            if (patchData.editorWidth > currentWidth) {
+                setWorkspaceWidth(patchData.editorWidth)
+            }
+        }
+
+        // Switch to the new layer
+        WorkspaceManager.setActiveLayer(activeWs.id, newLayer.id)
+        SNode.updateVisibility()
+
+        // Update visuals
+        SNode.nodes.forEach(node => node.updatePortPoints())
+        Connection.redrawAllConnections()
+
+        // Report results
+        if (loadErrors.length > 0) {
+            const successfulNodes = patchData.nodes.length - failedNodeIds.size
+            const message = `Imported as layer with errors:\n${successfulNodes}/${patchData.nodes.length} nodes loaded\n\nCheck console for details.`
+            console.warn('Import errors:', loadErrors)
+            alert(message)
+        } else {
+            console.log(`Patch imported as layer "${layerName}" with ${patchData.nodes.length} nodes`)
+        }
+
+        // Mark workspace dirty
+        if (window.markDirty) {
+            window.markDirty()
+        }
+
+        // Refresh tab bar if available
+        if (window.workspaceTabBar) {
+            window.workspaceTabBar.render()
+        }
+
+    } catch (error) {
+        console.error('Failed to import patch as layer:', error)
+        alert(`Import failed: ${error.message}`)
+    }
 }
 
 export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
@@ -592,12 +764,80 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
             clearWorkspace() // Start with a clean slate only if requested
         }
 
+        // Handle workspace/layer metadata
+        const activeWs = WorkspaceManager.getActiveWorkspace()
+        let layerIdMap = new Map() // Maps saved layer IDs to current layer IDs
+
+        if (patchData.workspace?.layers && patchData.workspace.layers.length > 0) {
+            // New format with layer data
+            if (shouldClearWorkspace) {
+                // Clear existing layers except first, then recreate from patch
+                const existingLayerIds = [...activeWs.layers.keys()]
+                existingLayerIds.slice(1).forEach(id => {
+                    WorkspaceManager.deleteLayer(activeWs, id)
+                })
+
+                // Rename first layer to match patch and map
+                const firstLayer = activeWs.layers.values().next().value
+                const firstPatchLayer = patchData.workspace.layers[0]
+                if (firstLayer && firstPatchLayer) {
+                    firstLayer.name = firstPatchLayer.name || 'Layer 1'
+                    layerIdMap.set(firstPatchLayer.id, firstLayer.id)
+                }
+
+                // Create additional layers from patch
+                patchData.workspace.layers.slice(1).forEach(savedLayer => {
+                    const newLayer = WorkspaceManager.createLayer(activeWs, savedLayer.name)
+                    layerIdMap.set(savedLayer.id, newLayer.id)
+                })
+
+                // Optionally update workspace name
+                if (patchData.workspace.name && patchData.meta?.name) {
+                    activeWs.name = patchData.meta.name
+                }
+
+                // Set active layer
+                if (patchData.workspace.activeLayerId) {
+                    const mappedActiveLayerId = layerIdMap.get(patchData.workspace.activeLayerId)
+                    if (mappedActiveLayerId) {
+                        WorkspaceManager.setActiveLayer(activeWs.id, mappedActiveLayerId)
+                    }
+                }
+            } else {
+                // Merging: create new layers for the imported data
+                patchData.workspace.layers.forEach(savedLayer => {
+                    const newLayer = WorkspaceManager.createLayer(activeWs, savedLayer.name)
+                    layerIdMap.set(savedLayer.id, newLayer.id)
+                })
+            }
+        } else {
+            // Legacy patch without layer data - all nodes go to active layer
+            const activeLayer = WorkspaceManager.getActiveLayer()
+            if (activeLayer) {
+                // Map any layer ID to the active layer (for safety)
+                layerIdMap.set(1, activeLayer.id)
+            }
+        }
+
         const oldIdToNodeInstanceMap = new Map() // Maps patch file IDs to node instances
         const failedNodeIds = new Set() // Track nodes that failed to load
 
         // Phase 1: Create nodes with unique IDs and populate remapping tables
         patchData.nodes.forEach(nodeDataFromPatch => {
             const oldId = nodeDataFromPatch.id
+
+            // Remap layer visibility before creating node
+            if (nodeDataFromPatch.layerVisibility && Array.isArray(nodeDataFromPatch.layerVisibility)) {
+                nodeDataFromPatch.layerVisibility = nodeDataFromPatch.layerVisibility
+                    .map(oldLayerId => layerIdMap.get(oldLayerId))
+                    .filter(id => id !== undefined)
+
+                // Ensure at least one layer
+                if (nodeDataFromPatch.layerVisibility.length === 0) {
+                    const activeLayer = WorkspaceManager.getActiveLayer()
+                    nodeDataFromPatch.layerVisibility = [activeLayer?.id]
+                }
+            }
 
             try {
                 // SNode constructor assigns ID from SNode.nextID++
@@ -747,49 +987,12 @@ export function getPatchesFromLocalStorage(){
     try {
         const regularPatches = getRegularPatchesFromLocalStorage()
 
-        // Add workspace restores
-        const workspaceRestores = []
+        // Note: Legacy workspace restores (silvia_workspace_1, silvia_workspace_2) are no longer
+        // displayed here. They are automatically migrated to the new session format on startup.
+        // The session is now saved/loaded as a single unit through main.js.
 
-        // Check for workspace 1 restore
-        const workspace1Data = localStorage.getItem('silvia_workspace_1')
-        if (workspace1Data) {
-            try {
-                const parsed = JSON.parse(workspace1Data)
-                workspaceRestores.push({
-                    ...parsed,
-                    meta: {
-                        ...parsed.meta,
-                        name: 'Last Workspace 1',
-                        description: 'Restore your last saved Workspace 1'
-                    },
-                    isWorkspaceRestore: true
-                })
-            } catch(e) {
-                console.warn('Could not parse workspace 1 restore:', e)
-            }
-        }
-
-        // Check for workspace 2 restore
-        const workspace2Data = localStorage.getItem('silvia_workspace_2')
-        if (workspace2Data) {
-            try {
-                const parsed = JSON.parse(workspace2Data)
-                workspaceRestores.push({
-                    ...parsed,
-                    meta: {
-                        ...parsed.meta,
-                        name: 'Last Workspace 2',
-                        description: 'Restore your last saved Workspace 2'
-                    },
-                    isWorkspaceRestore: true
-                })
-            } catch(e) {
-                console.warn('Could not parse workspace 2 restore:', e)
-            }
-        }
-
-        // Return workspace restores first, then regular patches
-        return [...workspaceRestores, ...regularPatches]
+        // Return regular patches only
+        return regularPatches
     } catch(e){
         console.error('Could not load patches from local storage:', e)
         return []
