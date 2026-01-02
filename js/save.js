@@ -41,8 +41,8 @@ function createSaveModal(){
     const html = `
 	<div class="modal-overlay" style="display: none;" data-el="saveModal">
 		<div class="modal-content">
-			<h2>Save Patch - Current Workspace</h2>
-            <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">This will save the nodes and connections in your current workspace only.</p>
+			<h2>Save Patch</h2>
+            <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Saves the current workspace and all its subworkspaces.</p>
             <div style="display: flex; gap: 2rem;">
                 <div style="display: flex; flex-direction: column;">
                     <div class="form-group">
@@ -386,9 +386,20 @@ export function serializeWorkspace(){
     // Get active workspace info for serialization
     const activeWs = WorkspaceManager.getActiveWorkspace()
 
-    // Get ALL nodes in workspace (not just visible ones - include all layers)
+    // Get all workspace IDs in the subtree (this workspace + all descendants)
+    const subtreeIds = activeWs
+        ? WorkspaceManager.getDescendantIds(activeWs.id)
+        : new Set()
+
+    // Get ALL nodes that are on any workspace in the subtree
     const workspaceNodes = activeWs
-        ? SNode.getNodesInWorkspace(activeWs.id)
+        ? [...SNode.nodes].filter(node => {
+            if (!node.workspaceVisibility) return false
+            for (const wsId of node.workspaceVisibility) {
+                if (subtreeIds.has(wsId)) return true
+            }
+            return false
+        })
         : SNode.getVisibleNodes()
 
     const nodes = Array.from(workspaceNodes).map((node) => {
@@ -443,8 +454,8 @@ export function serializeWorkspace(){
             x: Number.parseInt(node.nodeEl.style.left, 10),
             y: Number.parseInt(node.nodeEl.style.top, 10),
             controls,
-            // Save layer visibility as array (Set not JSON-serializable)
-            layerVisibility: [...node.layerVisibility]
+            // Save workspace visibility as array (Set not JSON-serializable)
+            workspaceVisibility: [...node.workspaceVisibility]
         }
 
         // Add collapsed state if collapsed
@@ -525,9 +536,21 @@ export function serializeWorkspace(){
 
     const result = {nodes, connections, editorWidth}
 
-    // Add workspace metadata (name, layers)
-    if (activeWs) {
-        result.workspace = WorkspaceManager.serializeWorkspace(activeWs)
+    // Add workspace tree (subtree rooted at active workspace)
+    if (activeWs && subtreeIds.size > 0) {
+        const subtree = WorkspaceManager.getSubtree(activeWs.id)
+        result.workspaceTree = {
+            version: '0.5.0',
+            activePath: WorkspaceManager.activePath.filter(id => subtreeIds.has(id)),
+            nextId: WorkspaceManager.nextId,
+            workspaces: subtree.map(ws => ({
+                id: ws.id,
+                name: ws.name,
+                parentId: ws.id === activeWs.id ? null : ws.parentId
+            }))
+        }
+    } else {
+        result.workspaceTree = WorkspaceManager.serializeSession()
     }
 
     // Add asset references if any exist (Electron mode)

@@ -121,10 +121,10 @@
 /* ===== WORKSPACE TAB BAR ===== */
 .workspace-tab-bar {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-normal);
-    padding: 4px 8px;
+    padding: 4px 8px 0 8px;
     gap: 4px;
     min-height: 32px;
     flex-shrink: 0;
@@ -137,8 +137,15 @@
     min-height: 28px;
 }
 
+/* Nested layer bars get progressively more indented */
+.workspace-tab-bar-nested {
+    padding-left: 32px;
+    background: hsl(var(--theme-hue), var(--theme-sat-dim), 8%);
+}
+
 .workspace-tabs-container {
     display: flex;
+    align-items: flex-end;
     gap: 2px;
     overflow-x: auto;
     flex: 1;
@@ -234,6 +241,7 @@
     justify-content: center;
     transition: all 0.15s ease;
     flex-shrink: 0;
+    margin-bottom: 4px;
 }
 
 .workspace-tab-add:hover {
@@ -297,4 +305,80 @@
     flex: 1;
     font-size: 0.85rem;
     color: var(--text-secondary);
+}
+
+/* ===== WORKSPACE DELETE MODAL ===== */
+.workspace-delete-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+}
+
+.workspace-delete-modal-content {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-normal);
+    border-radius: 8px;
+    padding: 20px;
+    min-width: 320px;
+    max-width: 450px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.workspace-delete-modal h3 {
+    margin: 0 0 12px 0;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+.workspace-delete-modal p {
+    margin: 0 0 16px 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.workspace-delete-modal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.workspace-delete-modal .modal-btn {
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+.workspace-delete-modal .promote-btn {
+    background: var(--bg-interactive);
+    color: var(--text-primary);
+    border: 1px solid var(--primary-muted);
+}
+
+.workspace-delete-modal .delete-btn {
+    background: var(--bg-interactive);
+    color: var(--text-primary);
+    border: 1px solid var(--error-color);
+}
+
+.workspace-delete-modal .delete-btn strong {
+    color: var(--error-color);
+}
+
+.workspace-delete-modal .cancel-btn {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-normal);
+}
+
+.workspace-delete-modal .modal-btn-desc {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
 }

@@ -6,6 +6,86 @@ import {PatchValidator} from './patchValidator.js'
 import {nodeList} from './registry.js'
 import {WorkspaceManager} from './workspaceManager.js'
 
+/**
+ * Calculate workspace depth from a flat list of workspace objects (for loading).
+ */
+function getWorkspaceDepthFromList(workspace, workspaceList) {
+    if (!workspace.parentId) return 0
+    const parent = workspaceList.find(ws => ws.id === workspace.parentId)
+    if (!parent) return 0
+    return 1 + getWorkspaceDepthFromList(parent, workspaceList)
+}
+
+/**
+ * Create nodes and connections from patch data.
+ * Shared helper for all patch loading functions.
+ * @param {Array} nodes - Array of node data from patch
+ * @param {Array} connections - Array of connection data from patch
+ * @returns {{nodeMap: Map, errors: Array, failedIds: Set}}
+ */
+function createNodesAndConnections(nodes, connections) {
+    const nodeMap = new Map()
+    const errors = []
+    const failedIds = new Set()
+
+    // Phase 1: Create nodes
+    nodes.forEach(nodeData => {
+        const oldId = nodeData.id
+        try {
+            const newNode = new SNode(nodeData.slug, nodeData.x, nodeData.y, nodeData)
+            nodeMap.set(oldId, newNode)
+        } catch (err) {
+            errors.push(`Failed to create node "${nodeData.slug}" (ID: ${oldId}): ${err.message}`)
+            console.error(errors[errors.length - 1], err)
+            failedIds.add(oldId)
+        }
+    })
+
+    // Phase 2: Create connections (output connections last to minimize recompiles)
+    if (connections) {
+        const outputConns = []
+        const regularConns = []
+
+        connections.forEach(conn => {
+            if (failedIds.has(conn.fromNode) || failedIds.has(conn.toNode)) {
+                errors.push(`Skipping connection (involves failed node): ${conn.fromNode}.${conn.fromPort} → ${conn.toNode}.${conn.toPort}`)
+                return
+            }
+            const dest = nodeMap.get(conn.toNode)
+            if (dest?.slug === 'output') {
+                outputConns.push(conn)
+            } else {
+                regularConns.push(conn)
+            }
+        })
+
+        const createConnection = (conn) => {
+            const src = nodeMap.get(conn.fromNode)
+            const dest = nodeMap.get(conn.toNode)
+            if (!src || !dest) {
+                errors.push(`Missing node for connection: ${JSON.stringify(conn)}`)
+                return
+            }
+            const srcPort = src.output[conn.fromPort]
+            const destPort = dest.input[conn.toPort]
+            if (!srcPort || !destPort) {
+                errors.push(`Missing port for connection: ${JSON.stringify(conn)}`)
+                return
+            }
+            try {
+                new Connection(srcPort, destPort)
+            } catch (err) {
+                errors.push(`Connection failed: ${err.message}`)
+            }
+        }
+
+        regularConns.forEach(createConnection)
+        outputConns.forEach(createConnection)
+    }
+
+    return {nodeMap, errors, failedIds}
+}
+
 // --- Module-level state ---
 let selectedPatchData = null
 let defaultPatchesCache = null
@@ -452,7 +532,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
             ${modifiedDate} • ${fileSize}
         </div>` : ''}
         <div class="patch-card-actions" style="margin-top: auto; display: flex; gap: 4px; flex-wrap: wrap;">
-            <button class="patch-load-btn" title="Load this patch" style="
+            <button class="patch-load-btn" title="Replace current workspace" style="
                 flex: 1;
                 padding: 4px 8px;
                 background: var(--primary-color);
@@ -463,7 +543,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                 cursor: pointer;
                 min-width: 40px;
             ">Load</button>
-            <button class="patch-layer-btn" title="Import as new layer" style="
+            <button class="patch-child-btn" title="Load as child workspace of current" style="
                 padding: 4px 6px;
                 background: var(--bg-interactive);
                 border: 1px solid var(--border-normal);
@@ -472,7 +552,17 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                 font-size: 10px;
                 cursor: pointer;
                 transition: background 0.2s;
-            ">+Layer</button>
+            ">+Child</button>
+            <button class="patch-sibling-btn" title="Load as sibling workspace" style="
+                padding: 4px 6px;
+                background: var(--bg-interactive);
+                border: 1px solid var(--border-normal);
+                border-radius: 4px;
+                color: var(--text-secondary);
+                font-size: 10px;
+                cursor: pointer;
+                transition: background 0.2s;
+            ">+Sibling</button>
             <button class="patch-download-btn" title="Download .svs file" style="
                 padding: 4px 6px;
                 background: var(--bg-interactive);
@@ -498,21 +588,28 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
     item.appendChild(previewDiv)
     item.appendChild(infoDiv)
 
-    // Add Load button functionality (new primary action)
+    // Add Load button functionality (replaces current workspace)
     const loadBtn = item.querySelector('.patch-load-btn')
     loadBtn.addEventListener('click', (e) => {
         e.stopPropagation() // Prevent card selection
-        // Directly load the patch
         selectedPatchData = patch
         deserializeWorkspace(patch, clearWorkspaceCheckbox.checked)
         loadModal.style.display = 'none'
     })
 
-    // Add "Import as Layer" button functionality
-    const layerBtn = item.querySelector('.patch-layer-btn')
-    layerBtn.addEventListener('click', (e) => {
-        e.stopPropagation() // Prevent card selection
-        loadPatchAsLayer(patch)
+    // Add as child workspace of current active workspace
+    const childBtn = item.querySelector('.patch-child-btn')
+    childBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        loadPatchAsChildWorkspace(patch)
+        loadModal.style.display = 'none'
+    })
+
+    // Add as sibling workspace (same parent as current active workspace)
+    const siblingBtn = item.querySelector('.patch-sibling-btn')
+    siblingBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        loadPatchAsSiblingWorkspace(patch)
         loadModal.style.display = 'none'
     })
 
@@ -576,401 +673,217 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
 }
 
 /**
- * Load a patch as a new layer in the current workspace.
- * Creates a new layer and places all nodes from the patch onto that layer.
+ * Load a patch as a child workspace of the current active workspace.
  */
-export function loadPatchAsLayer(patchData) {
-    const loadErrors = []
+export function loadPatchAsChildWorkspace(patchData) {
+    const activeWs = WorkspaceManager.getActiveWorkspace()
+    const parentId = activeWs?.id ?? null  // Child of current workspace
+    loadPatchAsNewWorkspace(patchData, parentId)
+}
 
+/**
+ * Load a patch as a sibling workspace (same parent as current active workspace).
+ */
+export function loadPatchAsSiblingWorkspace(patchData) {
+    const activeWs = WorkspaceManager.getActiveWorkspace()
+    const parentId = activeWs?.parentId ?? null  // Same parent as current
+    loadPatchAsNewWorkspace(patchData, parentId)
+}
+
+/**
+ * Load a patch as a new workspace in the tree.
+ * Creates a new workspace with the specified parent and places all nodes onto it.
+ */
+function loadPatchAsNewWorkspace(patchData, parentId) {
     try {
-        // SECURITY: Validate and sanitize patch data before loading
         const validation = PatchValidator.validate(patchData)
-
         if (validation.errors.length > 0) {
             console.warn('Patch validation warnings:', validation.errors)
         }
-
         patchData = validation.sanitized
 
-        if (!patchData || !patchData.nodes) {
+        if (!patchData?.nodes) {
             throw new Error('Patch data is invalid or missing "nodes" array.')
         }
 
-        // Get active workspace
-        const activeWs = WorkspaceManager.getActiveWorkspace()
-        if (!activeWs) {
-            throw new Error('No active workspace')
-        }
+        // Create workspace and assign all nodes to it
+        const workspaceName = patchData.meta?.name || 'Imported Workspace'
+        const newWorkspace = WorkspaceManager.create(workspaceName, parentId)
+        patchData.nodes.forEach(n => n.workspaceVisibility = [newWorkspace.id])
 
-        // Create a new layer for the imported patch
-        const layerName = patchData.meta?.name || 'Imported Layer'
-        const newLayer = WorkspaceManager.createLayer(activeWs, layerName)
+        // Create nodes and connections
+        const {errors, failedIds} = createNodesAndConnections(patchData.nodes, patchData.connections)
 
-        // All nodes from patch go onto the new layer
-        patchData.nodes.forEach(nodeData => {
-            nodeData.layerVisibility = [newLayer.id]
-        })
-
-        const oldIdToNodeInstanceMap = new Map()
-        const failedNodeIds = new Set()
-
-        // Phase 1: Create nodes
-        patchData.nodes.forEach(nodeDataFromPatch => {
-            const oldId = nodeDataFromPatch.id
-
-            try {
-                const newNode = new SNode(nodeDataFromPatch.slug, nodeDataFromPatch.x, nodeDataFromPatch.y, nodeDataFromPatch)
-                oldIdToNodeInstanceMap.set(oldId, newNode)
-            } catch (nodeError) {
-                const errorMsg = `Failed to create node "${nodeDataFromPatch.slug}" (ID: ${oldId}): ${nodeError.message}`
-                console.error(errorMsg, nodeError)
-                loadErrors.push(errorMsg)
-                failedNodeIds.add(oldId)
-            }
-        })
-
-        // Phase 2: Re-establish connections
-        const outputConnections = []
-        const regularConnections = []
-
-        if (patchData.connections) {
-            patchData.connections.forEach(connData => {
-                if (failedNodeIds.has(connData.fromNode) || failedNodeIds.has(connData.toNode)) {
-                    const errorMsg = `Skipping connection from ${connData.fromNode}.${connData.fromPort} to ${connData.toNode}.${connData.toPort} (involves failed node)`
-                    console.warn(errorMsg)
-                    loadErrors.push(errorMsg)
-                    return
-                }
-
-                const destNode = oldIdToNodeInstanceMap.get(connData.toNode)
-                if (destNode && destNode.slug === 'output') {
-                    outputConnections.push(connData)
-                } else {
-                    regularConnections.push(connData)
-                }
-            })
-
-            // Create regular connections first
-            regularConnections.forEach(connData => {
-                const sourceNode = oldIdToNodeInstanceMap.get(connData.fromNode)
-                const destNode = oldIdToNodeInstanceMap.get(connData.toNode)
-
-                if (sourceNode && destNode) {
-                    const sourcePort = sourceNode.output[connData.fromPort]
-                    const destPort = destNode.input[connData.toPort]
-                    if (sourcePort && destPort) {
-                        try {
-                            new Connection(sourcePort, destPort)
-                        } catch (connError) {
-                            const errorMsg = `Failed to create connection: ${connError.message}`
-                            console.error(errorMsg, connError)
-                            loadErrors.push(errorMsg)
-                        }
-                    }
-                }
-            })
-
-            // Create Output connections last
-            outputConnections.forEach(connData => {
-                const sourceNode = oldIdToNodeInstanceMap.get(connData.fromNode)
-                const destNode = oldIdToNodeInstanceMap.get(connData.toNode)
-
-                if (sourceNode && destNode) {
-                    const sourcePort = sourceNode.output[connData.fromPort]
-                    const destPort = destNode.input[connData.toPort]
-                    if (sourcePort && destPort) {
-                        try {
-                            new Connection(sourcePort, destPort)
-                        } catch (connError) {
-                            const errorMsg = `Failed to create connection: ${connError.message}`
-                            console.error(errorMsg, connError)
-                            loadErrors.push(errorMsg)
-                        }
-                    }
-                }
-            })
-        }
-
-        // Expand workspace width if patch is wider than current workspace
+        // Expand editor if needed
         if (patchData.editorWidth) {
             const nodeRoot = document.getElementById('node-root')
-            const currentWidth = nodeRoot ? nodeRoot.offsetWidth : 0
-            if (patchData.editorWidth > currentWidth) {
+            if (patchData.editorWidth > (nodeRoot?.offsetWidth || 0)) {
                 setWorkspaceWidth(patchData.editorWidth)
             }
         }
 
-        // Switch to the new layer
-        WorkspaceManager.setActiveLayer(activeWs.id, newLayer.id)
+        // Switch to new workspace and update UI
+        WorkspaceManager.setActive(newWorkspace.id)
         SNode.updateVisibility()
+        SNode.nodes.forEach(node => node.updatePortPoints())
+        Connection.redrawAllConnections()
+
+        if (errors.length > 0) {
+            console.warn('Import errors:', errors)
+            alert(`Imported with ${errors.length} errors. Check console.`)
+        } else {
+            console.log(`Imported "${workspaceName}" with ${patchData.nodes.length} nodes`)
+        }
+
+        window.markDirty?.()
+        window.workspaceTabBar?.render()
+
+    } catch (error) {
+        console.error('Failed to import patch:', error)
+        alert(`Import failed: ${error.message}`)
+    }
+}
+
+export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
+    try {
+        // Validate and sanitize
+        const validation = PatchValidator.validate(patchData)
+        if (validation.errors.length > 0) {
+            console.warn('Patch validation warnings:', validation.errors)
+        }
+        patchData = validation.sanitized
+
+        if (!patchData?.nodes) {
+            throw new Error('Patch data is invalid or missing "nodes" array.')
+        }
+
+        if (patchData.version) {
+            console.log(`Loading patch version: ${patchData.version}`)
+        }
+
+        if (shouldClearWorkspace) {
+            clearWorkspace()
+        }
+
+        // Build workspace ID mapping (old IDs → new IDs)
+        const workspaceIdMap = buildWorkspaceIdMap(patchData, shouldClearWorkspace)
+
+        // Remap workspace visibility on each node before creation
+        patchData.nodes.forEach(nodeData => {
+            const oldVis = nodeData.workspaceVisibility || nodeData.layerVisibility
+            if (oldVis && Array.isArray(oldVis)) {
+                nodeData.workspaceVisibility = oldVis
+                    .map(id => workspaceIdMap.get(id))
+                    .filter(id => id !== undefined)
+                if (nodeData.workspaceVisibility.length === 0) {
+                    nodeData.workspaceVisibility = [WorkspaceManager.getActiveWorkspace()?.id]
+                }
+            }
+        })
+
+        // Create nodes and connections
+        const {errors, failedIds} = createNodesAndConnections(patchData.nodes, patchData.connections)
+
+        // Restore editor width
+        if (patchData.editorWidth) {
+            const currentWidth = document.getElementById('editor')?.getBoundingClientRect().width || 0
+            if (shouldClearWorkspace || patchData.editorWidth > currentWidth) {
+                setWorkspaceWidth(patchData.editorWidth)
+            }
+        }
 
         // Update visuals
         SNode.nodes.forEach(node => node.updatePortPoints())
         Connection.redrawAllConnections()
 
         // Report results
-        if (loadErrors.length > 0) {
-            const successfulNodes = patchData.nodes.length - failedNodeIds.size
-            const message = `Imported as layer with errors:\n${successfulNodes}/${patchData.nodes.length} nodes loaded\n\nCheck console for details.`
-            console.warn('Import errors:', loadErrors)
-            alert(message)
-        } else {
-            console.log(`Patch imported as layer "${layerName}" with ${patchData.nodes.length} nodes`)
-        }
-
-        // Mark workspace dirty
-        if (window.markDirty) {
-            window.markDirty()
-        }
-
-        // Refresh tab bar if available
-        if (window.workspaceTabBar) {
-            window.workspaceTabBar.render()
-        }
-
-    } catch (error) {
-        console.error('Failed to import patch as layer:', error)
-        alert(`Import failed: ${error.message}`)
-    }
-}
-
-export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
-    const loadErrors = []
-
-    try {
-        // SECURITY: Validate and sanitize patch data before loading
-        const validation = PatchValidator.validate(patchData)
-
-        // Log validation issues but don't block (validator now always returns valid:true)
-        if (validation.errors.length > 0) {
-            console.warn('Patch validation warnings:', validation.errors)
-            console.warn(`${validation.errors.length} issues found - sanitized and continuing`)
-        }
-
-        // Use sanitized patch data (invalid assets cleared, dangerous content removed)
-        patchData = validation.sanitized
-
-        if(!patchData || !patchData.nodes){
-            throw new Error('Patch data is invalid or missing "nodes" array.')
-        }
-
-        if(patchData.version){
-            console.log(`Loading patch version: ${patchData.version}`)
-        } else {
-            console.warn('Loading legacy patch file with no version number.')
-        }
-
-        if(shouldClearWorkspace){
-            clearWorkspace() // Start with a clean slate only if requested
-        }
-
-        // Handle workspace/layer metadata
-        const activeWs = WorkspaceManager.getActiveWorkspace()
-        let layerIdMap = new Map() // Maps saved layer IDs to current layer IDs
-
-        if (patchData.workspace?.layers && patchData.workspace.layers.length > 0) {
-            // New format with layer data
-            if (shouldClearWorkspace) {
-                // Clear existing layers except first, then recreate from patch
-                const existingLayerIds = [...activeWs.layers.keys()]
-                existingLayerIds.slice(1).forEach(id => {
-                    WorkspaceManager.deleteLayer(activeWs, id)
-                })
-
-                // Rename first layer to match patch and map
-                const firstLayer = activeWs.layers.values().next().value
-                const firstPatchLayer = patchData.workspace.layers[0]
-                if (firstLayer && firstPatchLayer) {
-                    firstLayer.name = firstPatchLayer.name || 'Layer 1'
-                    layerIdMap.set(firstPatchLayer.id, firstLayer.id)
-                }
-
-                // Create additional layers from patch
-                patchData.workspace.layers.slice(1).forEach(savedLayer => {
-                    const newLayer = WorkspaceManager.createLayer(activeWs, savedLayer.name)
-                    layerIdMap.set(savedLayer.id, newLayer.id)
-                })
-
-                // Optionally update workspace name
-                if (patchData.workspace.name && patchData.meta?.name) {
-                    activeWs.name = patchData.meta.name
-                }
-
-                // Set active layer
-                if (patchData.workspace.activeLayerId) {
-                    const mappedActiveLayerId = layerIdMap.get(patchData.workspace.activeLayerId)
-                    if (mappedActiveLayerId) {
-                        WorkspaceManager.setActiveLayer(activeWs.id, mappedActiveLayerId)
-                    }
-                }
-            } else {
-                // Merging: create new layers for the imported data
-                patchData.workspace.layers.forEach(savedLayer => {
-                    const newLayer = WorkspaceManager.createLayer(activeWs, savedLayer.name)
-                    layerIdMap.set(savedLayer.id, newLayer.id)
-                })
-            }
-        } else {
-            // Legacy patch without layer data - all nodes go to active layer
-            const activeLayer = WorkspaceManager.getActiveLayer()
-            if (activeLayer) {
-                // Map any layer ID to the active layer (for safety)
-                layerIdMap.set(1, activeLayer.id)
-            }
-        }
-
-        const oldIdToNodeInstanceMap = new Map() // Maps patch file IDs to node instances
-        const failedNodeIds = new Set() // Track nodes that failed to load
-
-        // Phase 1: Create nodes with unique IDs and populate remapping tables
-        patchData.nodes.forEach(nodeDataFromPatch => {
-            const oldId = nodeDataFromPatch.id
-
-            // Remap layer visibility before creating node
-            if (nodeDataFromPatch.layerVisibility && Array.isArray(nodeDataFromPatch.layerVisibility)) {
-                nodeDataFromPatch.layerVisibility = nodeDataFromPatch.layerVisibility
-                    .map(oldLayerId => layerIdMap.get(oldLayerId))
-                    .filter(id => id !== undefined)
-
-                // Ensure at least one layer
-                if (nodeDataFromPatch.layerVisibility.length === 0) {
-                    const activeLayer = WorkspaceManager.getActiveLayer()
-                    nodeDataFromPatch.layerVisibility = [activeLayer?.id]
-                }
-            }
-
-            try {
-                // SNode constructor assigns ID from SNode.nextID++
-                // nodeDataFromPatch hydrates controls and options
-                const newNode = new SNode(nodeDataFromPatch.slug, nodeDataFromPatch.x, nodeDataFromPatch.y, nodeDataFromPatch)
-
-                // Store mapping from patch ID to node instance
-                oldIdToNodeInstanceMap.set(oldId, newNode)
-            } catch(nodeError) {
-                const errorMsg = `Failed to create node "${nodeDataFromPatch.slug}" (ID: ${oldId}): ${nodeError.message}`
-                console.error(errorMsg, nodeError)
-                loadErrors.push(errorMsg)
-                failedNodeIds.add(oldId)
-            }
-        })
-
-        // Phase 2: Re-establish connections, but defer Output node connections to avoid redundant recompilations
-        const outputConnections = []
-        const regularConnections = []
-
-        if(patchData.connections){
-            // Separate Output connections from regular connections
-            patchData.connections.forEach(connData => {
-                // Skip connections involving failed nodes
-                if(failedNodeIds.has(connData.fromNode) || failedNodeIds.has(connData.toNode)) {
-                    const errorMsg = `Skipping connection from ${connData.fromNode}.${connData.fromPort} to ${connData.toNode}.${connData.toPort} (involves failed node)`
-                    console.warn(errorMsg)
-                    loadErrors.push(errorMsg)
-                    return
-                }
-
-                const destNode = oldIdToNodeInstanceMap.get(connData.toNode)
-                if(destNode && destNode.slug === 'output') {
-                    outputConnections.push(connData)
-                } else {
-                    regularConnections.push(connData)
-                }
-            })
-
-            // Create regular connections first
-            regularConnections.forEach(connData => {
-                const sourceNode = oldIdToNodeInstanceMap.get(connData.fromNode)
-                const destNode = oldIdToNodeInstanceMap.get(connData.toNode)
-
-                if(sourceNode && destNode){
-                    const sourcePort = sourceNode.output[connData.fromPort]
-                    const destPort = destNode.input[connData.toPort]
-                    if(sourcePort && destPort){
-                        try {
-                            new Connection(sourcePort, destPort)
-                        } catch(connError) {
-                            const errorMsg = `Failed to create connection from ${connData.fromNode}.${connData.fromPort} to ${connData.toNode}.${connData.toPort}: ${connError.message}`
-                            console.error(errorMsg, connError)
-                            loadErrors.push(errorMsg)
-                        }
-                    } else {
-                        const errorMsg = `Could not find ports for connection: ${JSON.stringify(connData)}`
-                        console.warn(errorMsg)
-                        loadErrors.push(errorMsg)
-                    }
-                } else {
-                    const errorMsg = `Could not find nodes for connection: ${JSON.stringify(connData)}`
-                    console.warn(errorMsg)
-                    loadErrors.push(errorMsg)
-                }
-            })
-
-            // Create Output connections last to minimize recompilations
-            outputConnections.forEach(connData => {
-                const sourceNode = oldIdToNodeInstanceMap.get(connData.fromNode)
-                const destNode = oldIdToNodeInstanceMap.get(connData.toNode)
-
-                if(sourceNode && destNode){
-                    const sourcePort = sourceNode.output[connData.fromPort]
-                    const destPort = destNode.input[connData.toPort]
-                    if(sourcePort && destPort){
-                        try {
-                            new Connection(sourcePort, destPort)
-                        } catch(connError) {
-                            const errorMsg = `Failed to create connection from ${connData.fromNode}.${connData.fromPort} to ${connData.toNode}.${connData.toPort}: ${connError.message}`
-                            console.error(errorMsg, connError)
-                            loadErrors.push(errorMsg)
-                        }
-                    } else {
-                        const errorMsg = `Could not find ports for connection: ${JSON.stringify(connData)}`
-                        console.warn(errorMsg)
-                        loadErrors.push(errorMsg)
-                    }
-                } else {
-                    const errorMsg = `Could not find nodes for connection: ${JSON.stringify(connData)}`
-                    console.warn(errorMsg)
-                    loadErrors.push(errorMsg)
-                }
-            })
-        }
-
-        // Phase 3: Restore editor width if saved (only if clearing or if patch width is greater)
-        if(patchData.editorWidth){
-            if(shouldClearWorkspace){
-                setWorkspaceWidth(patchData.editorWidth)
-            } else {
-                // Only set width if patch width is greater than current width
-                const currentEditor = document.getElementById('editor')
-                const currentWidth = currentEditor.getBoundingClientRect().width
-                if(patchData.editorWidth > currentWidth){
-                    setWorkspaceWidth(patchData.editorWidth)
-                }
-            }
-        }
-
-        // Phase 4: Update visuals (Output nodes already compiled when connections were made)
-        SNode.nodes.forEach(node => node.updatePortPoints())
-        Connection.redrawAllConnections()
-
-        // Report asset loading info for Electron mode
-        if(patchData.assetReferences && patchData.assetReferences.length > 0) {
-            console.log(`Patch contains ${patchData.assetReferences.length} asset references:`, patchData.assetReferences)
-        }
-
-        // Report results
-        if(loadErrors.length > 0) {
-            const successfulNodes = patchData.nodes.length - failedNodeIds.size
-            const message = `Patch loaded with errors:\n${successfulNodes}/${patchData.nodes.length} nodes loaded successfully\n${loadErrors.length} errors encountered\n\nCheck console for details.`
-            console.warn('Load errors:', loadErrors)
-            alert(message)
-        } else if(patchData.assetReferences && patchData.assetReferences.length > 0) {
-            console.log(`Patch loaded successfully with ${patchData.assetReferences.length} assets`)
+        if (errors.length > 0) {
+            console.warn('Load errors:', errors)
+            alert(`Loaded with ${errors.length} errors. Check console.`)
         }
 
     } catch(error){
         console.error('Failed to load patch:', error)
-        alert(`Patch loading failed with errors. Some nodes may have loaded successfully. Check console for details.`)
+        alert(`Load failed: ${error.message}`)
     }
+}
+
+/**
+ * Build workspace ID mapping from patch data.
+ * Handles v0.5.0+ format, v0.4.0 layer format, and legacy patches.
+ */
+function buildWorkspaceIdMap(patchData, shouldClearWorkspace) {
+    const idMap = new Map()
+    const activeWs = WorkspaceManager.getActiveWorkspace()
+
+    if (patchData.workspaceTree?.workspaces?.length > 0) {
+        // v0.5.0+ unified workspace tree
+        const saved = patchData.workspaceTree.workspaces
+        const sorted = [...saved].sort((a, b) =>
+            getWorkspaceDepthFromList(a, saved) - getWorkspaceDepthFromList(b, saved)
+        )
+
+        if (shouldClearWorkspace) {
+            // Reuse active workspace for first root
+            const firstRoot = sorted.find(ws => !ws.parentId)
+            if (activeWs && firstRoot) {
+                WorkspaceManager.rename(activeWs.id, firstRoot.name || 'Workspace 1')
+                idMap.set(firstRoot.id, activeWs.id)
+            }
+        }
+
+        sorted.forEach(ws => {
+            if (idMap.has(ws.id)) return
+            // Check if workspace already exists (e.g., from restoreSession)
+            if (WorkspaceManager.workspaces.has(ws.id)) {
+                idMap.set(ws.id, ws.id)  // Identity mapping
+                return
+            }
+            const parentId = ws.parentId ? idMap.get(ws.parentId) : null
+            const newWs = WorkspaceManager.create(ws.name, parentId)
+            idMap.set(ws.id, newWs.id)
+        })
+
+        // Restore active path
+        if (shouldClearWorkspace && patchData.workspaceTree.activePath?.length > 0) {
+            const deepest = patchData.workspaceTree.activePath.at(-1)
+            const mapped = idMap.get(deepest)
+            if (mapped) WorkspaceManager.setActive(mapped)
+        }
+
+    } else if (patchData.workspace?.layers?.length > 0) {
+        // v0.4.0 legacy layer format → convert to workspaces
+        const layers = patchData.workspace.layers
+        const sorted = [...layers].sort((a, b) =>
+            (a.parentLayerId ? 1 : 0) - (b.parentLayerId ? 1 : 0)
+        )
+
+        const firstRoot = sorted.find(l => !l.parentLayerId)
+        if (activeWs && firstRoot) {
+            WorkspaceManager.rename(activeWs.id, firstRoot.name || 'Workspace 1')
+            idMap.set(firstRoot.id, activeWs.id)
+        }
+
+        sorted.forEach(layer => {
+            if (idMap.has(layer.id)) return
+            // Check if workspace already exists with this ID
+            if (WorkspaceManager.workspaces.has(layer.id)) {
+                idMap.set(layer.id, layer.id)
+                return
+            }
+            const parentId = layer.parentLayerId ? idMap.get(layer.parentLayerId) : null
+            const newWs = WorkspaceManager.create(layer.name, parentId)
+            idMap.set(layer.id, newWs.id)
+        })
+
+    } else {
+        // Legacy patch with no workspace data
+        if (activeWs) {
+            idMap.set(1, activeWs.id)
+        }
+    }
+
+    return idMap
 }
 
 function getRegularPatchesFromLocalStorage(){

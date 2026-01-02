@@ -16,10 +16,10 @@ export class SNode{
 
     // Legacy compatibility - delegate to WorkspaceManager
     static get currentWorkspace() {
-        return WorkspaceManager.activeWorkspaceId
+        return WorkspaceManager.activePath[0]  // Root workspace ID
     }
     static set currentWorkspace(value) {
-        WorkspaceManager.activeWorkspaceId = value
+        WorkspaceManager.setActive(value)
     }
 
     static {
@@ -57,22 +57,31 @@ export class SNode{
     }
 
     static setCurrentWorkspace(workspaceId) {
-        WorkspaceManager.setActiveWorkspace(workspaceId)
+        WorkspaceManager.setActive(workspaceId)
         this.updateVisibility()
     }
 
     /**
-     * Update visibility of all nodes based on active workspace and layer.
-     * Replaces the old updateWorkspaceVisibility method.
+     * Update visibility of all nodes based on active workspace path.
+     * Node is visible if it's on any workspace in the active path.
      */
     static updateVisibility() {
-        const activeWs = WorkspaceManager.getActiveWorkspace()
-        const activeLayerId = activeWs?.activeLayerId
+        // activePath is an array of workspace IDs from root to deepest selected
+        const activePath = WorkspaceManager.activePath || []
+        // Create a Set for O(1) lookups
+        const activePathSet = new Set(activePath)
 
         for(const node of this.nodes) {
-            const visible =
-                node.workspaceId === activeWs?.id &&
-                node.layerVisibility.has(activeLayerId)
+            // Node is visible if any of its workspace visibility IDs are in the active path
+            let visible = false
+            if (node.workspaceVisibility) {
+                for (const wsId of node.workspaceVisibility) {
+                    if (activePathSet.has(wsId)) {
+                        visible = true
+                        break
+                    }
+                }
+            }
             node.nodeEl.style.display = visible ? 'block' : 'none'
         }
 
@@ -81,64 +90,49 @@ export class SNode{
         requestAnimationFrame(() => {
             this.recalculateWorkspaceWidth()
 
-            // Update connection visibility based on current workspace and layer
+            // Update connection visibility based on current workspace path
             Connection.updateConnectionVisibility()
             Connection.redrawAllConnections()
         })
     }
 
-    // Legacy alias for backwards compatibility
-    static updateWorkspaceVisibility() {
-        this.updateVisibility()
-    }
-
     /**
-     * Get all visible nodes (on active workspace AND active layer).
+     * Get all visible nodes (on any workspace in active path).
      */
     static getVisibleNodes() {
-        const ws = WorkspaceManager.getActiveWorkspace()
-        const layerId = ws?.activeLayerId
-        return [...this.nodes].filter(node =>
-            node.workspaceId === ws?.id &&
-            node.layerVisibility.has(layerId)
-        )
+        const activePathSet = new Set(WorkspaceManager.activePath || [])
+        return [...this.nodes].filter(node => {
+            if (!node.workspaceVisibility) return false
+            for (const wsId of node.workspaceVisibility) {
+                if (activePathSet.has(wsId)) return true
+            }
+            return false
+        })
     }
 
     /**
-     * Get ALL nodes in a workspace (for saving - includes all layers).
+     * Get all nodes that are on a specific workspace.
      */
-    static getNodesInWorkspace(workspaceId) {
-        return [...this.nodes].filter(node => node.workspaceId === workspaceId)
-    }
-
-    /**
-     * Get nodes on a specific layer within a workspace.
-     */
-    static getNodesOnLayer(workspaceId, layerId) {
+    static getNodesOnWorkspace(workspaceId) {
         return [...this.nodes].filter(node =>
-            node.workspaceId === workspaceId &&
-            node.layerVisibility.has(layerId)
+            node.workspaceVisibility && node.workspaceVisibility.has(workspaceId)
         )
-    }
-
-    // Legacy - now returns visible nodes (same behavior as before for active workspace)
-    static getNodesInCurrentWorkspace() {
-        return this.getVisibleNodes()
     }
 
     static getOutputsInCurrentWorkspace() {
-        const ws = WorkspaceManager.getActiveWorkspace()
-        return [...this.outputs].filter(node => node.workspaceId === ws?.id)
+        const activePathSet = new Set(WorkspaceManager.activePath || [])
+        return [...this.outputs].filter(node =>
+            node.workspaceVisibility &&
+            [...node.workspaceVisibility].some(wsId => activePathSet.has(wsId))
+        )
     }
 
     static recalculateWorkspaceWidth() {
-        // Calculate the rightmost edge of ALL nodes in current workspace (across all layers)
-        // This ensures switching layers doesn't shrink the workspace
+        // Calculate the rightmost edge of ALL visible nodes
         let rightmostEdge = 0
-        const ws = WorkspaceManager.getActiveWorkspace()
-        const allWorkspaceNodes = ws ? this.getNodesInWorkspace(ws.id) : []
+        const visibleNodes = this.getVisibleNodes()
 
-        for(const node of allWorkspaceNodes) {
+        for(const node of visibleNodes) {
             const nodeRight = parseInt(node.nodeEl.style.left) + node.nodeEl.offsetWidth
             if(nodeRight > rightmostEdge) {
                 rightmostEdge = nodeRight
@@ -161,16 +155,7 @@ export class SNode{
     id
     nodeEl
     isDestroyed
-    workspaceId
-    layerVisibility
-
-    // Legacy getter for backwards compatibility
-    get workspace() {
-        return this.workspaceId
-    }
-    set workspace(value) {
-        this.workspaceId = value
-    }
+    workspaceVisibility  // Set of workspace IDs this node is visible on
 
     constructor(slug, X, Y, nodeData = null){
         Object.assign(this, nodeList[slug].create())
@@ -187,16 +172,12 @@ export class SNode{
         this.isDestroyed = false
         this.collapsed = false
 
-        // Workspace and layer assignment
-        const activeWs = WorkspaceManager.getActiveWorkspace()
-        const activeLayer = WorkspaceManager.getActiveLayer()
-        this.workspaceId = activeWs?.id
-
-        // Restore layerVisibility from patch data, or default to active layer
-        if (nodeData?.layerVisibility && Array.isArray(nodeData.layerVisibility)) {
-            this.layerVisibility = new Set(nodeData.layerVisibility)
+        // Workspace visibility: which workspaces this node appears on
+        const activeWorkspace = WorkspaceManager.getActiveWorkspace()
+        if (nodeData?.workspaceVisibility && Array.isArray(nodeData.workspaceVisibility)) {
+            this.workspaceVisibility = new Set(nodeData.workspaceVisibility)
         } else {
-            this.layerVisibility = new Set([activeLayer?.id])
+            this.workspaceVisibility = new Set([activeWorkspace?.id])
         }
 
         // Bind methods to `this` and set up port metadata
@@ -792,59 +773,65 @@ export class SNode{
     }
 
     /**
-     * Check if this node is visible on a specific layer.
-     * @param {number} layerId - The layer ID to check
-     * @returns {boolean} True if node is on this layer
+     * Check if this node is visible on a specific workspace.
+     * @param {number} workspaceId - The workspace ID to check
+     * @returns {boolean} True if node is on this workspace
      */
-    isVisibleOnLayer(layerId) {
-        return this.layerVisibility.has(layerId)
+    isVisibleOnWorkspace(workspaceId) {
+        return this.workspaceVisibility.has(workspaceId)
     }
 
     /**
-     * Toggle this node's visibility on a layer.
-     * Cannot remove from last layer (node must be on at least one).
-     * @param {number} layerId - The layer ID to toggle
+     * Toggle this node's visibility on a workspace.
+     * Cannot remove from last workspace (node must be on at least one).
+     * @param {number} workspaceId - The workspace ID to toggle
      * @returns {boolean} True if toggle was successful
      */
-    toggleLayerVisibility(layerId) {
-        if (this.layerVisibility.has(layerId)) {
-            // Don't allow removing from all layers
-            if (this.layerVisibility.size > 1) {
-                this.layerVisibility.delete(layerId)
+    toggleWorkspaceVisibility(workspaceId) {
+        if (this.workspaceVisibility.has(workspaceId)) {
+            // Don't allow removing from all workspaces
+            if (this.workspaceVisibility.size > 1) {
+                this.workspaceVisibility.delete(workspaceId)
                 window.markDirty()
                 return true
             }
             return false
         } else {
-            this.layerVisibility.add(layerId)
+            this.workspaceVisibility.add(workspaceId)
             window.markDirty()
             return true
         }
     }
 
     /**
-     * Add this node to a layer.
-     * @param {number} layerId - The layer ID to add to
+     * Add this node to a workspace.
+     * @param {number} workspaceId - The workspace ID to add to
      */
-    addToLayer(layerId) {
-        this.layerVisibility.add(layerId)
+    addToWorkspace(workspaceId) {
+        this.workspaceVisibility.add(workspaceId)
         window.markDirty()
     }
 
     /**
-     * Remove this node from a layer.
-     * Cannot remove from last layer.
-     * @param {number} layerId - The layer ID to remove from
+     * Remove this node from a workspace.
+     * Cannot remove from last workspace.
+     * @param {number} workspaceId - The workspace ID to remove from
      * @returns {boolean} True if removal was successful
      */
-    removeFromLayer(layerId) {
-        if (this.layerVisibility.size > 1) {
-            this.layerVisibility.delete(layerId)
+    removeFromWorkspace(workspaceId) {
+        if (this.workspaceVisibility.size > 1) {
+            this.workspaceVisibility.delete(workspaceId)
             window.markDirty()
             return true
         }
         return false
     }
+
+    // Legacy aliases for backwards compatibility
+    isVisibleOnLayer(layerId) { return this.isVisibleOnWorkspace(layerId) }
+    toggleLayerVisibility(layerId) { return this.toggleWorkspaceVisibility(layerId) }
+    addToLayer(layerId) { this.addToWorkspace(layerId) }
+    removeFromLayer(layerId) { return this.removeFromWorkspace(layerId) }
 
     highlightPortConnections(portEl){
         // Check if glow on hover is enabled
@@ -975,64 +962,81 @@ export class SNode{
             menu.appendChild(menuItem)
         })
 
-        // Add layer toggles section if workspace has multiple layers
-        const ws = WorkspaceManager.workspaces.get(this.workspaceId)
-        if (ws && ws.layers.size > 0) {
-            // Add separator
-            const separator = document.createElement('hr')
-            separator.style.cssText = 'margin: 4px 0; border: 0; border-top: 1px solid var(--border-subtle);'
-            menu.appendChild(separator)
+        // Add workspace toggles section - show sibling workspaces the node could be on
+        // Get the current node's workspaces and show sibling options
+        const currentWsIds = [...this.workspaceVisibility]
+        if (currentWsIds.length > 0) {
+            // Get all workspaces that share a parent with any of the node's workspaces
+            const siblingWorkspaces = new Set()
+            for (const wsId of currentWsIds) {
+                const ws = WorkspaceManager.workspaces.get(wsId)
+                if (ws) {
+                    // Add siblings (same parent)
+                    const siblings = WorkspaceManager.getSiblings(wsId)
+                    siblings.forEach(s => siblingWorkspaces.add(s))
+                    // Also add self
+                    siblingWorkspaces.add(ws)
+                }
+            }
 
-            // Add section header
-            const layerHeader = document.createElement('div')
-            layerHeader.className = 'context-menu-section-header'
-            layerHeader.innerHTML = '<span style="font-size: 11px; color: var(--text-secondary); padding: 4px 12px;">Layers:</span>'
-            menu.appendChild(layerHeader)
+            // Only show section if there are multiple workspace options
+            if (siblingWorkspaces.size > 1) {
+                // Add separator
+                const separator = document.createElement('hr')
+                separator.style.cssText = 'margin: 4px 0; border: 0; border-top: 1px solid var(--border-subtle);'
+                menu.appendChild(separator)
 
-            // Add layer checkboxes
-            ws.layers.forEach(layer => {
-                const isOn = this.layerVisibility.has(layer.id)
-                const isOnly = this.layerVisibility.size === 1 && isOn
+                // Add section header
+                const wsHeader = document.createElement('div')
+                wsHeader.className = 'context-menu-section-header'
+                wsHeader.innerHTML = '<span style="font-size: 11px; color: var(--text-secondary); padding: 4px 12px;">Workspaces:</span>'
+                menu.appendChild(wsHeader)
 
-                const layerItem = document.createElement('label')
-                layerItem.className = 'context-menu-layer-toggle'
-                layerItem.style.cssText = `
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 4px 12px;
-                    cursor: ${isOnly ? 'not-allowed' : 'pointer'};
-                    opacity: ${isOnly ? '0.6' : '1'};
-                    font-size: 12px;
-                `
-                layerItem.innerHTML = `
-                    <input type="checkbox"
-                           ${isOn ? 'checked' : ''}
-                           ${isOnly ? 'disabled' : ''}
-                           style="margin: 0; accent-color: var(--primary-color);">
-                    <span>${layer.name}</span>
-                `
+                // Add workspace checkboxes
+                siblingWorkspaces.forEach(workspace => {
+                    const isOn = this.workspaceVisibility.has(workspace.id)
+                    const isOnly = this.workspaceVisibility.size === 1 && isOn
 
-                const checkbox = layerItem.querySelector('input')
-                checkbox.addEventListener('change', (e) => {
-                    e.stopPropagation()
-                    const toggled = this.toggleLayerVisibility(layer.id)
-                    if (toggled) {
-                        SNode.updateVisibility()
-                        Connection.redrawAllConnections()
-                    } else {
-                        // Revert checkbox if toggle failed
-                        checkbox.checked = true
-                    }
+                    const wsItem = document.createElement('label')
+                    wsItem.className = 'context-menu-layer-toggle'
+                    wsItem.style.cssText = `
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 4px 12px;
+                        cursor: ${isOnly ? 'not-allowed' : 'pointer'};
+                        opacity: ${isOnly ? '0.6' : '1'};
+                        font-size: 12px;
+                    `
+                    wsItem.innerHTML = `
+                        <input type="checkbox"
+                               ${isOn ? 'checked' : ''}
+                               ${isOnly ? 'disabled' : ''}
+                               style="margin: 0; accent-color: var(--primary-color);">
+                        <span>${workspace.name}</span>
+                    `
+
+                    const checkbox = wsItem.querySelector('input')
+                    checkbox.addEventListener('change', (e) => {
+                        e.stopPropagation()
+                        const toggled = this.toggleWorkspaceVisibility(workspace.id)
+                        if (toggled) {
+                            SNode.updateVisibility()
+                            Connection.redrawAllConnections()
+                        } else {
+                            // Revert checkbox if toggle failed
+                            checkbox.checked = true
+                        }
+                    })
+
+                    // Prevent menu close when clicking workspace toggles
+                    wsItem.addEventListener('click', (e) => {
+                        e.stopPropagation()
+                    })
+
+                    menu.appendChild(wsItem)
                 })
-
-                // Prevent menu close when clicking layer toggles
-                layerItem.addEventListener('click', (e) => {
-                    e.stopPropagation()
-                })
-
-                menu.appendChild(layerItem)
-            })
+            }
         }
 
         // Add menu to document

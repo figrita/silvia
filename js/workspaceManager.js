@@ -1,325 +1,275 @@
 /**
- * WorkspaceManager - Central state management for workspaces and layers
+ * WorkspaceManager - Central state management for workspace tree
  *
- * Workspaces are isolated containers (no cross-workspace connections).
- * Layers are hierarchical - each layer can have sub-layers (children).
- * A node can be visible on multiple sibling layers simultaneously.
- *
- * Layer hierarchy:
- * - Workspace contains root layers (parentLayerId = null)
- * - Each layer can have child layers (parentLayerId = parent's id)
- * - Active layer path: tracks selection at each depth level
+ * Clean recursive tree design:
+ * - Everything is a workspace (no separate "layer" concept)
+ * - Workspaces can contain subworkspaces (children)
+ * - A node can be visible on multiple sibling workspaces simultaneously
+ * - activePath tracks the selected workspace at each depth level
  */
 
 export class WorkspaceManager {
-    static workspaces = new Map()  // id → Workspace
-    static activeWorkspaceId = null
-    static nextWorkspaceId = 1
+    static workspaces = new Map()  // id → Workspace (flat storage, tree via parentId)
+    static activePath = []         // Array of workspace IDs from root to deepest active
+    static nextId = 1
 
     /**
      * Initialize with a default workspace. Called from main.js on startup.
      */
     static init() {
         if (this.workspaces.size === 0) {
-            const ws = this.createWorkspace('Workspace 1')
-            this.activeWorkspaceId = ws.id
+            const ws = this.create('Workspace 1', null)
+            this.activePath = [ws.id]
         }
     }
 
     /**
-     * Create a new workspace with a default layer.
+     * Create a new workspace.
      * @param {string|null} name - Optional workspace name
+     * @param {number|null} parentId - Parent workspace ID (null for root)
      * @returns {object} The created workspace
      */
-    static createWorkspace(name = null) {
-        const id = this.nextWorkspaceId++
+    static create(name = null, parentId = null) {
+        const id = this.nextId++
         const workspace = {
             id,
-            name: name || `Workspace ${id}`,
-            layers: new Map(),
-            activeLayerPath: [],  // Array of layer IDs from root to deepest active
-            nextLayerId: 1
+            parentId,
+            name: name || `Workspace ${id}`
         }
-        // Always create default layer
-        this.createLayer(workspace, 'Layer 1', null)
         this.workspaces.set(id, workspace)
+
+        // Update active path to include the new workspace
+        if (parentId === null) {
+            // Root workspace - set as active if no path exists
+            if (this.activePath.length === 0) {
+                this.activePath = [id]
+            }
+        } else {
+            // Child workspace - find parent's depth and extend path to include new child
+            const parentDepth = this.getDepth(parentId)
+            // Ensure parent is in path, then add new workspace
+            this.activePath = this.activePath.slice(0, parentDepth + 1)
+            this.activePath.push(id)
+        }
+
         return workspace
     }
 
     /**
-     * Create a new layer within a workspace.
-     * @param {object} workspace - The workspace to add the layer to
-     * @param {string|null} name - Optional layer name
-     * @param {number|null} parentLayerId - Parent layer ID (null for root layer)
-     * @returns {object} The created layer
+     * Get the depth of a workspace in the hierarchy (0 = root).
      */
-    static createLayer(workspace, name = null, parentLayerId = null) {
-        const id = workspace.nextLayerId++
-        const layer = {
-            id,
-            workspaceId: workspace.id,
-            parentLayerId,
-            name: name || `Layer ${id}`
+    static getDepth(workspaceId) {
+        const ws = this.workspaces.get(workspaceId)
+        if (!ws || ws.parentId === null) return 0
+        return 1 + this.getDepth(ws.parentId)
+    }
+
+    /**
+     * Get all root workspaces (no parent).
+     */
+    static getRootWorkspaces() {
+        return [...this.workspaces.values()].filter(ws => ws.parentId === null)
+    }
+
+    /**
+     * Get child workspaces of a specific workspace.
+     */
+    static getChildren(parentId) {
+        return [...this.workspaces.values()].filter(ws => ws.parentId === parentId)
+    }
+
+    /**
+     * Get siblings of a workspace (same parent, excluding self).
+     */
+    static getSiblings(workspaceId) {
+        const ws = this.workspaces.get(workspaceId)
+        if (!ws) return []
+        return [...this.workspaces.values()].filter(
+            w => w.parentId === ws.parentId && w.id !== workspaceId
+        )
+    }
+
+    /**
+     * Get all descendant workspace IDs (children, grandchildren, etc.) including the workspace itself.
+     * @param {number} workspaceId - The workspace ID
+     * @returns {Set<number>} Set of workspace IDs in the subtree
+     */
+    static getDescendantIds(workspaceId) {
+        const ids = new Set()
+        const collect = (wsId) => {
+            ids.add(wsId)
+            this.getChildren(wsId).forEach(child => collect(child.id))
         }
-        workspace.layers.set(id, layer)
-
-        // Update active layer path
-        if (parentLayerId === null) {
-            // Root layer - set as active if no path exists
-            if (workspace.activeLayerPath.length === 0) {
-                workspace.activeLayerPath = [id]
-            }
-        } else {
-            // Sub-layer - find depth and update path
-            const parentDepth = this.getLayerDepth(workspace, parentLayerId)
-            // Truncate path to parent's depth + 1, then add new layer
-            workspace.activeLayerPath = workspace.activeLayerPath.slice(0, parentDepth + 1)
-            workspace.activeLayerPath.push(id)
-        }
-
-        return layer
+        collect(workspaceId)
+        return ids
     }
 
     /**
-     * Get the depth of a layer in the hierarchy (0 = root).
+     * Get all workspaces in a subtree (workspace and all descendants).
+     * @param {number} workspaceId - The root workspace ID
+     * @returns {Array} Array of workspace objects
      */
-    static getLayerDepth(workspace, layerId) {
-        const layer = workspace.layers.get(layerId)
-        if (!layer || layer.parentLayerId === null) return 0
-        return 1 + this.getLayerDepth(workspace, layer.parentLayerId)
+    static getSubtree(workspaceId) {
+        const ids = this.getDescendantIds(workspaceId)
+        return [...this.workspaces.values()].filter(ws => ids.has(ws.id))
     }
 
     /**
-     * Get all root layers (no parent) in a workspace.
+     * Get the active workspace at a specific depth.
      */
-    static getRootLayers(workspace) {
-        return [...workspace.layers.values()].filter(l => l.parentLayerId === null)
-    }
-
-    /**
-     * Get child layers of a specific layer.
-     */
-    static getChildLayers(workspace, parentLayerId) {
-        return [...workspace.layers.values()].filter(l => l.parentLayerId === parentLayerId)
-    }
-
-    /**
-     * Get the active layer at a specific depth.
-     */
-    static getActiveLayerAtDepth(workspace, depth) {
-        if (depth < workspace.activeLayerPath.length) {
-            return workspace.layers.get(workspace.activeLayerPath[depth])
+    static getActiveAtDepth(depth) {
+        if (depth < this.activePath.length) {
+            return this.workspaces.get(this.activePath[depth])
         }
         return null
     }
 
     /**
-     * Get the deepest active layer.
-     */
-    static getActiveLayer() {
-        const ws = this.getActiveWorkspace()
-        if (!ws || ws.activeLayerPath.length === 0) return null
-        return ws.layers.get(ws.activeLayerPath[ws.activeLayerPath.length - 1])
-    }
-
-    /**
-     * Get the full active layer path as layer objects.
-     */
-    static getActiveLayerPath(workspace) {
-        return workspace.activeLayerPath.map(id => workspace.layers.get(id)).filter(Boolean)
-    }
-
-    /**
-     * Set the active layer at a specific depth, updating the path.
-     * @param {number} workspaceId - The workspace ID
-     * @param {number} layerId - The layer ID to activate
-     * @returns {boolean} True if set successfully
-     */
-    static setActiveLayer(workspaceId, layerId) {
-        const ws = this.workspaces.get(workspaceId)
-        if (!ws || !ws.layers.has(layerId)) return false
-
-        const layer = ws.layers.get(layerId)
-        const depth = this.getLayerDepth(ws, layerId)
-
-        // Build new path up to this layer
-        const newPath = []
-        let current = layer
-        while (current) {
-            newPath.unshift(current.id)
-            current = current.parentLayerId ? ws.layers.get(current.parentLayerId) : null
-        }
-
-        ws.activeLayerPath = newPath
-        return true
-    }
-
-    /**
-     * Delete a layer from a workspace. Cannot delete the last root layer.
-     * Child layers are also deleted.
-     * @param {object} workspace - The workspace containing the layer
-     * @param {number} layerId - The layer ID to delete
-     * @returns {boolean} True if deleted successfully
-     */
-    static deleteLayer(workspace, layerId) {
-        const layer = workspace.layers.get(layerId)
-        if (!layer) return false
-
-        // Cannot delete last root layer
-        const rootLayers = this.getRootLayers(workspace)
-        if (layer.parentLayerId === null && rootLayers.length <= 1) return false
-
-        // Get sibling layers for fallback
-        const siblings = [...workspace.layers.values()].filter(
-            l => l.parentLayerId === layer.parentLayerId && l.id !== layerId
-        )
-
-        // Recursively delete all child layers
-        const deleteRecursive = (id) => {
-            const children = this.getChildLayers(workspace, id)
-            children.forEach(child => deleteRecursive(child.id))
-            workspace.layers.delete(id)
-        }
-        deleteRecursive(layerId)
-
-        // Update active path if deleted layer was in it
-        const pathIndex = workspace.activeLayerPath.indexOf(layerId)
-        if (pathIndex !== -1) {
-            // Truncate path before deleted layer
-            workspace.activeLayerPath = workspace.activeLayerPath.slice(0, pathIndex)
-            // Add first sibling if available
-            if (siblings.length > 0) {
-                workspace.activeLayerPath.push(siblings[0].id)
-            } else if (pathIndex === 0 && rootLayers.length > 1) {
-                // Deleted root layer, switch to another root
-                const remainingRoot = rootLayers.find(l => l.id !== layerId)
-                if (remainingRoot) {
-                    workspace.activeLayerPath = [remainingRoot.id]
-                }
-            }
-        }
-
-        // Handle orphaned nodes
-        import('./snode.js').then(({ SNode }) => {
-            const remainingLayerId = siblings[0]?.id || workspace.activeLayerPath[0]
-            for (const node of SNode.nodes) {
-                if (node.workspaceId === workspace.id && node.layerVisibility) {
-                    node.layerVisibility.delete(layerId)
-                    if (node.layerVisibility.size === 0 && remainingLayerId) {
-                        node.layerVisibility.add(remainingLayerId)
-                    }
-                }
-            }
-        })
-
-        return true
-    }
-
-    /**
-     * Delete a workspace. Cannot delete the last workspace.
-     * @param {number} workspaceId - The workspace ID to delete
-     * @returns {boolean} True if deleted successfully
-     */
-    static deleteWorkspace(workspaceId) {
-        if (this.workspaces.size <= 1) return false
-
-        this.workspaces.delete(workspaceId)
-
-        if (this.activeWorkspaceId === workspaceId) {
-            this.activeWorkspaceId = this.workspaces.keys().next().value
-        }
-        return true
-    }
-
-    /**
-     * Get the currently active workspace.
-     * @returns {object|undefined} The active workspace
+     * Get the deepest active workspace.
      */
     static getActiveWorkspace() {
-        return this.workspaces.get(this.activeWorkspaceId)
+        if (this.activePath.length === 0) return null
+        return this.workspaces.get(this.activePath[this.activePath.length - 1])
     }
 
     /**
-     * Set the active workspace.
+     * Get the root workspace of the current active path.
+     */
+    static getActiveRootWorkspace() {
+        if (this.activePath.length === 0) return null
+        return this.workspaces.get(this.activePath[0])
+    }
+
+    /**
+     * Get the full active path as workspace objects.
+     */
+    static getActivePath() {
+        return this.activePath.map(id => this.workspaces.get(id)).filter(Boolean)
+    }
+
+    /**
+     * Set the active workspace, updating the path.
+     * If workspace is already the deepest in path, it toggles to just show up to that depth.
      * @param {number} workspaceId - The workspace ID to activate
      * @returns {boolean} True if set successfully
      */
-    static setActiveWorkspace(workspaceId) {
+    static setActive(workspaceId) {
         if (!this.workspaces.has(workspaceId)) return false
-        this.activeWorkspaceId = workspaceId
+
+        const ws = this.workspaces.get(workspaceId)
+        const depth = this.getDepth(workspaceId)
+
+        // Check if this workspace is already in the path at its depth
+        if (this.activePath[depth] === workspaceId) {
+            // Already active - truncate path to this depth (hide children)
+            this.activePath = this.activePath.slice(0, depth + 1)
+            return true
+        }
+
+        // Build new path up to this workspace only (don't auto-select children)
+        const newPath = []
+        let current = ws
+        while (current) {
+            newPath.unshift(current.id)
+            current = current.parentId ? this.workspaces.get(current.parentId) : null
+        }
+
+        this.activePath = newPath
+        return true
+    }
+
+    /**
+     * Delete a workspace. Cannot delete if it's the only root workspace.
+     * Children are also deleted recursively.
+     * @param {number} workspaceId - The workspace ID to delete
+     * @returns {boolean} True if deleted successfully
+     */
+    static delete(workspaceId) {
+        const ws = this.workspaces.get(workspaceId)
+        if (!ws) return false
+
+        // Cannot delete the last root workspace
+        const rootWorkspaces = this.getRootWorkspaces()
+        if (ws.parentId === null && rootWorkspaces.length <= 1) return false
+
+        // Get siblings for fallback
+        const siblings = this.getSiblings(workspaceId)
+
+        // Recursively delete all children
+        const deleteRecursive = (id) => {
+            const children = this.getChildren(id)
+            children.forEach(child => deleteRecursive(child.id))
+            this.workspaces.delete(id)
+        }
+        deleteRecursive(workspaceId)
+
+        // Update active path if deleted workspace was in it
+        const pathIndex = this.activePath.indexOf(workspaceId)
+        if (pathIndex !== -1) {
+            // Truncate path before deleted workspace
+            this.activePath = this.activePath.slice(0, pathIndex)
+            // Add first sibling if available
+            if (siblings.length > 0) {
+                this.activePath.push(siblings[0].id)
+            } else if (pathIndex === 0 && rootWorkspaces.length > 1) {
+                // Deleted root workspace, switch to another root
+                const remainingRoot = rootWorkspaces.find(r => r.id !== workspaceId)
+                if (remainingRoot) {
+                    this.activePath = [remainingRoot.id]
+                }
+            }
+            // If path is empty after deleting a child, this is fine -
+            // the parent is still there (just not selected yet)
+        }
+
+        // Ensure activePath is not empty if we have workspaces
+        if (this.activePath.length === 0 && this.workspaces.size > 0) {
+            const roots = this.getRootWorkspaces()
+            if (roots.length > 0) {
+                this.activePath = [roots[0].id]
+            }
+        }
+
+        // Note: Node handling is done by the caller (WorkspaceTabBar.deleteWorkspace)
+        // to give user options (move vs delete nodes)
+
+        return true
+    }
+
+    /**
+     * Rename a workspace.
+     * @param {number} workspaceId - The workspace ID
+     * @param {string} newName - The new name
+     * @returns {boolean} True if renamed successfully
+     */
+    static rename(workspaceId, newName) {
+        const ws = this.workspaces.get(workspaceId)
+        if (!ws) return false
+        ws.name = newName
         return true
     }
 
     /**
      * Serialize a workspace for saving.
-     * @param {object} workspace - The workspace to serialize
-     * @returns {object} Serialized workspace data
      */
-    static serializeWorkspace(workspace) {
+    static serialize(workspace) {
         return {
             id: workspace.id,
             name: workspace.name,
-            layers: [...workspace.layers.values()].map(l => ({
-                id: l.id,
-                name: l.name,
-                parentLayerId: l.parentLayerId
-            })),
-            activeLayerPath: workspace.activeLayerPath,
-            nextLayerId: workspace.nextLayerId
+            parentId: workspace.parentId
         }
     }
 
     /**
-     * Deserialize workspace data (for loading).
-     * @param {object} data - Serialized workspace data
-     * @returns {object} Deserialized workspace
-     */
-    static deserializeWorkspace(data) {
-        const workspace = {
-            id: data.id,
-            name: data.name,
-            layers: new Map(),
-            activeLayerPath: data.activeLayerPath || [],
-            nextLayerId: data.nextLayerId || 1
-        }
-
-        if (data.layers) {
-            data.layers.forEach(l => {
-                workspace.layers.set(l.id, {
-                    id: l.id,
-                    workspaceId: workspace.id,
-                    parentLayerId: l.parentLayerId ?? null,
-                    name: l.name
-                })
-            })
-        }
-
-        // Migration: convert old activeLayerId to activeLayerPath
-        if (data.activeLayerId && workspace.activeLayerPath.length === 0) {
-            workspace.activeLayerPath = [data.activeLayerId]
-        }
-
-        // Ensure path is valid
-        if (workspace.activeLayerPath.length === 0 && workspace.layers.size > 0) {
-            const rootLayers = [...workspace.layers.values()].filter(l => l.parentLayerId === null)
-            if (rootLayers.length > 0) {
-                workspace.activeLayerPath = [rootLayers[0].id]
-            }
-        }
-
-        return workspace
-    }
-
-    /**
-     * Serialize the entire session (all workspaces).
+     * Serialize the entire session.
      * @returns {object} Session data for saving
      */
     static serializeSession() {
         return {
-            version: '0.4.0',  // Bumped for nested layers
-            activeWorkspaceId: this.activeWorkspaceId,
-            nextWorkspaceId: this.nextWorkspaceId,
-            workspaces: [...this.workspaces.values()].map(ws => this.serializeWorkspace(ws))
+            version: '0.5.0',  // Bumped for unified workspace tree
+            activePath: this.activePath,
+            nextId: this.nextId,
+            workspaces: [...this.workspaces.values()].map(ws => this.serialize(ws))
         }
     }
 
@@ -327,16 +277,24 @@ export class WorkspaceManager {
      * Restore session state from serialized data.
      * @param {object} sessionData - Serialized session data
      */
-    static restoreSessionState(sessionData) {
+    static restoreSession(sessionData) {
         this.workspaces.clear()
-        this.nextWorkspaceId = sessionData.nextWorkspaceId || 1
-        this.activeWorkspaceId = sessionData.activeWorkspaceId
+        this.nextId = sessionData.nextId || 1
+        this.activePath = sessionData.activePath || []
 
         if (sessionData.workspaces) {
             sessionData.workspaces.forEach(wsData => {
-                const workspace = this.deserializeWorkspace(wsData)
-                this.workspaces.set(workspace.id, workspace)
+                this.workspaces.set(wsData.id, {
+                    id: wsData.id,
+                    name: wsData.name,
+                    parentId: wsData.parentId ?? null
+                })
             })
+        }
+
+        // Migration from old format (version 0.4.0 with layers)
+        if (sessionData.version === '0.4.0' || sessionData.activeWorkspaceId !== undefined) {
+            this.migrateFromLayerFormat(sessionData)
         }
 
         // Ensure we have at least one workspace
@@ -344,19 +302,70 @@ export class WorkspaceManager {
             this.init()
         }
 
-        // Ensure activeWorkspaceId is valid
-        if (!this.workspaces.has(this.activeWorkspaceId)) {
-            this.activeWorkspaceId = this.workspaces.keys().next().value
+        // Ensure activePath is valid
+        if (this.activePath.length === 0 || !this.workspaces.has(this.activePath[0])) {
+            const roots = this.getRootWorkspaces()
+            if (roots.length > 0) {
+                this.activePath = [roots[0].id]
+            }
         }
     }
 
     /**
-     * Reset to initial state (for testing or clear all).
+     * Migrate from old workspace+layer format to unified workspace tree.
+     */
+    static migrateFromLayerFormat(oldData) {
+        // Old format had: workspaces[].layers[] with parentLayerId
+        // Convert each layer to a workspace
+        if (!oldData.workspaces) return
+
+        this.workspaces.clear()
+        let maxId = 0
+
+        oldData.workspaces.forEach(oldWs => {
+            if (!oldWs.layers || oldWs.layers.length === 0) {
+                // Workspace without layers - create as single workspace
+                const id = oldWs.id
+                maxId = Math.max(maxId, id)
+                this.workspaces.set(id, {
+                    id,
+                    name: oldWs.name,
+                    parentId: null
+                })
+            } else {
+                // Convert layers to workspaces
+                // Root layers become root workspaces
+                // Child layers become child workspaces
+                oldWs.layers.forEach(layer => {
+                    const id = oldWs.id * 1000 + layer.id  // Create unique IDs
+                    maxId = Math.max(maxId, id)
+                    const parentId = layer.parentLayerId
+                        ? oldWs.id * 1000 + layer.parentLayerId
+                        : null
+                    this.workspaces.set(id, {
+                        id,
+                        name: layer.name,
+                        parentId
+                    })
+                })
+
+                // Convert activeLayerPath to activePath
+                if (oldWs.activeLayerPath && oldWs.activeLayerPath.length > 0) {
+                    this.activePath = oldWs.activeLayerPath.map(layerId => oldWs.id * 1000 + layerId)
+                }
+            }
+        })
+
+        this.nextId = maxId + 1
+    }
+
+    /**
+     * Reset to initial state.
      */
     static reset() {
         this.workspaces.clear()
-        this.activeWorkspaceId = null
-        this.nextWorkspaceId = 1
+        this.activePath = []
+        this.nextId = 1
         this.init()
     }
 }
