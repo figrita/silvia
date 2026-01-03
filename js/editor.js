@@ -123,7 +123,7 @@ export function clearWorkspace(){
     editor.scrollLeft = 0
 
     // Clear visible nodes (current workspace path)
-    const visibleOutputs = SNode.getOutputsInCurrentWorkspace()
+    const visibleOutputs = SNode.getVisibleOutputs()
     visibleOutputs.forEach((outNode) => outNode.isDestroyed = true)
 
     const visibleNodes = SNode.getVisibleNodes()

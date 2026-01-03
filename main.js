@@ -19,7 +19,7 @@ import { createMenu } from './js/menu.js'
 import { BackgroundRenderer } from './js/nodes/_background.js'
 import { initSettings, settings } from './js/settings.js'
 import { initSave, serializeWorkspace } from './js/save.js'
-import { initLoad, deserializeWorkspace } from './js/load.js'
+import { initLoad, deserializeWorkspace, createNodesAndConnections } from './js/load.js'
 import { addVersionToPatch, getCurrentVersion } from './js/version.js'
 import { initHowto } from './js/howto.js'
 import { initAbout, showAbout } from './js/about.js'
@@ -160,37 +160,13 @@ async function loadSession() {
             // Restore workspace structure
             WorkspaceManager.restoreSession(sessionData)
 
-            // Load nodes and connections
+            // Load nodes and connections using shared helper
             if (sessionData.nodes && sessionData.nodes.length > 0) {
-                // Import required functions
                 const { setWorkspaceWidth } = await import('./js/editor.js')
 
-                // Create nodes and build mapping from saved ID to new node
-                const nodeById = new Map()
-                for (const nodeData of sessionData.nodes) {
-                    try {
-                        const savedId = nodeData.id
-                        const newNode = new SNode(nodeData.slug, nodeData.x, nodeData.y, nodeData)
-                        nodeById.set(savedId, newNode)
-                    } catch (err) {
-                        console.error(`Failed to create node "${nodeData.slug}":`, err)
-                    }
-                }
-
-                for (const conn of (sessionData.connections || [])) {
-                    const src = nodeById.get(conn.fromNode)
-                    const dest = nodeById.get(conn.toNode)
-                    if (src && dest) {
-                        const srcPort = src.output[conn.fromPort]
-                        const destPort = dest.input[conn.toPort]
-                        if (srcPort && destPort) {
-                            try {
-                                new Connection(srcPort, destPort)
-                            } catch (err) {
-                                console.error('Connection failed:', err)
-                            }
-                        }
-                    }
+                const { errors } = createNodesAndConnections(sessionData.nodes, sessionData.connections || [])
+                if (errors.length > 0) {
+                    console.warn('Session load errors:', errors)
                 }
 
                 // Restore editor width

@@ -7,6 +7,8 @@
  * - activeWorkspaceId tracks the currently selected workspace
  */
 
+import { PATCH_VERSION } from './version.js'
+
 export class WorkspaceManager {
     static workspaces = new Map()  // id → Workspace
     static activeWorkspaceId = null
@@ -113,7 +115,7 @@ export class WorkspaceManager {
      */
     static serializeSession() {
         return {
-            version: '0.6.0',  // Flat workspaces
+            version: PATCH_VERSION,
             activeWorkspaceId: this.activeWorkspaceId,
             nextId: this.nextId,
             workspaces: [...this.workspaces.values()].map(ws => ({
@@ -140,13 +142,7 @@ export class WorkspaceManager {
             })
         }
 
-        // Handle activeWorkspaceId (new format) or activePath (old format)
-        if (sessionData.activeWorkspaceId !== undefined) {
-            this.activeWorkspaceId = sessionData.activeWorkspaceId
-        } else if (sessionData.activePath?.length > 0) {
-            // Migration from old nested format - just use the deepest active
-            this.activeWorkspaceId = sessionData.activePath[sessionData.activePath.length - 1]
-        }
+        this.activeWorkspaceId = sessionData.activeWorkspaceId
 
         // Ensure we have at least one workspace
         if (this.workspaces.size === 0) {

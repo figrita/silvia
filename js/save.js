@@ -1,5 +1,5 @@
 import {getPatchesFromLocalStorage} from './load.js'
-import {addVersionToPatch} from './version.js'
+import {addVersionToPatch, PATCH_VERSION} from './version.js'
 
 // Import the regular patches function for saving (to avoid duplication)
 function getRegularPatchesFromLocalStorage(){
@@ -181,7 +181,7 @@ async function openSaveModal(){
     }
 
     // Thumbnail Logic
-    outputNodesForThumb = SNode.getOutputsInCurrentWorkspace()
+    outputNodesForThumb = SNode.getVisibleOutputs()
     thumbnailOutputIndex = 0
 
     updateThumbnailPreview()
@@ -526,7 +526,7 @@ export function serializeWorkspace(allWorkspaces = false){
     // Add workspace info (just the active workspace for a patch save)
     if (activeWs) {
         result.workspaceTree = {
-            version: '0.6.0',
+            version: PATCH_VERSION,
             activeWorkspaceId: activeWs.id,
             workspaces: [{ id: activeWs.id, name: activeWs.name }]
         }
