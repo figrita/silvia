@@ -162,8 +162,9 @@ function cycleThumbnail(direction){
 }
 
 async function openSaveModal(){
-    // Reset form
-    patchNameEl.value = ''
+    // Default name to current workspace name
+    const activeWs = WorkspaceManager.getActiveWorkspace()
+    patchNameEl.value = activeWs?.name || ''
     patchAuthorEl.value = ''
     patchDescriptionEl.value = ''
     saveFeedbackEl.style.display = 'none'
