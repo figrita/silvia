@@ -75,37 +75,19 @@ function onWindowResize() {
 const SESSION_STORAGE_KEY = 'silvia_session'
 const SESSION_FILENAME = 'session'
 
-// Legacy keys for migration
-const LEGACY_WORKSPACE_KEYS = {
-    1: 'silvia_workspace_1',
-    2: 'silvia_workspace_2'
-}
-const LEGACY_WORKSPACE_FILENAMES = {
-    1: 'workspace_1',
-    2: 'workspace_2'
-}
-
-/**
- * Check if a workspace has any nodes.
- */
-function isWorkspaceEmpty(workspaceId) {
-    const nodes = SNode.getNodesInWorkspace(workspaceId)
-    return nodes.length === 0
-}
 
 /**
  * Serialize the entire session (all workspaces with their nodes and connections).
  */
 function serializeSession() {
-    // Get workspace tree structure
-    const workspaceTree = WorkspaceManager.serializeSession()
+    // Get workspace structure
+    const workspaceData = WorkspaceManager.serializeSession()
 
-    // Get all nodes and connections (they reference workspaceVisibility)
-    const patch = serializeWorkspace()
+    // Get all nodes and connections across all workspaces
+    const patch = serializeWorkspace(true)
 
     const session = {
-        version: '0.5.0',  // Bumped for unified workspace tree
-        ...workspaceTree,
+        ...workspaceData,
         nodes: patch.nodes,
         connections: patch.connections,
         editorWidth: patch.editorWidth
@@ -174,80 +156,56 @@ async function loadSession() {
             }
         }
 
-        if (sessionData) {
-            // Check version to determine format
-            const version = sessionData.version || '0.3.0'
+        if (sessionData && sessionData.workspaces) {
+            // Restore workspace structure
+            WorkspaceManager.restoreSession(sessionData)
 
-            if (version >= '0.5.0' && sessionData.workspaces) {
-                // New format (v0.5.0+): unified workspace tree with all nodes in one array
-                WorkspaceManager.restoreSession(sessionData)
+            // Load nodes and connections
+            if (sessionData.nodes && sessionData.nodes.length > 0) {
+                // Import required functions
+                const { setWorkspaceWidth } = await import('./js/editor.js')
 
-                // Load nodes and connections
-                if (sessionData.nodes && sessionData.nodes.length > 0) {
-                    deserializeWorkspace({
-                        nodes: sessionData.nodes,
-                        connections: sessionData.connections || [],
-                        workspaceTree: sessionData,
-                        editorWidth: sessionData.editorWidth
-                    }, false) // Don't clear - workspace structure already restored
-                }
-
-                SNode.updateVisibility()
-                window.markClean()
-                return true
-            } else if (sessionData.workspaces && sessionData.workspaces.length > 0) {
-                // Legacy format (v0.3.0/v0.4.0): workspaces with layers
-                // Migrate to new format
-                WorkspaceManager.workspaces.clear()
-                WorkspaceManager.nextId = 1
-                WorkspaceManager.activePath = []
-
-                // For legacy format, each workspace had its own nodes
-                for (const wsData of sessionData.workspaces) {
-                    // Create workspace (layers will become child workspaces)
-                    if (wsData.layers && wsData.layers.length > 0) {
-                        // Create workspaces from layers
-                        const layerIdMap = new Map()
-                        wsData.layers.forEach(layer => {
-                            const parentId = layer.parentLayerId ? layerIdMap.get(layer.parentLayerId) : null
-                            const ws = WorkspaceManager.create(layer.name, parentId)
-                            layerIdMap.set(layer.id, ws.id)
-                        })
-
-                        // Remap node layerVisibility to workspaceVisibility
-                        if (wsData.nodes) {
-                            wsData.nodes.forEach(node => {
-                                if (node.layerVisibility) {
-                                    node.workspaceVisibility = node.layerVisibility
-                                        .map(id => layerIdMap.get(id))
-                                        .filter(id => id !== undefined)
-                                }
-                            })
-                        }
-                    } else {
-                        // No layers - create single workspace
-                        const ws = WorkspaceManager.create(wsData.name || 'Workspace')
-                        if (wsData.nodes) {
-                            wsData.nodes.forEach(node => {
-                                node.workspaceVisibility = [ws.id]
-                            })
-                        }
-                    }
-
-                    // Load nodes for this workspace
-                    if (wsData.nodes && wsData.nodes.length > 0) {
-                        deserializeWorkspace({
-                            nodes: wsData.nodes,
-                            connections: wsData.connections || [],
-                            editorWidth: wsData.editorWidth
-                        }, false)
+                // Create nodes and build mapping from saved ID to new node
+                const nodeById = new Map()
+                for (const nodeData of sessionData.nodes) {
+                    try {
+                        const savedId = nodeData.id
+                        const newNode = new SNode(nodeData.slug, nodeData.x, nodeData.y, nodeData)
+                        nodeById.set(savedId, newNode)
+                    } catch (err) {
+                        console.error(`Failed to create node "${nodeData.slug}":`, err)
                     }
                 }
 
-                SNode.updateVisibility()
-                window.markClean()
-                return true
+                for (const conn of (sessionData.connections || [])) {
+                    const src = nodeById.get(conn.fromNode)
+                    const dest = nodeById.get(conn.toNode)
+                    if (src && dest) {
+                        const srcPort = src.output[conn.fromPort]
+                        const destPort = dest.input[conn.toPort]
+                        if (srcPort && destPort) {
+                            try {
+                                new Connection(srcPort, destPort)
+                            } catch (err) {
+                                console.error('Connection failed:', err)
+                            }
+                        }
+                    }
+                }
+
+                // Restore editor width
+                if (sessionData.editorWidth) {
+                    setWorkspaceWidth(sessionData.editorWidth)
+                }
+
+                // Update visuals
+                SNode.nodes.forEach(node => node.updatePortPoints())
+                Connection.redrawAllConnections()
             }
+
+            SNode.updateVisibility()
+            window.markClean()
+            return true
         }
     } catch (e) {
         console.warn('Could not load session:', e)
@@ -255,97 +213,12 @@ async function loadSession() {
     return false
 }
 
-/**
- * Migrate from old workspace_1/workspace_2 format to new session format.
- */
-async function migrateFromLegacyFormat() {
-    console.log('Checking for legacy workspace format...')
-
-    let migrated = false
-    let clearedInitialWorkspace = false
-
-    for (const [wsNum, storageKey] of Object.entries(LEGACY_WORKSPACE_KEYS)) {
-        let legacyData = null
-
-        // Try to load from Electron file first
-        if (typeof window !== 'undefined' && window.electronAPI) {
-            try {
-                const filename = `${LEGACY_WORKSPACE_FILENAMES[wsNum]}.svs`
-                legacyData = await window.electronAPI.loadPatchFile(filename)
-                console.log(`Found legacy file: ${filename}`)
-            } catch (error) {
-                // File doesn't exist, try localStorage
-            }
-        }
-
-        // Fall back to localStorage
-        if (!legacyData) {
-            const saveData = localStorage.getItem(storageKey)
-            if (saveData) {
-                legacyData = JSON.parse(saveData)
-                console.log(`Found legacy localStorage: ${storageKey}`)
-            }
-        }
-
-        if (legacyData && legacyData.nodes && legacyData.nodes.length > 0) {
-            // Clear the initial workspace on first migration
-            if (!clearedInitialWorkspace) {
-                WorkspaceManager.workspaces.clear()
-                WorkspaceManager.activePath = []
-                WorkspaceManager.nextId = 1
-                clearedInitialWorkspace = true
-            }
-
-            // Create a new workspace for this legacy data
-            const workspace = WorkspaceManager.create(`Workspace ${wsNum}`, null)
-
-            // Load the legacy data into this workspace
-            WorkspaceManager.setActive(workspace.id)
-            deserializeWorkspace(legacyData, true)
-
-            migrated = true
-            console.log(`Migrated legacy workspace ${wsNum} to new format`)
-        }
-    }
-
-    if (migrated) {
-        // Switch to first workspace
-        const firstWsId = WorkspaceManager.workspaces.keys().next().value
-        WorkspaceManager.setActive(firstWsId)
-        SNode.updateVisibility()
-
-        // Save in new format
-        await saveSession()
-        console.log('Migration complete, saved in new session format')
-
-        // Clean up legacy storage (but leave files for safety)
-        for (const storageKey of Object.values(LEGACY_WORKSPACE_KEYS)) {
-            localStorage.removeItem(storageKey)
-        }
-
-        return true
-    }
-
-    return false
-}
 
 /**
- * Load all workspaces - tries new format first, then migrates from legacy.
+ * Load all workspaces from session storage.
  */
 async function loadAllWorkspaces() {
-    // Try new session format first
-    const loaded = await loadSession()
-    if (loaded) {
-        return true
-    }
-
-    // Try to migrate from legacy format
-    const migrated = await migrateFromLegacyFormat()
-    if (migrated) {
-        return true
-    }
-
-    return false
+    return await loadSession()
 }
 
 /**
@@ -610,57 +483,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Workspace keyboard shortcuts (only when not typing)
         if (!isTyping) {
-            // Ctrl+T: New root workspace
+            // Ctrl+T: New workspace
             if ((e.ctrlKey || e.metaKey) && e.key === 't') {
                 e.preventDefault()
-                workspaceTabBar.createNewWorkspace(null)  // null = root level
+                workspaceTabBar.createNewWorkspace()
             }
 
             // Ctrl+W: Close workspace (with confirmation)
             if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
                 e.preventDefault()
                 const activeWs = WorkspaceManager.getActiveWorkspace()
-                if (activeWs && WorkspaceManager.workspaces.size > 1) {
+                if (activeWs) {
                     workspaceTabBar.deleteWorkspace(activeWs)
                 }
             }
 
-            // Ctrl+L: New child workspace
-            if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
-                e.preventDefault()
-                const activeWs = WorkspaceManager.getActiveWorkspace()
-                if (activeWs) {
-                    // Create child workspace under current
-                    WorkspaceManager.create(null, activeWs.id)
-                    workspaceTabBar.render()
-                    window.markDirty()
-                }
-            }
-
-            // Ctrl+1-9: Switch to root workspace 1-9
-            if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key >= '1' && e.key <= '9') {
+            // Ctrl+1-9: Switch to workspace 1-9
+            if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '9') {
                 e.preventDefault()
                 const wsIndex = parseInt(e.key) - 1
-                const rootWorkspaces = WorkspaceManager.getRootWorkspaces()
-                if (wsIndex < rootWorkspaces.length) {
-                    WorkspaceManager.setActive(rootWorkspaces[wsIndex].id)
+                const allWorkspaces = WorkspaceManager.getAll()
+                if (wsIndex < allWorkspaces.length) {
+                    WorkspaceManager.setActive(allWorkspaces[wsIndex].id)
                     SNode.updateVisibility()
                     workspaceTabBar.render()
-                }
-            }
-
-            // Ctrl+Shift+1-9: Switch to child workspace 1-9 of current
-            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key >= '1' && e.key <= '9') {
-                e.preventDefault()
-                const wsIndex = parseInt(e.key) - 1
-                const activeWs = WorkspaceManager.getActiveWorkspace()
-                if (activeWs) {
-                    const children = WorkspaceManager.getChildren(activeWs.id)
-                    if (wsIndex < children.length) {
-                        WorkspaceManager.setActive(children[wsIndex].id)
-                        SNode.updateVisibility()
-                        workspaceTabBar.render()
-                    }
                 }
             }
         }

@@ -273,24 +273,11 @@ export class Connection{
     }
 
     static updateConnectionVisibility() {
-        // Filter connections based on workspace visibility
-        // Node is visible if any of its workspaceVisibility IDs are in the active path
-        const activePathSet = new Set(WorkspaceManager.activePath || [])
-
-        // Helper to check if node is visible
-        const isNodeVisible = (node) => {
-            if (!node.workspaceVisibility) return false
-            for (const wsId of node.workspaceVisibility) {
-                if (activePathSet.has(wsId)) return true
-            }
-            return false
-        }
+        const activeId = WorkspaceManager.activeWorkspaceId
 
         this.connections.forEach(connection => {
-            const sourceVisible = isNodeVisible(connection.source.parent)
-            const destVisible = isNodeVisible(connection.destination.parent)
-
-            // Connection visible only if BOTH endpoints are visible
+            const sourceVisible = connection.source.parent.workspaceVisibility?.has(activeId)
+            const destVisible = connection.destination.parent.workspaceVisibility?.has(activeId)
             connection.visible = sourceVisible && destVisible
         })
     }
