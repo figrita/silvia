@@ -26,8 +26,10 @@ editor.addEventListener('wheel', (e) => {
 
 // Toggle visibility with 'h' key and fullscreen with 'f' key
 document.addEventListener('keydown', (e) => {
-    if(document.activeElement.tagName === 'INPUT'){return}
-    if(document.activeElement.tagName === 'TEXTAREA'){return}
+    const activeEl = document.activeElement
+    if(activeEl.tagName === 'INPUT'){return}
+    if(activeEl.tagName === 'TEXTAREA'){return}
+    if(activeEl.contentEditable === 'true'){return}
     if(e.key.toLowerCase() === 'h'){
         editor.style.display = editor.style.display === 'none' ? 'block' : 'none'
     }

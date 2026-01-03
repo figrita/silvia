@@ -7,16 +7,6 @@ import {nodeList} from './registry.js'
 import {WorkspaceManager} from './workspaceManager.js'
 
 /**
- * Calculate workspace depth from a flat list of workspace objects (for loading).
- */
-function getWorkspaceDepthFromList(workspace, workspaceList) {
-    if (!workspace.parentId) return 0
-    const parent = workspaceList.find(ws => ws.id === workspace.parentId)
-    if (!parent) return 0
-    return 1 + getWorkspaceDepthFromList(parent, workspaceList)
-}
-
-/**
  * Create nodes and connections from patch data.
  * Shared helper for all patch loading functions.
  * @param {Array} nodes - Array of node data from patch
@@ -532,7 +522,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
             ${modifiedDate} • ${fileSize}
         </div>` : ''}
         <div class="patch-card-actions" style="margin-top: auto; display: flex; gap: 4px; flex-wrap: wrap;">
-            <button class="patch-load-btn" title="Replace current workspace" style="
+            <button class="patch-load-btn" title="Load patch" style="
                 flex: 1;
                 padding: 4px 8px;
                 background: var(--primary-color);
@@ -543,7 +533,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                 cursor: pointer;
                 min-width: 40px;
             ">Load</button>
-            <button class="patch-child-btn" title="Load as child workspace of current" style="
+            <button class="patch-new-ws-btn" title="Load as new workspace" style="
                 padding: 4px 6px;
                 background: var(--bg-interactive);
                 border: 1px solid var(--border-normal);
@@ -552,17 +542,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                 font-size: 10px;
                 cursor: pointer;
                 transition: background 0.2s;
-            ">+Child</button>
-            <button class="patch-sibling-btn" title="Load as sibling workspace" style="
-                padding: 4px 6px;
-                background: var(--bg-interactive);
-                border: 1px solid var(--border-normal);
-                border-radius: 4px;
-                color: var(--text-secondary);
-                font-size: 10px;
-                cursor: pointer;
-                transition: background 0.2s;
-            ">+Sibling</button>
+            ">+New</button>
             <button class="patch-download-btn" title="Download .svs file" style="
                 padding: 4px 6px;
                 background: var(--bg-interactive);
@@ -588,28 +568,20 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
     item.appendChild(previewDiv)
     item.appendChild(infoDiv)
 
-    // Add Load button functionality (replaces current workspace)
+    // Load button - loads into current workspace
     const loadBtn = item.querySelector('.patch-load-btn')
     loadBtn.addEventListener('click', (e) => {
-        e.stopPropagation() // Prevent card selection
+        e.stopPropagation()
         selectedPatchData = patch
         deserializeWorkspace(patch, clearWorkspaceCheckbox.checked)
         loadModal.style.display = 'none'
     })
 
-    // Add as child workspace of current active workspace
-    const childBtn = item.querySelector('.patch-child-btn')
-    childBtn.addEventListener('click', (e) => {
+    // New workspace button - creates new workspace and loads patch there
+    const newWsBtn = item.querySelector('.patch-new-ws-btn')
+    newWsBtn.addEventListener('click', (e) => {
         e.stopPropagation()
-        loadPatchAsChildWorkspace(patch)
-        loadModal.style.display = 'none'
-    })
-
-    // Add as sibling workspace (same parent as current active workspace)
-    const siblingBtn = item.querySelector('.patch-sibling-btn')
-    siblingBtn.addEventListener('click', (e) => {
-        e.stopPropagation()
-        loadPatchAsSiblingWorkspace(patch)
+        loadPatchAsNewWorkspace(patch)
         loadModal.style.display = 'none'
     })
 
@@ -673,28 +645,9 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
 }
 
 /**
- * Load a patch as a child workspace of the current active workspace.
+ * Load a patch as a new workspace.
  */
-export function loadPatchAsChildWorkspace(patchData) {
-    const activeWs = WorkspaceManager.getActiveWorkspace()
-    const parentId = activeWs?.id ?? null  // Child of current workspace
-    loadPatchAsNewWorkspace(patchData, parentId)
-}
-
-/**
- * Load a patch as a sibling workspace (same parent as current active workspace).
- */
-export function loadPatchAsSiblingWorkspace(patchData) {
-    const activeWs = WorkspaceManager.getActiveWorkspace()
-    const parentId = activeWs?.parentId ?? null  // Same parent as current
-    loadPatchAsNewWorkspace(patchData, parentId)
-}
-
-/**
- * Load a patch as a new workspace in the tree.
- * Creates a new workspace with the specified parent and places all nodes onto it.
- */
-function loadPatchAsNewWorkspace(patchData, parentId) {
+function loadPatchAsNewWorkspace(patchData) {
     try {
         const validation = PatchValidator.validate(patchData)
         if (validation.errors.length > 0) {
@@ -706,15 +659,12 @@ function loadPatchAsNewWorkspace(patchData, parentId) {
             throw new Error('Patch data is invalid or missing "nodes" array.')
         }
 
-        // Create workspace and assign all nodes to it
         const workspaceName = patchData.meta?.name || 'Imported Workspace'
-        const newWorkspace = WorkspaceManager.create(workspaceName, parentId)
+        const newWorkspace = WorkspaceManager.create(workspaceName)
         patchData.nodes.forEach(n => n.workspaceVisibility = [newWorkspace.id])
 
-        // Create nodes and connections
-        const {errors, failedIds} = createNodesAndConnections(patchData.nodes, patchData.connections)
+        const {errors} = createNodesAndConnections(patchData.nodes, patchData.connections)
 
-        // Expand editor if needed
         if (patchData.editorWidth) {
             const nodeRoot = document.getElementById('node-root')
             if (patchData.editorWidth > (nodeRoot?.offsetWidth || 0)) {
@@ -722,7 +672,6 @@ function loadPatchAsNewWorkspace(patchData, parentId) {
             }
         }
 
-        // Switch to new workspace and update UI
         WorkspaceManager.setActive(newWorkspace.id)
         SNode.updateVisibility()
         SNode.nodes.forEach(node => node.updatePortPoints())
@@ -731,8 +680,6 @@ function loadPatchAsNewWorkspace(patchData, parentId) {
         if (errors.length > 0) {
             console.warn('Import errors:', errors)
             alert(`Imported with ${errors.length} errors. Check console.`)
-        } else {
-            console.log(`Imported "${workspaceName}" with ${patchData.nodes.length} nodes`)
         }
 
         window.markDirty?.()
@@ -810,74 +757,48 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
 
 /**
  * Build workspace ID mapping from patch data.
- * Handles v0.5.0+ format, v0.4.0 layer format, and legacy patches.
+ * Maps saved workspace IDs to current workspace IDs.
  */
 function buildWorkspaceIdMap(patchData, shouldClearWorkspace) {
     const idMap = new Map()
     const activeWs = WorkspaceManager.getActiveWorkspace()
 
-    if (patchData.workspaceTree?.workspaces?.length > 0) {
-        // v0.5.0+ unified workspace tree
-        const saved = patchData.workspaceTree.workspaces
-        const sorted = [...saved].sort((a, b) =>
-            getWorkspaceDepthFromList(a, saved) - getWorkspaceDepthFromList(b, saved)
-        )
+    // Get workspaces from patch (various formats)
+    const savedWorkspaces = patchData.workspaceTree?.workspaces
+        || patchData.workspaces
+        || []
 
-        if (shouldClearWorkspace) {
-            // Reuse active workspace for first root
-            const firstRoot = sorted.find(ws => !ws.parentId)
-            if (activeWs && firstRoot) {
-                WorkspaceManager.rename(activeWs.id, firstRoot.name || 'Workspace 1')
-                idMap.set(firstRoot.id, activeWs.id)
-            }
+    if (savedWorkspaces.length > 0) {
+        const first = savedWorkspaces[0]
+
+        if (shouldClearWorkspace && activeWs && first) {
+            // Reuse active workspace for first saved workspace
+            WorkspaceManager.rename(activeWs.id, first.name || 'Workspace 1')
+            idMap.set(first.id, activeWs.id)
         }
 
-        sorted.forEach(ws => {
+        savedWorkspaces.forEach(ws => {
             if (idMap.has(ws.id)) return
             // Check if workspace already exists (e.g., from restoreSession)
             if (WorkspaceManager.workspaces.has(ws.id)) {
-                idMap.set(ws.id, ws.id)  // Identity mapping
+                idMap.set(ws.id, ws.id)
                 return
             }
-            const parentId = ws.parentId ? idMap.get(ws.parentId) : null
-            const newWs = WorkspaceManager.create(ws.name, parentId)
+            const newWs = WorkspaceManager.create(ws.name)
             idMap.set(ws.id, newWs.id)
         })
 
-        // Restore active path
-        if (shouldClearWorkspace && patchData.workspaceTree.activePath?.length > 0) {
-            const deepest = patchData.workspaceTree.activePath.at(-1)
-            const mapped = idMap.get(deepest)
+        // Set active workspace
+        const activeId = patchData.workspaceTree?.activeWorkspaceId
+            ?? patchData.activeWorkspaceId
+            ?? patchData.workspaceTree?.activePath?.at(-1)
+        if (shouldClearWorkspace && activeId) {
+            const mapped = idMap.get(activeId)
             if (mapped) WorkspaceManager.setActive(mapped)
         }
 
-    } else if (patchData.workspace?.layers?.length > 0) {
-        // v0.4.0 legacy layer format → convert to workspaces
-        const layers = patchData.workspace.layers
-        const sorted = [...layers].sort((a, b) =>
-            (a.parentLayerId ? 1 : 0) - (b.parentLayerId ? 1 : 0)
-        )
-
-        const firstRoot = sorted.find(l => !l.parentLayerId)
-        if (activeWs && firstRoot) {
-            WorkspaceManager.rename(activeWs.id, firstRoot.name || 'Workspace 1')
-            idMap.set(firstRoot.id, activeWs.id)
-        }
-
-        sorted.forEach(layer => {
-            if (idMap.has(layer.id)) return
-            // Check if workspace already exists with this ID
-            if (WorkspaceManager.workspaces.has(layer.id)) {
-                idMap.set(layer.id, layer.id)
-                return
-            }
-            const parentId = layer.parentLayerId ? idMap.get(layer.parentLayerId) : null
-            const newWs = WorkspaceManager.create(layer.name, parentId)
-            idMap.set(layer.id, newWs.id)
-        })
-
     } else {
-        // Legacy patch with no workspace data
+        // Legacy patch with no workspace data - use active workspace
         if (activeWs) {
             idMap.set(1, activeWs.id)
         }

@@ -382,27 +382,14 @@ async function handleSave(){
     }
 }
 
-export function serializeWorkspace(){
-    // Get active workspace info for serialization
+export function serializeWorkspace(allWorkspaces = false){
+    // Get nodes to serialize - either all nodes or just active workspace
     const activeWs = WorkspaceManager.getActiveWorkspace()
+    const workspaceNodes = allWorkspaces
+        ? [...SNode.nodes]  // All nodes across all workspaces (convert Set to Array)
+        : (activeWs ? SNode.getNodesOnWorkspace(activeWs.id) : SNode.getVisibleNodes())
 
-    // Get all workspace IDs in the subtree (this workspace + all descendants)
-    const subtreeIds = activeWs
-        ? WorkspaceManager.getDescendantIds(activeWs.id)
-        : new Set()
-
-    // Get ALL nodes that are on any workspace in the subtree
-    const workspaceNodes = activeWs
-        ? [...SNode.nodes].filter(node => {
-            if (!node.workspaceVisibility) return false
-            for (const wsId of node.workspaceVisibility) {
-                if (subtreeIds.has(wsId)) return true
-            }
-            return false
-        })
-        : SNode.getVisibleNodes()
-
-    const nodes = Array.from(workspaceNodes).map((node) => {
+    const nodes = workspaceNodes.map((node) => {
         const controls = {}
         const controlRanges = {} // Store edited min/max/step values
         Object.entries(node.input).forEach(([key, input]) => {
@@ -536,21 +523,13 @@ export function serializeWorkspace(){
 
     const result = {nodes, connections, editorWidth}
 
-    // Add workspace tree (subtree rooted at active workspace)
-    if (activeWs && subtreeIds.size > 0) {
-        const subtree = WorkspaceManager.getSubtree(activeWs.id)
+    // Add workspace info (just the active workspace for a patch save)
+    if (activeWs) {
         result.workspaceTree = {
-            version: '0.5.0',
-            activePath: WorkspaceManager.activePath.filter(id => subtreeIds.has(id)),
-            nextId: WorkspaceManager.nextId,
-            workspaces: subtree.map(ws => ({
-                id: ws.id,
-                name: ws.name,
-                parentId: ws.id === activeWs.id ? null : ws.parentId
-            }))
+            version: '0.6.0',
+            activeWorkspaceId: activeWs.id,
+            workspaces: [{ id: activeWs.id, name: activeWs.name }]
         }
-    } else {
-        result.workspaceTree = WorkspaceManager.serializeSession()
     }
 
     // Add asset references if any exist (Electron mode)

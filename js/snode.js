@@ -16,7 +16,7 @@ export class SNode{
 
     // Legacy compatibility - delegate to WorkspaceManager
     static get currentWorkspace() {
-        return WorkspaceManager.activePath[0]  // Root workspace ID
+        return WorkspaceManager.activeWorkspaceId
     }
     static set currentWorkspace(value) {
         WorkspaceManager.setActive(value)
@@ -62,52 +62,31 @@ export class SNode{
     }
 
     /**
-     * Update visibility of all nodes based on active workspace path.
-     * Node is visible if it's on any workspace in the active path.
+     * Update visibility of all nodes based on active workspace.
      */
     static updateVisibility() {
-        // activePath is an array of workspace IDs from root to deepest selected
-        const activePath = WorkspaceManager.activePath || []
-        // Create a Set for O(1) lookups
-        const activePathSet = new Set(activePath)
+        const activeId = WorkspaceManager.activeWorkspaceId
 
-        for(const node of this.nodes) {
-            // Node is visible if any of its workspace visibility IDs are in the active path
-            let visible = false
-            if (node.workspaceVisibility) {
-                for (const wsId of node.workspaceVisibility) {
-                    if (activePathSet.has(wsId)) {
-                        visible = true
-                        break
-                    }
-                }
-            }
+        for (const node of this.nodes) {
+            const visible = node.workspaceVisibility?.has(activeId) ?? false
             node.nodeEl.style.display = visible ? 'block' : 'none'
         }
 
-        // Update workspace width to fit current workspace nodes
-        // Use requestAnimationFrame to ensure DOM updates are processed
         requestAnimationFrame(() => {
             this.recalculateWorkspaceWidth()
-
-            // Update connection visibility based on current workspace path
             Connection.updateConnectionVisibility()
             Connection.redrawAllConnections()
         })
     }
 
     /**
-     * Get all visible nodes (on any workspace in active path).
+     * Get all visible nodes (on active workspace).
      */
     static getVisibleNodes() {
-        const activePathSet = new Set(WorkspaceManager.activePath || [])
-        return [...this.nodes].filter(node => {
-            if (!node.workspaceVisibility) return false
-            for (const wsId of node.workspaceVisibility) {
-                if (activePathSet.has(wsId)) return true
-            }
-            return false
-        })
+        const activeId = WorkspaceManager.activeWorkspaceId
+        return [...this.nodes].filter(node =>
+            node.workspaceVisibility?.has(activeId)
+        )
     }
 
     /**
@@ -120,10 +99,9 @@ export class SNode{
     }
 
     static getOutputsInCurrentWorkspace() {
-        const activePathSet = new Set(WorkspaceManager.activePath || [])
+        const activeId = WorkspaceManager.activeWorkspaceId
         return [...this.outputs].filter(node =>
-            node.workspaceVisibility &&
-            [...node.workspaceVisibility].some(wsId => activePathSet.has(wsId))
+            node.workspaceVisibility?.has(activeId)
         )
     }
 
@@ -962,81 +940,61 @@ export class SNode{
             menu.appendChild(menuItem)
         })
 
-        // Add workspace toggles section - show sibling workspaces the node could be on
-        // Get the current node's workspaces and show sibling options
-        const currentWsIds = [...this.workspaceVisibility]
-        if (currentWsIds.length > 0) {
-            // Get all workspaces that share a parent with any of the node's workspaces
-            const siblingWorkspaces = new Set()
-            for (const wsId of currentWsIds) {
-                const ws = WorkspaceManager.workspaces.get(wsId)
-                if (ws) {
-                    // Add siblings (same parent)
-                    const siblings = WorkspaceManager.getSiblings(wsId)
-                    siblings.forEach(s => siblingWorkspaces.add(s))
-                    // Also add self
-                    siblingWorkspaces.add(ws)
-                }
-            }
+        // Add workspace toggles section - show all workspaces the node could be on
+        const allWorkspaces = WorkspaceManager.getAll()
+        if (allWorkspaces.length > 1) {
+            // Add separator
+            const separator = document.createElement('hr')
+            separator.style.cssText = 'margin: 4px 0; border: 0; border-top: 1px solid var(--border-subtle);'
+            menu.appendChild(separator)
 
-            // Only show section if there are multiple workspace options
-            if (siblingWorkspaces.size > 1) {
-                // Add separator
-                const separator = document.createElement('hr')
-                separator.style.cssText = 'margin: 4px 0; border: 0; border-top: 1px solid var(--border-subtle);'
-                menu.appendChild(separator)
+            // Add section header
+            const wsHeader = document.createElement('div')
+            wsHeader.className = 'context-menu-section-header'
+            wsHeader.innerHTML = '<span style="font-size: 11px; color: var(--text-secondary); padding: 4px 12px;">Workspaces:</span>'
+            menu.appendChild(wsHeader)
 
-                // Add section header
-                const wsHeader = document.createElement('div')
-                wsHeader.className = 'context-menu-section-header'
-                wsHeader.innerHTML = '<span style="font-size: 11px; color: var(--text-secondary); padding: 4px 12px;">Workspaces:</span>'
-                menu.appendChild(wsHeader)
+            // Add workspace checkboxes
+            allWorkspaces.forEach(workspace => {
+                const isOn = this.workspaceVisibility.has(workspace.id)
 
-                // Add workspace checkboxes
-                siblingWorkspaces.forEach(workspace => {
-                    const isOn = this.workspaceVisibility.has(workspace.id)
-                    const isOnly = this.workspaceVisibility.size === 1 && isOn
+                const wsItem = document.createElement('label')
+                wsItem.className = 'context-menu-layer-toggle'
+                wsItem.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 4px 12px;
+                    cursor: pointer;
+                    font-size: 12px;
+                `
+                wsItem.innerHTML = `
+                    <input type="checkbox"
+                           ${isOn ? 'checked' : ''}
+                           style="margin: 0; accent-color: var(--primary-color);">
+                    <span>${workspace.name}</span>
+                `
 
-                    const wsItem = document.createElement('label')
-                    wsItem.className = 'context-menu-layer-toggle'
-                    wsItem.style.cssText = `
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        padding: 4px 12px;
-                        cursor: ${isOnly ? 'not-allowed' : 'pointer'};
-                        opacity: ${isOnly ? '0.6' : '1'};
-                        font-size: 12px;
-                    `
-                    wsItem.innerHTML = `
-                        <input type="checkbox"
-                               ${isOn ? 'checked' : ''}
-                               ${isOnly ? 'disabled' : ''}
-                               style="margin: 0; accent-color: var(--primary-color);">
-                        <span>${workspace.name}</span>
-                    `
-
-                    const checkbox = wsItem.querySelector('input')
-                    checkbox.addEventListener('change', (e) => {
-                        e.stopPropagation()
-                        const toggled = this.toggleWorkspaceVisibility(workspace.id)
-                        if (toggled) {
-                            SNode.updateVisibility()
-                            Connection.redrawAllConnections()
-                        } else {
-                            // Revert checkbox if toggle failed
-                            checkbox.checked = true
-                        }
-                    })
-
-                    // Prevent menu close when clicking workspace toggles
-                    wsItem.addEventListener('click', (e) => {
-                        e.stopPropagation()
-                    })
-
-                    menu.appendChild(wsItem)
+                const checkbox = wsItem.querySelector('input')
+                checkbox.addEventListener('change', (e) => {
+                    e.stopPropagation()
+                    const toggled = this.toggleWorkspaceVisibility(workspace.id)
+                    if (toggled) {
+                        SNode.updateVisibility()
+                        Connection.redrawAllConnections()
+                    } else {
+                        // Revert checkbox if toggle failed (can't remove last workspace)
+                        checkbox.checked = true
+                    }
                 })
-            }
+
+                // Prevent menu close when clicking workspace toggles
+                wsItem.addEventListener('click', (e) => {
+                    e.stopPropagation()
+                })
+
+                menu.appendChild(wsItem)
+            })
         }
 
         // Add menu to document
