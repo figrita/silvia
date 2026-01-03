@@ -761,7 +761,11 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
 function buildWorkspaceIdMap(patchData, shouldClearWorkspace) {
     const idMap = new Map()
     const activeWs = WorkspaceManager.getActiveWorkspace()
-    const savedWorkspaces = patchData.workspaceTree?.workspaces || []
+
+    // Get workspaces from patch (various formats)
+    const savedWorkspaces = patchData.workspaceTree?.workspaces
+        || patchData.workspaces
+        || []
 
     if (savedWorkspaces.length > 0) {
         const first = savedWorkspaces[0]
@@ -784,13 +788,14 @@ function buildWorkspaceIdMap(patchData, shouldClearWorkspace) {
         })
 
         // Set active workspace
-        const activeId = patchData.workspaceTree?.activeWorkspaceId
+        const activeId = patchData.workspaceTree?.activeWorkspaceId ?? patchData.activeWorkspaceId
         if (shouldClearWorkspace && activeId) {
             const mapped = idMap.get(activeId)
             if (mapped) WorkspaceManager.setActive(mapped)
         }
+
     } else {
-        // Patch with no workspace data - assign to active workspace
+        // Legacy patch with no workspace data - use active workspace
         if (activeWs) {
             idMap.set(1, activeWs.id)
         }
