@@ -68,7 +68,7 @@ export class SNode{
         const activeId = WorkspaceManager.activeWorkspaceId
 
         for (const node of this.nodes) {
-            const visible = node.workspaceVisibility.has(activeId)
+            const visible = node.workspaceVisibility?.has(activeId) ?? false
             node.nodeEl.style.display = visible ? 'block' : 'none'
         }
 
@@ -85,7 +85,7 @@ export class SNode{
     static getVisibleNodes() {
         const activeId = WorkspaceManager.activeWorkspaceId
         return [...this.nodes].filter(node =>
-            node.workspaceVisibility.has(activeId)
+            node.workspaceVisibility?.has(activeId)
         )
     }
 
@@ -104,7 +104,7 @@ export class SNode{
     static getVisibleOutputs() {
         const activeId = WorkspaceManager.activeWorkspaceId
         return [...this.outputs].filter(node =>
-            node.workspaceVisibility.has(activeId)
+            node.workspaceVisibility?.has(activeId)
         )
     }
 
