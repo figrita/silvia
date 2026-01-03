@@ -68,7 +68,7 @@ export class SNode{
         const activeId = WorkspaceManager.activeWorkspaceId
 
         for (const node of this.nodes) {
-            const visible = node.workspaceVisibility?.has(activeId) ?? false
+            const visible = node.workspaceVisibility.has(activeId)
             node.nodeEl.style.display = visible ? 'block' : 'none'
         }
 
@@ -85,7 +85,7 @@ export class SNode{
     static getVisibleNodes() {
         const activeId = WorkspaceManager.activeWorkspaceId
         return [...this.nodes].filter(node =>
-            node.workspaceVisibility?.has(activeId)
+            node.workspaceVisibility.has(activeId)
         )
     }
 
@@ -98,10 +98,13 @@ export class SNode{
         )
     }
 
-    static getOutputsInCurrentWorkspace() {
+    /**
+     * Get all visible output nodes (on active workspace).
+     */
+    static getVisibleOutputs() {
         const activeId = WorkspaceManager.activeWorkspaceId
         return [...this.outputs].filter(node =>
-            node.workspaceVisibility?.has(activeId)
+            node.workspaceVisibility.has(activeId)
         )
     }
 
@@ -804,12 +807,6 @@ export class SNode{
         }
         return false
     }
-
-    // Legacy aliases for backwards compatibility
-    isVisibleOnLayer(layerId) { return this.isVisibleOnWorkspace(layerId) }
-    toggleLayerVisibility(layerId) { return this.toggleWorkspaceVisibility(layerId) }
-    addToLayer(layerId) { this.addToWorkspace(layerId) }
-    removeFromLayer(layerId) { return this.removeFromWorkspace(layerId) }
 
     highlightPortConnections(portEl){
         // Check if glow on hover is enabled

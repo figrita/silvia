@@ -13,7 +13,7 @@ import {WorkspaceManager} from './workspaceManager.js'
  * @param {Array} connections - Array of connection data from patch
  * @returns {{nodeMap: Map, errors: Array, failedIds: Set}}
  */
-function createNodesAndConnections(nodes, connections) {
+export function createNodesAndConnections(nodes, connections) {
     const nodeMap = new Map()
     const errors = []
     const failedIds = new Set()
@@ -717,9 +717,8 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
 
         // Remap workspace visibility on each node before creation
         patchData.nodes.forEach(nodeData => {
-            const oldVis = nodeData.workspaceVisibility || nodeData.layerVisibility
-            if (oldVis && Array.isArray(oldVis)) {
-                nodeData.workspaceVisibility = oldVis
+            if (nodeData.workspaceVisibility && Array.isArray(nodeData.workspaceVisibility)) {
+                nodeData.workspaceVisibility = nodeData.workspaceVisibility
                     .map(id => workspaceIdMap.get(id))
                     .filter(id => id !== undefined)
                 if (nodeData.workspaceVisibility.length === 0) {
@@ -762,11 +761,7 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
 function buildWorkspaceIdMap(patchData, shouldClearWorkspace) {
     const idMap = new Map()
     const activeWs = WorkspaceManager.getActiveWorkspace()
-
-    // Get workspaces from patch (various formats)
-    const savedWorkspaces = patchData.workspaceTree?.workspaces
-        || patchData.workspaces
-        || []
+    const savedWorkspaces = patchData.workspaceTree?.workspaces || []
 
     if (savedWorkspaces.length > 0) {
         const first = savedWorkspaces[0]
@@ -790,15 +785,12 @@ function buildWorkspaceIdMap(patchData, shouldClearWorkspace) {
 
         // Set active workspace
         const activeId = patchData.workspaceTree?.activeWorkspaceId
-            ?? patchData.activeWorkspaceId
-            ?? patchData.workspaceTree?.activePath?.at(-1)
         if (shouldClearWorkspace && activeId) {
             const mapped = idMap.get(activeId)
             if (mapped) WorkspaceManager.setActive(mapped)
         }
-
     } else {
-        // Legacy patch with no workspace data - use active workspace
+        // Patch with no workspace data - assign to active workspace
         if (activeWs) {
             idMap.set(1, activeWs.id)
         }

@@ -276,8 +276,8 @@ export class Connection{
         const activeId = WorkspaceManager.activeWorkspaceId
 
         this.connections.forEach(connection => {
-            const sourceVisible = connection.source.parent.workspaceVisibility?.has(activeId)
-            const destVisible = connection.destination.parent.workspaceVisibility?.has(activeId)
+            const sourceVisible = connection.source.parent.workspaceVisibility.has(activeId)
+            const destVisible = connection.destination.parent.workspaceVisibility.has(activeId)
             connection.visible = sourceVisible && destVisible
         })
     }

@@ -10,9 +10,11 @@
  *
  * Version History:
  * - 0.1: Initial patch format
- * - 0.2: Current version (updated from 0.1)
+ * - 0.2: Added control ranges and asset references
+ * - 0.6.0: Flat workspace system (development)
+ * - 0.7.0: Flat workspace system with multi-workspace node visibility
  */
-export const PATCH_VERSION = '0.2.4'
+export const PATCH_VERSION = '0.7.0'
 
 /**
  * Get the current patch format version
