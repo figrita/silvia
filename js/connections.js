@@ -285,20 +285,164 @@ export class Connection{
     static redrawAllConnections(){
         this.scaleSVG() // Resize SVG to match container
         this.updateThemeClass() // Apply theme settings
-        // Only draw visible connections
-        const html = mapJoin([...this.connections].filter(conn => conn.visible !== false), connection => connection.drawConnection())
-        this.svgRoot.innerHTML = html
 
-        // Update all port colors to match their connections (only visible ones)
+        const activeId = WorkspaceManager.activeWorkspaceId
+
+        // Compute visibility fresh and draw visible connections
+        const visibleConnections = []
         this.connections.forEach(connection => {
-            if(connection.visible !== false) {
+            const sourceVisible = connection.source.parent.workspaceVisibility.has(activeId)
+            const destVisible = connection.destination.parent.workspaceVisibility.has(activeId)
+            connection.visible = sourceVisible && destVisible
+            connection._sourceVisible = sourceVisible
+            connection._destVisible = destVisible
+            if(connection.visible) visibleConnections.push(connection)
+        })
+
+        this.svgRoot.innerHTML = mapJoin(visibleConnections, c => c.drawConnection())
+
+        // Clear all port styles before reapplying
+        this.connections.forEach(connection => {
+            if(connection.source.portEl) { connection.source.portEl.style.border = ''; connection.source.portEl.title = '' }
+            if(connection.destination.portEl) { connection.destination.portEl.style.border = '' }
+        })
+
+        // Update port colors + cross-workspace indicators
+        this.connections.forEach(connection => {
+            if(connection.visible) {
                 connection.updatePortColors()
             } else {
-                // Clear port colors for invisible connections
-                Connection.clearPortColor(connection.source.portEl)
-                Connection.clearPortColor(connection.destination.portEl)
+                // Destination port: keep colored if visible (pairs with source tag)
+                if(connection._destVisible) {
+                    connection.destination.portEl.style.border = `3px solid ${connection.color}`
+                }
+
+                // Source port: keep colored + tooltip if visible (shows where output goes)
+                if(connection._sourceVisible) {
+                    connection.source.portEl.style.border = `3px solid ${connection.color}`
+                    const destNode = connection.destination.parent
+                    let destWsId = null
+                    for(const wsId of destNode.workspaceVisibility) {
+                        if(wsId !== activeId) { destWsId = wsId; break }
+                    }
+                    const ws = destWsId != null ? WorkspaceManager.workspaces.get(destWsId) : null
+                    const portLabel = connection.destination.label || connection.destination.key
+                    const tip = ws
+                        ? `→ ${ws.name} → ${destNode.label} → ${portLabel}`
+                        : `→ ${destNode.label} → ${portLabel}`
+                    const prev = connection.source.portEl.title
+                    connection.source.portEl.title = prev ? prev + '\n' + tip : tip
+                }
             }
         })
+
+        // Show source tags on input ports with cross-workspace connections
+        this.updateCrossWorkspaceTags()
+    }
+
+    /**
+     * Creates/updates pill-shaped "source tags" on input ports that have
+     * incoming connections from nodes on other workspaces.
+     * Tags are keyed and reused across redraws to avoid re-triggering animations.
+     */
+    static updateCrossWorkspaceTags() {
+        const activeId = WorkspaceManager.activeWorkspaceId
+
+        // Build map of tags that should exist, keyed by connection identity
+        const needed = new Map()
+        this.connections.forEach(connection => {
+            // Use pre-computed flags from redrawAllConnections
+            if(!connection._sourceVisible && connection._destVisible) {
+                const key = `${connection.source.parent.id}:${connection.source.key}>${connection.destination.parent.id}:${connection.destination.key}`
+                needed.set(key, connection)
+            }
+        })
+
+        // Collect existing tags
+        const existing = new Map()
+        document.querySelectorAll('.cross-ws-tag').forEach(el => {
+            const key = el.dataset.connectionKey
+            if(key) existing.set(key, el)
+        })
+
+        // Fade out tags that are no longer needed
+        existing.forEach((el, key) => {
+            if(!needed.has(key) && !el.classList.contains('cross-ws-tag-out')) {
+                el.classList.add('cross-ws-tag-out')
+                el.addEventListener('animationend', () => el.remove(), {once: true})
+                // Fallback: animationend won't fire if parent is hidden (display:none)
+                setTimeout(() => { if(el.parentNode) el.remove() }, 200)
+            }
+        })
+
+        // Create or revive tags
+        needed.forEach((connection, key) => {
+            const existingEl = existing.get(key)
+            if(existingEl) {
+                // If tag was fading out (stale from hidden parent), replace it
+                if(existingEl.classList.contains('cross-ws-tag-out')) {
+                    existingEl.remove()
+                    this._createSourceTag(connection, activeId, key)
+                }
+                // Otherwise leave it alone — no re-animation
+            } else {
+                this._createSourceTag(connection, activeId, key)
+            }
+        })
+    }
+
+    /**
+     * Creates a single source tag for a cross-workspace connection.
+     */
+    static _createSourceTag(connection, activeId, key) {
+        const destPort = connection.destination
+        const sourcePort = connection.source
+        const sourceNode = sourcePort.parent
+        const portEl = destPort.portEl
+        if(!portEl) return
+
+        // Skip collapsed nodes — port dots still show color, that's sufficient
+        if(destPort.parent.collapsed) return
+
+        // Find which workspace the source node lives on (prefer first non-active)
+        let sourceWorkspaceId = null
+        for(const wsId of sourceNode.workspaceVisibility) {
+            if(wsId !== activeId) {
+                sourceWorkspaceId = wsId
+                break
+            }
+        }
+        if(sourceWorkspaceId === null) return
+
+        const workspace = WorkspaceManager.workspaces.get(sourceWorkspaceId)
+        if(!workspace) return
+
+        // Build tag
+        const tag = document.createElement('div')
+        tag.className = 'cross-ws-tag'
+        tag.dataset.connectionKey = key
+        tag.style.borderColor = connection.color
+
+        const wsName = workspace.name.length > 12 ? workspace.name.slice(0, 11) + '\u2026' : workspace.name
+        tag.innerHTML = `<span class="cross-ws-tag-icon">${sourceNode.icon}</span><span class="cross-ws-tag-label">${wsName}</span>`
+
+        // Full-path tooltip
+        const portLabel = sourcePort.label || sourcePort.key
+        tag.title = `${workspace.name} \u2192 ${sourceNode.label} \u2192 ${portLabel}`
+
+        // Click to navigate to source workspace
+        tag.addEventListener('click', (e) => {
+            e.stopPropagation()
+            WorkspaceManager.setActive(sourceWorkspaceId)
+            SNode.updateVisibility()
+            document.dispatchEvent(new CustomEvent('workspace-switched'))
+        })
+
+        // Append to the .node-input row (already has position: relative)
+        const nodeInputRow = portEl.closest('.node-input')
+        if(nodeInputRow) {
+            nodeInputRow.appendChild(tag)
+        }
     }
 
     source
@@ -355,7 +499,6 @@ export class Connection{
     }
 
     updatePortColors() {
-        // Set border colors on connected ports to match wire color
         if(this.source.portEl) {
             this.source.portEl.style.border = `3px solid ${this.color}`
         }
@@ -367,6 +510,7 @@ export class Connection{
     static clearPortColor(portEl) {
         if(portEl) {
             portEl.style.border = ''
+            portEl.title = ''
         }
     }
 

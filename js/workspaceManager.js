@@ -142,6 +142,11 @@ export class WorkspaceManager {
             })
         }
 
+        // Ensure nextId is past all existing IDs to prevent collisions
+        for (const id of this.workspaces.keys()) {
+            if (id >= this.nextId) this.nextId = id + 1
+        }
+
         this.activeWorkspaceId = sessionData.activeWorkspaceId
 
         // Ensure we have at least one workspace
