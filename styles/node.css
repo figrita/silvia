@@ -26,6 +26,7 @@ body.s-number-scrubbing .node .input-control s-color {
     position: relative;
     flex: 1;
     min-height: 0; /* Allow flex child to shrink below content size */
+    width: 100%; /* Fill available width after body margins */
 
     #node-root {
         position: absolute;
