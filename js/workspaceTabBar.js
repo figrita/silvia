@@ -200,11 +200,12 @@ class WorkspaceTabBar {
         `
         document.body.appendChild(modal)
 
-        const close = () => modal.remove()
+        const esc = (e) => { if (e.key === 'Escape') close() }
+        const close = () => { modal.remove(); document.removeEventListener('keydown', esc) }
         modal.querySelector('.delete-btn').addEventListener('click', () => { close(); this.executeDelete(workspace, orphanedNodes) })
         modal.querySelector('.cancel-btn').addEventListener('click', close)
         modal.addEventListener('click', (e) => { if (e.target === modal) close() })
-        document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc) } })
+        document.addEventListener('keydown', esc)
     }
 
     executeDelete(workspace, orphanedNodes) {
