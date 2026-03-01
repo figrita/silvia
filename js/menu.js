@@ -372,8 +372,8 @@ function createMenuItem(nodeDef){
         const existingTooltips = document.querySelectorAll('.menu-tooltip')
         existingTooltips.forEach(tooltip => tooltip.remove())
         
-        // Use the stored X and Y to create the node
-        new SNode(nodeEl.dataset.slug, X + editor.scrollLeft, Y)
+        // Use the stored X and Y to create the node (already editor-relative)
+        new SNode(nodeEl.dataset.slug, X, Y)
         hideAllMenus()
     })
     
@@ -451,12 +451,9 @@ function createMenuItem(nodeDef){
 // Helper to set node creation position at editor center
 function setCenterNodePosition() {
     const editorRect = editor.getBoundingClientRect()
-    const editorWidth = editorRect.width
-    const viewportHeight = window.innerHeight
-    // Offset by estimated node dimensions to center the node (not its top-left corner)
-    // Most nodes are roughly 200px wide and 100px tall
-    X = (editorWidth / 2) - 150  // Offset by half of estimated width
-    Y = (viewportHeight / 2) - 250   // Offset by half of estimated height
+    // Center node in the visible editor area (accounting for scroll)
+    X = (editorRect.width / 2) - 150 + editor.scrollLeft
+    Y = (editorRect.height / 2) - 250 + editor.scrollTop
 }
 
 // ============================================================================
@@ -726,9 +723,10 @@ function showQuickMenu(e){
     quickMenu.style.left = `${menuX}px`
     quickMenu.style.top = `${menuY}px`
 
-    // Store the click location for node creation
-    X = e.clientX
-    Y = e.clientY
+    // Store the click location for node creation (editor-relative + scroll)
+    const edRect = editor.getBoundingClientRect()
+    X = e.clientX - edRect.left + editor.scrollLeft
+    Y = e.clientY - edRect.top + editor.scrollTop
     
     // Set flag to ignore the mouseup that follows contextmenu on macOS
     ignoreNextMouseUp = true
@@ -1108,6 +1106,8 @@ export function createMenu(){
 
     document.addEventListener('contextmenu', (e) => {
         if(e.target.closest('input') || e.target.closest('textarea')){return}
+        // Only show quick menu when right-clicking inside the editor area
+        if(!e.target.closest('#editor')){return}
         if(!(e.ctrlKey || e.metaKey)){
             e.preventDefault()
             showQuickMenu(e)
