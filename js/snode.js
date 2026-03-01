@@ -1034,7 +1034,7 @@ export class SNode{
                 <div class="node-input">
                     <div class="port ${input.type}" data-in-port="${key}"></div>
                     <div class="input-label">
-                        <span>${input.label}</span>
+                        <span>${input.label}</span>${input.samplingCost ? `<span class="sampling-cost-warning" title="Samples this input ${input.samplingCost}× per pixel. Connect an Output node before this to rasterize to a framebuffer and avoid multiplying the upstream graph.">🛆</span>` : ''}
                         ${(input.type === 'float' && input.range) ? `<span class="input-range">${input.range}</span>` : ''}
                     </div>
                     ${!input.control ? '' : `

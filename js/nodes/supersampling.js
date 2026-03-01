@@ -10,7 +10,8 @@ registerNode({
         'input': {
             label: 'Input',
             type: 'color',
-            control: null // Must be connected
+            control: null, // Must be connected
+            samplingCost: '4-16'
         }
     },
     output: {

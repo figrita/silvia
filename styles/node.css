@@ -199,7 +199,6 @@ body.s-number-scrubbing .node .input-control s-color {
 
                 .input-label {
                     display: flex;
-                    flex-direction: column;
                     align-items: flex-start;
                 }
 
@@ -224,6 +223,12 @@ body.s-number-scrubbing .node .input-control s-color {
                     font-family: 'Space Mono', monospace;
                     margin-top: 0.1rem;
                     flex-shrink: 0;
+                }
+
+                .sampling-cost-warning {
+                    color: #f59e0b;
+                    cursor: help;
+                    margin-left: 0.25rem;
                 }
 
                 .input-control {
