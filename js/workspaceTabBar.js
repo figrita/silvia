@@ -27,6 +27,9 @@ class WorkspaceTabBar {
 
         this.render()
 
+        // Re-render tabs when workspace is switched externally (e.g. cross-workspace tag click)
+        document.addEventListener('workspace-switched', () => this.render())
+
         // Global click to close menus
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.workspace-tab-context-menu')) {

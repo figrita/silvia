@@ -1,4 +1,5 @@
 import {masterMixer} from './masterMixer.js'
+import {WorkspaceManager} from './workspaceManager.js'
 
 export class MasterMixerUI {
     constructor() {
@@ -138,8 +139,10 @@ export class MasterMixerUI {
 
         if (statusElement && previewElement) {
             if (node) {
-                // Update status - show workspace number
-                const displayName = `Workspace ${node.workspace}`
+                // Update status - show workspace name from first visible workspace
+                const wsId = node.workspaceVisibility?.values().next().value
+                const ws = wsId != null ? WorkspaceManager.workspaces.get(wsId) : null
+                const displayName = ws ? ws.name : 'Workspace'
                 statusElement.textContent = displayName
                 statusElement.style.color = '#10b981' // Green for assigned
 
