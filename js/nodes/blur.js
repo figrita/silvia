@@ -9,7 +9,8 @@ registerNode({
         'input': {
             label: 'Input',
             type: 'color',
-            control: null
+            control: null,
+            samplingCost: 9
         },
         'blurX': {
             label: 'Blur X',

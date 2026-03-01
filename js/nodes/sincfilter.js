@@ -9,7 +9,8 @@ registerNode({
         'input': {
             label: 'Input',
             type: 'color',
-            control: null
+            control: null,
+            samplingCost: '5-197'
         },
         'kernelSize': {
             label: 'Kernel Size',

@@ -51,6 +51,39 @@ function createHowtoModal(){
             </div>
 
             <div class="howto-section">
+                <h3>🗂️ Workspace Management</h3>
+                <div class="howto-controls-grid">
+                    <div><strong>Ctrl+T</strong></div>
+                    <div>Create a new workspace tab.</div>
+
+                    <div><strong>Ctrl+1-9</strong></div>
+                    <div>Switch to workspace 1 through 9.</div>
+
+                    <div><strong>Ctrl+Shift+S</strong></div>
+                    <div>Save all workspaces to file.</div>
+
+                    <div><strong>Double-click Tab</strong></div>
+                    <div>Rename the workspace.</div>
+
+                    <div><strong>Right-click Tab</strong></div>
+                    <div>Open context menu (rename, delete).</div>
+
+                    <div><strong>Right-click Node Header</strong></div>
+                    <div>Toggle workspace visibility (show node on multiple workspaces).</div>
+                </div>
+            </div>
+
+            <div class="howto-section">
+                <h3>🎛️ Main Input Panel</h3>
+                <ul>
+                    <li><span>The left-side panel configures global video and audio sources for Main Input nodes.</span></li>
+                    <li><span><strong>Video sources:</strong> video file, webcam, or screen capture.</span></li>
+                    <li><span><strong>Audio sources:</strong> audio file, microphone, or the video's audio track.</span></li>
+                    <li><span>Click the arrow button to collapse/expand the panel.</span></li>
+                </ul>
+            </div>
+
+            <div class="howto-section">
                 <h3>📦 Node Controls</h3>
                 <div class="howto-controls-grid">
                     <div><strong>Click & Drag Header</strong></div>
@@ -195,6 +228,8 @@ function createHowtoModal(){
                     <li><span><strong>Background Rendering:</strong> On an <strong>Output</strong> node, click the <code class="howto-code">show</code> button in its header to make its result the live background for the whole application.</span></li>
                     <li><span><strong>Projector Window:</strong> After showing an output on the background, click the <strong>Projector</strong> button in the bottom-left to open a clean, fullscreen version of your output on a second monitor (if you have one). Great for VJing!</span></li>
                     <li><span><strong>Saving & Loading:</strong> Use the <strong>Save</strong> and <strong>Load</strong> buttons to manage your patches. You can save to your browser's local storage or download a <code>.svs</code> file to share.</span></li>
+                    <li><span><strong>Workspace Organization:</strong> Use workspaces to organize different scenes or effect chains. Each tab can hold a separate arrangement of nodes, making it easy to switch between setups during a performance.</span></li>
+                    <li><span><strong>Rasterize Before Multi-Sample Nodes:</strong> Place an <strong>Output</strong> node before multi-sample nodes (blur, bloom, etc.) to rasterize to a framebuffer. This avoids multiplying the upstream shader graph and can dramatically improve performance.</span></li>
                 </ul>
             </div>
             

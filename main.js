@@ -475,15 +475,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 workspaceTabBar.createNewWorkspace()
             }
 
-            // Ctrl+W: Close workspace (with confirmation)
-            if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
-                e.preventDefault()
-                const activeWs = WorkspaceManager.getActiveWorkspace()
-                if (activeWs) {
-                    workspaceTabBar.deleteWorkspace(activeWs.id)
-                }
-            }
-
             // Ctrl+1-9: Switch to workspace 1-9
             if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '9') {
                 e.preventDefault()

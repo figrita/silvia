@@ -20,6 +20,63 @@ Silvia is a browser-based modular video synthesizer that compiles node graphs in
 - `js/webgl.js` - WebGL2 rendering engine with frame history support
 - `js/registry.js` - Node type registration and JSDoc type definitions
 - `js/connections.js` - Connection management and wire visualization
+- `js/workspaceManager.js` - Workspace state management (create/delete/rename/switch)
+- `js/workspaceTabBar.js` - Workspace tab bar UI
+- `js/mainInput.js` - Global video/audio input source manager
+- `js/mainInputUI.js` - Main Input panel UI
+
+## Workspace System
+
+WorkspaceManager supports n workspaces. Workspaces are created, deleted, renamed, and switched dynamically at runtime. There is no fixed workspace count.
+
+### WorkspaceTabBar
+
+`WorkspaceTabBar` renders a horizontal tab bar above the editor area. Each tab represents a workspace.
+
+- Double-click a tab to rename it inline.
+- Right-click a tab for a context menu (rename, delete).
+
+### Node Visibility
+
+Each node has a `workspaceVisibility` property (a `Set` of workspace IDs). A node can appear on one or more workspaces simultaneously. Nodes not visible on the active workspace are hidden in the editor but remain in the graph.
+
+### Cross-Workspace Connections
+
+When a connection spans two different workspaces, colored indicator tags appear on the relevant ports. This lets users see at a glance which ports have off-screen connections.
+
+### Keyboard Shortcuts
+
+- **Ctrl+T** - Create new workspace
+- **Ctrl+1-9** - Switch to workspace by index
+- **Ctrl+Shift+S** - Save all workspaces
+
+### Mixer Panel
+
+The mixer panel (right side) is collapsible.
+
+## Main Input System
+
+Global video/audio source management is provided by a collapsible left-side panel (`MainInputUI`).
+
+### MainInputManager
+
+`MainInputManager` is a singleton that manages video and audio sources independently.
+
+**Video sources** (one active at a time):
+- Video file
+- Webcam
+- Screen capture
+- None
+
+**Audio sources** (one active at a time):
+- Audio file
+- Microphone
+- Video's audio track
+- None
+
+### maininput Node
+
+The `maininput` node type references the global sources managed by `MainInputManager`. Multiple `maininput` nodes can exist in the graph simultaneously; they all read from the same global source state.
 
 ## Node System Architecture
 
@@ -476,6 +533,10 @@ The `serializeWorkspace()` function in `js/save.js` captures:
 - MIDI mappings
 - Connection topology
 
+### Workspace Metadata
+
+Save files include workspace metadata: names, IDs, and tab ordering. Each node's `workspaceVisibility` array is serialized alongside its other properties.
+
 ### Deserialization
 
 The `deserializeWorkspace()` function in `js/load.js`:
@@ -484,6 +545,9 @@ The `deserializeWorkspace()` function in `js/load.js`:
 3. Re-establishes connections
 4. Restores MIDI mappings
 5. Triggers `onCreate()` lifecycle hooks
+6. Remaps workspace IDs via `buildWorkspaceIdMap()` to avoid collisions with existing workspaces
+
+Old patches without workspace data load correctly -- nodes default to the active workspace.
 
 ## WebGL Rendering
 
@@ -783,15 +847,23 @@ silvia/
 │   ├── webgl.js        # WebGL rendering
 │   ├── registry.js     # Node registration
 │   ├── connections.js  # Connection management
+│   ├── workspaceManager.js # Workspace state management
+│   ├── workspaceTabBar.js  # Workspace tab bar UI
+│   ├── mainInput.js    # Global video/audio source manager
+│   ├── mainInputUI.js  # Main Input panel UI
 │   └── nodes/          # Node definitions
 │       ├── index.js    # Node imports
 │       ├── _template.js # Node template with documentation
+│       ├── maininput.js # Main input source node
 │       └── *.js        # Individual node implementations
 ├── electron/           # Electron-specific files
 │   ├── main.electron.js # Main process
 │   └── preload.js      # Preload script
 ├── assets/             # Static assets and icons
 ├── styles/             # CSS files
+│   ├── workspace.css   # Workspace tab bar and switching styles
+│   ├── maininput.css   # Main Input panel styles
+│   └── ports.css       # Port and connection indicator styles
 ├── lib/                # Third-party libraries
 └── components/         # Reusable UI components
 ```
