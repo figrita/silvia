@@ -43,7 +43,8 @@ registerNode({
     float samples = 0.0;
     
     // Sample in a circular pattern for bloom effect
-    for(float angle = 0.0; angle < 6.28318; angle += 0.39269) {
+    for(int i = 0; i < 16; i++) {
+        float angle = float(i) * 0.392699;
         for(float r = ${radius} * 0.2; r <= ${radius}; r += ${radius} * 0.2) {
             vec2 offset = vec2(cos(angle), sin(angle)) * r;
             vec4 texSample = ${this.getInput('input', cc, 'uv + offset')};
