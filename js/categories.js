@@ -10,7 +10,7 @@ const categoryStructure = [
     {
         name: 'Input',
         icon: '📤',
-        nodes: ['color', 'number', 'worldcoordinates', 'imagegif', 'video', 'webcam', 'screencapture', 'text', 'drawingcanvas', 'audioanalyzer', 'micline', 'gamepad', 'mouseinput']
+        nodes: ['maininput', 'color', 'number', 'worldcoordinates', 'imagegif', 'video', 'webcam', 'screencapture', 'text', 'drawingcanvas', 'audioanalyzer', 'micline', 'gamepad', 'mouseinput']
     },
     {
         name: 'Generate',

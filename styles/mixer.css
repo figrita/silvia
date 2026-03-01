@@ -2,11 +2,6 @@
 
 /* ===== MASTER MIXER PANEL ===== */
 
-/* Adjust body layout for mixer panel */
-body {
-    margin-right: 320px; /* Reserve space for mixer panel */
-}
-
 .master-mixer-panel {
     position: fixed;
     top: 0;
@@ -20,17 +15,58 @@ body {
     font-family: monospace;
 }
 
+.master-mixer-panel.collapsed {
+    width: 40px;
+    overflow: hidden;
+}
+
+.master-mixer-panel.collapsed .mixer-content {
+    display: none;
+}
+
+.master-mixer-panel.collapsed .mixer-header h3 {
+    display: none;
+}
+
 .mixer-header {
-    padding: 16px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border-subtle);
     background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .mixer-header h3 {
     margin: 0;
     color: var(--text-primary);
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: bold;
+    flex: 1;
+}
+
+/* ===== COLLAPSE BUTTON ===== */
+
+.master-mixer-panel .collapse-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.master-mixer-panel .collapse-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
+    color: var(--text-primary);
 }
 
 .mixer-content {

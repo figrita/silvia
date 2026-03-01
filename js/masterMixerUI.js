@@ -4,6 +4,7 @@ export class MasterMixerUI {
     constructor() {
         this.panel = null
         this.isInitialized = false
+        this.isCollapsed = false
     }
     
     init() {
@@ -18,7 +19,10 @@ export class MasterMixerUI {
     
     _adjustBodyLayout() {
         // Reserve space for mixer panel so editor doesn't overlap
-        document.body.style.marginRight = '320px'
+        const width = this.isCollapsed ? '40px' : '320px'
+        document.body.style.marginRight = width
+        // Set CSS custom property for background video positioning
+        document.documentElement.style.setProperty('--panel-right-width', width)
     }
     
     _createPanel() {
@@ -27,6 +31,7 @@ export class MasterMixerUI {
         panel.innerHTML = `
             <div class="mixer-header">
                 <h3>Master Mixer</h3>
+                <button class="collapse-btn" id="mixer-collapse-btn" title="Toggle panel">▶</button>
             </div>
             <div class="mixer-content">
                 <div class="channel-section">
@@ -88,8 +93,14 @@ export class MasterMixerUI {
     }
     
     _setupEventListeners(panel) {
+        // Collapse/expand toggle
+        const collapseBtn = panel.querySelector('#mixer-collapse-btn')
+        collapseBtn.addEventListener('click', () => {
+            this._toggleCollapse()
+        })
+
         const mixSlider = panel.querySelector('#mix-slider')
-        
+
         mixSlider.addEventListener('input', (e) => {
             const value = parseFloat(e.target.value)
             masterMixer.setMixValue(value)
@@ -172,7 +183,28 @@ export class MasterMixerUI {
     _clearChannelPreview(previewElement) {
         previewElement.innerHTML = ''
     }
-    
+
+    _toggleCollapse() {
+        this.isCollapsed = !this.isCollapsed
+
+        const collapseBtn = this.panel.querySelector('#mixer-collapse-btn')
+
+        if (this.isCollapsed) {
+            this.panel.classList.add('collapsed')
+            collapseBtn.textContent = '◀'
+            collapseBtn.title = 'Expand panel'
+        } else {
+            this.panel.classList.remove('collapsed')
+            collapseBtn.textContent = '▶'
+            collapseBtn.title = 'Collapse panel'
+        }
+
+        this._adjustBodyLayout()
+
+        // Trigger resize to update connections and port positions
+        window.dispatchEvent(new Event('resize'))
+    }
+
     _startVideoPreview(previewVideo, sourceCanvas) {
         try {
             // Capture stream directly from source canvas (GPU-accelerated)

@@ -31,6 +31,8 @@ import { masterMixer } from './js/masterMixer.js'
 import { masterMixerUI } from './js/masterMixerUI.js'
 import { WorkspaceManager } from './js/workspaceManager.js'
 import { workspaceTabBar } from './js/workspaceTabBar.js'
+import { mainInput } from './js/mainInput.js'
+import { mainInputUI } from './js/mainInputUI.js'
 
 // Global dirty tracking
 window.isDirty = false
@@ -90,7 +92,8 @@ function serializeSession() {
         ...workspaceData,
         nodes: patch.nodes,
         connections: patch.connections,
-        editorWidth: patch.editorWidth
+        editorWidth: patch.editorWidth,
+        mainInput: mainInput.serialize()
     }
 
     // Add save metadata
@@ -179,6 +182,11 @@ async function loadSession() {
                 Connection.redrawAllConnections()
             }
 
+            // Restore Main Input configuration
+            if (sessionData.mainInput) {
+                await mainInput.deserialize(sessionData.mainInput)
+            }
+
             SNode.updateVisibility()
             window.markClean()
             return true
@@ -219,6 +227,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     BackgroundRenderer.init()
     masterMixer.init()
     masterMixerUI.init()
+    mainInput.init()
+    await mainInputUI.init()
 
     // 3. Initialize UI components and managers
     createMenu()
