@@ -25,6 +25,7 @@ export class MainInputUI {
 
         // Tracks whether the user is dragging the seek bar
         this._seekingVideo = false
+        this._updateLoopId = null
     }
 
     async init() {
@@ -575,6 +576,10 @@ export class MainInputUI {
     }
 
     _startUpdateLoop() {
+        if (this._updateLoopId) {
+            cancelAnimationFrame(this._updateLoopId)
+        }
+
         const update = () => {
             if (!this.isInitialized) return
 
@@ -621,10 +626,10 @@ export class MainInputUI {
                 }
             }
 
-            requestAnimationFrame(update)
+            this._updateLoopId = requestAnimationFrame(update)
         }
 
-        requestAnimationFrame(update)
+        this._updateLoopId = requestAnimationFrame(update)
     }
 
     _toggleCollapse() {
@@ -648,6 +653,11 @@ export class MainInputUI {
 
     destroy() {
         mainInput.onStateChange = null
+
+        if (this._updateLoopId) {
+            cancelAnimationFrame(this._updateLoopId)
+            this._updateLoopId = null
+        }
 
         // Restore body layout
         document.body.style.marginLeft = '0'

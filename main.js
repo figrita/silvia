@@ -480,7 +480,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 e.preventDefault()
                 const activeWs = WorkspaceManager.getActiveWorkspace()
                 if (activeWs) {
-                    workspaceTabBar.deleteWorkspace(activeWs)
+                    workspaceTabBar.deleteWorkspace(activeWs.id)
                 }
             }
 
@@ -551,7 +551,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="close-warning-details">
                         <p><strong>Current Workspace:</strong> <span id="close-current-workspace"></span></p>
                     </div>
-                    <p class="close-warning-advice">The save button will save both workspaces. You can also use <kbd>Ctrl+Shift+S</kbd></p>
+                    <p class="close-warning-advice">The save button will save all workspaces. You can also use <kbd>Ctrl+Shift+S</kbd></p>
                 </div>
                 <div class="modal-actions">
                     <button id="close-confirm-save-btn" class="save-and-close-btn">💾 Save & Close</button>

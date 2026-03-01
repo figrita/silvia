@@ -40,6 +40,10 @@ class MainInputManager {
 
         // UI update callback
         this.onStateChange = null
+
+        // Generation counters to detect stale async results from rapid source switching
+        this._videoGeneration = 0
+        this._audioGeneration = 0
     }
 
     init() {
@@ -79,6 +83,8 @@ class MainInputManager {
     // ============ VIDEO SOURCE METHODS ============
 
     async setVideoSource(type, options = {}) {
+        const gen = ++this._videoGeneration
+
         // Cleanup previous video source
         this._cleanupVideoSource()
 
@@ -100,6 +106,9 @@ class MainInputManager {
                 await this._startScreenCapture()
                 break
         }
+
+        // Bail out if another setVideoSource call came in while we were awaiting
+        if (gen !== this._videoGeneration) return
 
         // If audio is set to 'video', reinitialize audio from video
         if (this.audioSourceType === 'video') {
@@ -251,6 +260,8 @@ class MainInputManager {
     // ============ AUDIO SOURCE METHODS ============
 
     async setAudioSource(type, options = {}) {
+        const gen = ++this._audioGeneration
+
         // Cleanup previous audio source
         this._cleanupAudioSource()
 
@@ -272,6 +283,9 @@ class MainInputManager {
                 this._initAudioFromVideo()
                 break
         }
+
+        // Bail out if another setAudioSource call came in while we were awaiting
+        if (gen !== this._audioGeneration) return
 
         this._notifyStateChange()
         this._refreshMainInputNodes()
