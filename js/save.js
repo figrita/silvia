@@ -36,13 +36,15 @@ let saveMessageEl
 let patchJsonOutputEl
 let downloadLinkContainerEl
 let subfolderSelectEl
+let allWorkspacesCheckbox
+let saveSubtitleEl
 
 function createSaveModal(){
     const html = `
 	<div class="modal-overlay" style="display: none;" data-el="saveModal">
 		<div class="modal-content">
 			<h2>Save Patch</h2>
-            <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Saves the current workspace and all its subworkspaces.</p>
+            <p data-el="saveSubtitleEl" style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Saves the current workspace.</p>
             <div style="display: flex; gap: 2rem;">
                 <div style="display: flex; flex-direction: column;">
                     <div class="form-group">
@@ -79,6 +81,10 @@ function createSaveModal(){
                 </div>
             </div>
 			<div class="modal-actions">
+				<label class="save-modal-checkbox">
+					<input type="checkbox" data-el="allWorkspacesCheckbox">
+					Include all open workspaces
+				</label>
 				<button data-el="saveConfirmBtn">Save</button>
 				<button class="cancel-btn" data-el="saveCancelBtn">Cancel</button>
 			</div>
@@ -123,7 +129,9 @@ export function initSave(){
         saveMessageEl,
         patchJsonOutputEl,
         downloadLinkContainerEl,
-        subfolderSelectEl
+        subfolderSelectEl,
+        allWorkspacesCheckbox,
+        saveSubtitleEl
     } = saveElements)
 
     // Get the static trigger buttons from the main document
@@ -143,7 +151,12 @@ export function initSave(){
 
     thumbPrevBtn.addEventListener('click', () => cycleThumbnail(-1))
     thumbNextBtn.addEventListener('click', () => cycleThumbnail(1))
-    
+
+    allWorkspacesCheckbox.addEventListener('change', () => {
+        updateSaveSubtitle()
+        refreshThumbnailSources()
+    })
+
     // Close on escape
     document.addEventListener('escape-pressed', () => {
         if(saveModal.style.display === 'flex'){
@@ -161,6 +174,23 @@ function cycleThumbnail(direction){
     updateThumbnailPreview()
 }
 
+function updateSaveSubtitle() {
+    const count = WorkspaceManager.getAll().length
+    if (allWorkspacesCheckbox.checked && count > 1) {
+        saveSubtitleEl.textContent = `Saves all ${count} open workspaces with their connections.`
+    } else {
+        saveSubtitleEl.textContent = 'Saves the current workspace.'
+    }
+}
+
+function refreshThumbnailSources() {
+    outputNodesForThumb = allWorkspacesCheckbox.checked
+        ? [...SNode.outputs]
+        : SNode.getVisibleOutputs()
+    thumbnailOutputIndex = 0
+    updateThumbnailPreview()
+}
+
 async function openSaveModal(){
     // Default name to current workspace name
     const activeWs = WorkspaceManager.getActiveWorkspace()
@@ -169,6 +199,12 @@ async function openSaveModal(){
     patchDescriptionEl.value = ''
     saveFeedbackEl.style.display = 'none'
     patchThumbnailPreviewEl.style.display = 'none'
+
+    // Hide "all workspaces" checkbox if only one workspace open
+    const wsCount = WorkspaceManager.getAll().length
+    allWorkspacesCheckbox.checked = false
+    allWorkspacesCheckbox.parentElement.style.display = wsCount > 1 ? '' : 'none'
+    updateSaveSubtitle()
 
     // Handle subfolder dropdown for Electron mode
     const electronOnlyField = saveModal.querySelector('.electron-only-field')
@@ -182,10 +218,7 @@ async function openSaveModal(){
     }
 
     // Thumbnail Logic
-    outputNodesForThumb = SNode.getVisibleOutputs()
-    thumbnailOutputIndex = 0
-
-    updateThumbnailPreview()
+    refreshThumbnailSources()
 
     saveModal.style.display = 'flex'
 }
@@ -321,7 +354,7 @@ async function handleSave(){
         return
     }
 
-    const patch = serializeWorkspace()
+    const patch = serializeWorkspace(allWorkspacesCheckbox.checked)
     patch.meta = {
         name: patchNameEl.value,
         author: patchAuthorEl.value,
@@ -524,12 +557,16 @@ export function serializeWorkspace(allWorkspaces = false){
 
     const result = {nodes, connections, editorWidth}
 
-    // Add workspace info (just the active workspace for a patch save)
+    // Add workspace info
     if (activeWs) {
+        const workspaceList = allWorkspaces
+            ? WorkspaceManager.getAll().map(ws => ({ id: ws.id, name: ws.name }))
+            : [{ id: activeWs.id, name: activeWs.name }]
+
         result.workspaceTree = {
             version: PATCH_VERSION,
             activeWorkspaceId: activeWs.id,
-            workspaces: [{ id: activeWs.id, name: activeWs.name }]
+            workspaces: workspaceList
         }
     }
 

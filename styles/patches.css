@@ -435,12 +435,28 @@
 }
 
 .patch-card-name {
+    display: flex;
+    align-items: center;
     font-weight: 600;
     font-size: 14px;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.patch-card-compound-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-normal);
+    flex-shrink: 0;
 }
 
 .patch-card-author {
