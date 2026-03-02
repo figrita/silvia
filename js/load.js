@@ -92,6 +92,7 @@ let uploadSvsBtn
 let filesystemTab
 let loadCancelBtnFooter
 let folderListEl
+let clearCheckboxLabelEl
 
 // --- Tab state ---
 let activeTab = 'default'
@@ -150,7 +151,7 @@ function createLoadModal(){
 			<div class="load-modal-footer">
 				<label class="load-modal-checkbox-label">
 					<input type="checkbox" id="clear-workspace-checkbox" checked data-el="clearWorkspaceCheckbox">
-					Clear this workspace on load
+					<span data-el="clearCheckboxLabelEl">Clear this workspace on load</span>
 				</label>
 				<div class="load-modal-actions">
 					<button disabled data-el="loadConfirmBtn" class="load-btn-primary">Load Patch</button>
@@ -187,7 +188,8 @@ export function initLoad(){
         uploadSvsBtn,
         filesystemTab,
         loadCancelBtnFooter,
-        folderListEl
+        folderListEl,
+        clearCheckboxLabelEl
     } = loadElements)
 
 
@@ -235,8 +237,13 @@ export function initLoad(){
 }
 
 function updateLoadModalText(){
-    // The new modal doesn't have the description paragraph in the same location
-    // We can add status text later if needed
+    // Update the clear checkbox label based on currently selected patch
+    if (clearCheckboxLabelEl) {
+        const isCompound = (selectedPatchData?.workspaceTree?.workspaces?.length || 0) > 1
+        clearCheckboxLabelEl.textContent = isCompound
+            ? 'Clear all workspaces on load'
+            : 'Clear this workspace on load'
+    }
 }
 
 function setupTabFunctionality(){
@@ -490,6 +497,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
     // Additional info for Electron mode (file-based patches)
     const modifiedDate = patchFile ? new Date(patchFile.modified).toLocaleDateString() : ''
     const fileSize = patchFile ? (patchFile.size / 1024).toFixed(1) + ' KB' : ''
+    const wsCount = patch.workspaceTree?.workspaces?.length || 0
 
     // Create thumbnail preview
     const previewDiv = document.createElement('div')
@@ -515,7 +523,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
     item.title = patchDescription
 
     infoDiv.innerHTML = `
-        <div class="patch-card-name">${patchName}</div>
+        <div class="patch-card-name">${patchName}${wsCount > 1 ? `<span class="patch-card-compound-badge" title="${wsCount} workspaces">📦</span>` : ''}</div>
         <div class="patch-card-author">${patchAuthor}</div>
         <div class="patch-card-description">${patchDescription}</div>
         ${patchFile ? `<div class="patch-card-meta" style="font-size: 10px; color: var(--text-muted); margin-top: auto;">
@@ -594,6 +602,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
         item.classList.add('selected')
         selectedPatchData = patch
         loadConfirmBtn.disabled = false
+        updateLoadModalText()
     })
 
     const downloadBtn = item.querySelector('.patch-download-btn')
@@ -645,7 +654,9 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
 }
 
 /**
- * Load a patch as a new workspace.
+ * Load a patch as new workspace(s).
+ * For compound patches (multiple workspaces), creates all workspaces and maps visibility.
+ * For single-workspace patches, creates one new workspace (legacy behavior).
  */
 function loadPatchAsNewWorkspace(patchData) {
     try {
@@ -659,9 +670,41 @@ function loadPatchAsNewWorkspace(patchData) {
             throw new Error('Patch data is invalid or missing "nodes" array.')
         }
 
-        const workspaceName = patchData.meta?.name || 'Imported Workspace'
-        const newWorkspace = WorkspaceManager.create(workspaceName)
-        patchData.nodes.forEach(n => n.workspaceVisibility = [newWorkspace.id])
+        const savedWorkspaces = patchData.workspaceTree?.workspaces || []
+        const isCompound = savedWorkspaces.length > 1
+
+        // Build workspace ID map: old saved IDs → new created IDs
+        const idMap = new Map()
+        let activeNewId = null
+
+        if (isCompound) {
+            // Compound patch: create all workspaces
+            savedWorkspaces.forEach(ws => {
+                const newWs = WorkspaceManager.create(ws.name)
+                idMap.set(ws.id, newWs.id)
+            })
+            // Determine which to activate
+            const savedActiveId = patchData.workspaceTree?.activeWorkspaceId
+            activeNewId = idMap.get(savedActiveId) || idMap.values().next().value
+
+            // Remap node workspace visibility
+            patchData.nodes.forEach(n => {
+                if (n.workspaceVisibility && Array.isArray(n.workspaceVisibility)) {
+                    n.workspaceVisibility = n.workspaceVisibility
+                        .map(id => idMap.get(id))
+                        .filter(id => id !== undefined)
+                }
+                if (!n.workspaceVisibility || n.workspaceVisibility.length === 0) {
+                    n.workspaceVisibility = [activeNewId]
+                }
+            })
+        } else {
+            // Single-workspace patch: legacy behavior
+            const workspaceName = patchData.meta?.name || 'Imported Workspace'
+            const newWorkspace = WorkspaceManager.create(workspaceName)
+            activeNewId = newWorkspace.id
+            patchData.nodes.forEach(n => n.workspaceVisibility = [newWorkspace.id])
+        }
 
         const {errors} = createNodesAndConnections(patchData.nodes, patchData.connections)
 
@@ -672,7 +715,7 @@ function loadPatchAsNewWorkspace(patchData) {
             }
         }
 
-        WorkspaceManager.setActive(newWorkspace.id)
+        WorkspaceManager.setActive(activeNewId)
         SNode.updateVisibility()
         SNode.nodes.forEach(node => node.updatePortPoints())
         Connection.redrawAllConnections()
@@ -689,6 +732,31 @@ function loadPatchAsNewWorkspace(patchData) {
         console.error('Failed to import patch:', error)
         alert(`Import failed: ${error.message}`)
     }
+}
+
+/**
+ * Clear all workspaces and all nodes across the entire session.
+ * Used when loading a compound patch with "clear all" enabled.
+ */
+function clearAllWorkspaces() {
+    // Destroy all nodes (across all workspaces)
+    const allOutputs = [...SNode.nodes].filter(n => n.slug === 'output')
+    allOutputs.forEach(n => n.isDestroyed = true)
+
+    const allNodes = [...SNode.nodes]
+    allNodes.forEach(n => n.destroy())
+
+    Connection.redrawAllConnections()
+
+    // Reset workspace width and scroll
+    const editor = document.getElementById('editor')
+    if (editor) {
+        setWorkspaceWidth(editor.getBoundingClientRect().width)
+        editor.scrollLeft = 0
+    }
+
+    // Delete all workspaces (reset creates a fresh default one)
+    WorkspaceManager.reset()
 }
 
 export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
@@ -708,8 +776,15 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
             console.log(`Loading patch version: ${patchData.version}`)
         }
 
+        const isCompound = (patchData.workspaceTree?.workspaces?.length || 0) > 1
+
         if (shouldClearWorkspace) {
-            clearWorkspace()
+            if (isCompound) {
+                // Compound patch: clear ALL workspaces and nodes
+                clearAllWorkspaces()
+            } else {
+                clearWorkspace()
+            }
         }
 
         // Build workspace ID mapping (old IDs → new IDs)
@@ -739,8 +814,14 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
         }
 
         // Update visuals
+        SNode.updateVisibility()
         SNode.nodes.forEach(node => node.updatePortPoints())
         Connection.redrawAllConnections()
+
+        if (isCompound) {
+            window.markDirty?.()
+            window.workspaceTabBar?.render()
+        }
 
         // Report results
         if (errors.length > 0) {

@@ -110,8 +110,19 @@
 .modal-actions {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     gap: 10px;
     margin-top: auto;
+}
+
+.save-modal-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: auto;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
 }
 
 /* ===== CLOSE CONFIRMATION MODAL ===== */
