@@ -45,7 +45,7 @@ const categoryStructure = [
     {
         name: 'Effects',
         icon: '🔍',
-        nodes: ['colorshift', 'contrast', 'invert', 'colorize', 'chromaticaberration', 'chromakey', 'posterize', 'colormapping', 'autoexposure', 'blur', 'bloom', 'dilate', 'erode', 'edgedetection', 'supersampling', 'sincfilter', 'sharpen', 'emboss', 'heighttonormal', 'simplelight', 'halftone', 'mosaic']
+        nodes: ['colorshift', 'contrast', 'invert', 'colorize', 'chromaticaberration', 'chromakey', 'posterize', 'dither', 'colormapping', 'autoexposure', 'blur', 'bloom', 'dilate', 'erode', 'edgedetection', 'supersampling', 'sincfilter', 'sharpen', 'emboss', 'heighttonormal', 'simplelight', 'halftone', 'mosaic']
     },
     {
         name: 'Mix',
@@ -55,7 +55,7 @@ const categoryStructure = [
     {
         name: 'Math',
         icon: '🧮',
-        nodes: ['add', 'subtract', 'multiply', 'divide', 'power', 'modulo', 'abs', 'max', 'min', 'threshold', 'pythagorean', 'lerp', 'sine', 'cosine', 'atan2', 'ceil', 'floor']
+        nodes: ['add', 'subtract', 'multiply', 'divide', 'power', 'modulo', 'abs', 'max', 'min', 'threshold', 'smoothstep', 'pythagorean', 'lerp', 'sine', 'cosine', 'atan2', 'ceil', 'floor']
     },
     {
         name: 'Convert',
