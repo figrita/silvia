@@ -136,8 +136,8 @@ export class MainMixerUI {
 
         if (statusElement && previewElement) {
             if (node) {
-                // Update status - show workspace name from first visible workspace
-                const wsId = node.workspaceVisibility?.values().next().value
+                // Update status - show workspace name from the workspace that was active at assignment time
+                const wsId = channel === 'A' ? mainMixer.channelAWorkspaceId : mainMixer.channelBWorkspaceId
                 const ws = wsId != null ? WorkspaceManager.workspaces.get(wsId) : null
                 const displayName = ws ? ws.name : 'Workspace'
                 statusElement.textContent = displayName
