@@ -65,7 +65,7 @@ body.hide-port-borders .port {
     background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%);
 
     font-family: monospace;
-    font-size: 0.7rem;
+    font-size: 0.9rem;
     line-height: 1;
     color: var(--text-secondary);
     white-space: nowrap;

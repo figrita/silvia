@@ -1,5 +1,6 @@
 import {mainMixer} from './mainMixer.js'
 import {WorkspaceManager} from './workspaceManager.js'
+import {SNode} from './snode.js'
 
 export class MainMixerUI {
     constructor() {
@@ -136,23 +137,47 @@ export class MainMixerUI {
 
         if (statusElement && previewElement) {
             if (node) {
-                // Update status - show workspace name from the workspace that was active at assignment time
+                // Update status label with workspace name
                 const wsId = channel === 'A' ? mainMixer.channelAWorkspaceId : mainMixer.channelBWorkspaceId
-                const ws = wsId != null ? WorkspaceManager.workspaces.get(wsId) : null
-                const displayName = ws ? ws.name : 'Workspace'
-                statusElement.textContent = displayName
-                statusElement.style.color = '#10b981' // Green for assigned
+                this._updateStatusLabel(statusElement, wsId)
 
-                // Create or update preview canvas
-                this._updateChannelPreview(previewElement, node)
+                // Only rebuild preview if the node actually changed
+                if (previewElement._currentNode !== node) {
+                    this._updateChannelPreview(previewElement, node)
+                    previewElement._currentNode = node
+                }
             } else {
                 // Clear assignment
                 statusElement.textContent = 'No Assignment'
-                statusElement.style.color = '#6b7280' // Gray for unassigned
+                statusElement.style.color = '#6b7280'
+                statusElement.classList.remove('clickable')
+                statusElement.onclick = null
 
-                // Clear preview
                 this._clearChannelPreview(previewElement)
+                previewElement._currentNode = null
             }
+        }
+    }
+
+    _updateStatusLabel(statusElement, wsId) {
+        const ws = wsId != null ? WorkspaceManager.workspaces.get(wsId) : null
+        const displayName = ws ? ws.name : 'Workspace'
+        statusElement.textContent = displayName
+        statusElement.style.color = '#10b981'
+        statusElement.title = ws ? `Switch to ${displayName}` : ''
+
+        if (ws) {
+            statusElement.classList.add('clickable')
+            statusElement.onclick = () => {
+                if (WorkspaceManager.activeWorkspaceId === wsId) return
+                WorkspaceManager.setActive(wsId)
+                SNode.updateVisibility()
+                document.dispatchEvent(new CustomEvent('workspace-switched'))
+                window.markDirty()
+            }
+        } else {
+            statusElement.classList.remove('clickable')
+            statusElement.onclick = null
         }
     }
     
