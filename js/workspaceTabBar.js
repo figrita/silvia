@@ -4,6 +4,7 @@
 
 import { WorkspaceManager } from './workspaceManager.js'
 import { SNode } from './snode.js'
+import { Connection } from './connections.js'
 import { mainMixer } from './mainMixer.js'
 import { mainMixerUI } from './mainMixerUI.js'
 
@@ -124,6 +125,9 @@ class WorkspaceTabBar {
             const newName = nameEl.textContent.trim()
             if (newName && newName !== workspace.name) {
                 WorkspaceManager.rename(workspaceId, newName)
+                mainMixerUI.updateChannelStatus('A', mainMixer.channelA)
+                mainMixerUI.updateChannelStatus('B', mainMixer.channelB)
+                Connection.redrawAllConnections()
                 window.markDirty()
             } else {
                 nameEl.textContent = workspace.name
