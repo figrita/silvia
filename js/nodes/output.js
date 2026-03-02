@@ -4,8 +4,8 @@ import {SNode} from '../snode.js'
 import {WebGLRenderer} from '../webgl.js'
 import {BackgroundRenderer} from './_background.js'
 import {formatFloatGLSL, formatBytes} from '../utils.js'
-import {masterMixer} from '../masterMixer.js'
-import {masterMixerUI} from '../masterMixerUI.js'
+import {mainMixer} from '../mainMixer.js'
+import {mainMixerUI} from '../mainMixerUI.js'
 
 registerNode({
     slug: 'output',
@@ -43,8 +43,8 @@ registerNode({
             type: 'action', 
             control: {},
             callback(){
-                masterMixer.assignToChannelA(this)
-                masterMixerUI.updateChannelStatus('A', this)
+                mainMixer.assignToChannelA(this)
+                mainMixerUI.updateChannelStatus('A', this)
                 this._updateStatusLine()
             }
         },
@@ -53,8 +53,8 @@ registerNode({
             type: 'action',
             control: {},  
             callback(){
-                masterMixer.assignToChannelB(this)
-                masterMixerUI.updateChannelStatus('B', this)
+                mainMixer.assignToChannelB(this)
+                mainMixerUI.updateChannelStatus('B', this)
                 this._updateStatusLine()
             }
         },
@@ -369,11 +369,11 @@ registerNode({
 
     _refreshMixerPreview(){
         // If this output is assigned to a mixer channel, refresh its preview
-        if(masterMixer.channelA === this){
-            masterMixerUI.updateChannelStatus('A', this)
+        if(mainMixer.channelA === this){
+            mainMixerUI.updateChannelStatus('A', this)
         }
-        if(masterMixer.channelB === this){
-            masterMixerUI.updateChannelStatus('B', this)
+        if(mainMixer.channelB === this){
+            mainMixerUI.updateChannelStatus('B', this)
         }
     },
 
@@ -389,11 +389,11 @@ registerNode({
         connectionStatus.style.color = isConnected ? '#10b981' : '#999'
         connectionStatus.textContent = isConnected ? '● Input' : '○ No Input'
 
-        // Showing status - check master mixer channel assignments
+        // Showing status - check main mixer channel assignments
         let showingText = '○ Hidden'
         let showingColor = '#999'
-        const onA = masterMixer.channelA === this
-        const onB = masterMixer.channelB === this
+        const onA = mainMixer.channelA === this
+        const onB = mainMixer.channelB === this
 
         if(onA && onB){
             showingText = '● A & B'
@@ -504,10 +504,10 @@ registerNode({
             this._stopRecording()
         }
 
-        // Clear master mixer channel assignment and update UI
-        masterMixer.clearChannel(this)
-        masterMixerUI.updateChannelStatus('A', masterMixer.channelA)
-        masterMixerUI.updateChannelStatus('B', masterMixer.channelB)
+        // Clear main mixer channel assignment and update UI
+        mainMixer.clearChannel(this)
+        mainMixerUI.updateChannelStatus('A', mainMixer.channelA)
+        mainMixerUI.updateChannelStatus('B', mainMixer.channelB)
 
         SNode.outputs.delete(this)
         if(BackgroundRenderer.outputNode == this){

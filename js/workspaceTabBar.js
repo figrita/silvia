@@ -4,8 +4,8 @@
 
 import { WorkspaceManager } from './workspaceManager.js'
 import { SNode } from './snode.js'
-import { masterMixer } from './masterMixer.js'
-import { masterMixerUI } from './masterMixerUI.js'
+import { mainMixer } from './mainMixer.js'
+import { mainMixerUI } from './mainMixerUI.js'
 
 class WorkspaceTabBar {
     constructor() {
@@ -210,8 +210,8 @@ class WorkspaceTabBar {
 
     executeDelete(workspace, orphanedNodes) {
         orphanedNodes.forEach(node => {
-            if (masterMixer.channelA === node) { masterMixer.assignToChannelA(null); masterMixerUI.updateChannelStatus('A', null) }
-            if (masterMixer.channelB === node) { masterMixer.assignToChannelB(null); masterMixerUI.updateChannelStatus('B', null) }
+            if (mainMixer.channelA === node) { mainMixer.assignToChannelA(null); mainMixerUI.updateChannelStatus('A', null) }
+            if (mainMixer.channelB === node) { mainMixer.assignToChannelB(null); mainMixerUI.updateChannelStatus('B', null) }
             node.destroy()
         })
 

@@ -70,7 +70,7 @@
 #workspace-controls {
     position: fixed;
     bottom: 20px;
-    right: 340px; /* 320px mixer panel + 20px padding */
+    right: calc(var(--panel-right-width, 0px) + 20px);
     z-index: 1001;
     display: flex;
     flex-direction: column;
@@ -113,6 +113,8 @@
 
 /* ===== WORKSPACE TAB CONTAINER ===== */
 .workspace-tab-container {
+    grid-column: 2;
+    grid-row: 1;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;

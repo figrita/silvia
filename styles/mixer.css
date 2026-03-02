@@ -1,13 +1,11 @@
-/* styles/mixer.css - Master mixer panel */
+/* styles/mixer.css - Main mixer panel */
 
-/* ===== MASTER MIXER PANEL ===== */
+/* ===== MAIN MIXER PANEL ===== */
 
-.master-mixer-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 320px;
-    height: 100vh;
+.main-mixer-panel {
+    grid-column: 3;
+    grid-row: 1 / -1;
+    height: 100%;
     background: var(--bg-primary);
     border-left: 1px solid var(--border-normal);
     z-index: 1000;
@@ -15,17 +13,21 @@
     font-family: monospace;
 }
 
-.master-mixer-panel.collapsed {
-    width: 40px;
+.main-mixer-panel.collapsed {
     overflow: hidden;
 }
 
-.master-mixer-panel.collapsed .mixer-content {
+.main-mixer-panel.collapsed .mixer-content {
     display: none;
 }
 
-.master-mixer-panel.collapsed .mixer-header h3 {
+.main-mixer-panel.collapsed .mixer-header h3 {
     display: none;
+}
+
+.main-mixer-panel.collapsed .mixer-header {
+    padding: 8px;
+    justify-content: center;
 }
 
 .mixer-header {
@@ -43,11 +45,12 @@
     font-size: 1rem;
     font-weight: bold;
     flex: 1;
+    text-align: center;
 }
 
 /* ===== COLLAPSE BUTTON ===== */
 
-.master-mixer-panel .collapse-btn {
+.main-mixer-panel .collapse-btn {
     width: 24px;
     height: 24px;
     padding: 0;
@@ -63,7 +66,7 @@
     flex-shrink: 0;
 }
 
-.master-mixer-panel .collapse-btn:hover {
+.main-mixer-panel .collapse-btn:hover {
     background: var(--bg-hover);
     border-color: var(--primary-muted);
     color: var(--text-primary);

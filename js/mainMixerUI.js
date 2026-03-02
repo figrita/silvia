@@ -1,7 +1,7 @@
-import {masterMixer} from './masterMixer.js'
+import {mainMixer} from './mainMixer.js'
 import {WorkspaceManager} from './workspaceManager.js'
 
-export class MasterMixerUI {
+export class MainMixerUI {
     constructor() {
         this.panel = null
         this.isInitialized = false
@@ -15,23 +15,20 @@ export class MasterMixerUI {
         this.panel = this._createPanel()
         document.body.appendChild(this.panel)
         this.isInitialized = true
-        console.log('Master Mixer UI initialized')
+        console.log('Main Mixer UI initialized')
     }
     
     _adjustBodyLayout() {
-        // Reserve space for mixer panel so editor doesn't overlap
         const width = this.isCollapsed ? '40px' : '320px'
-        document.body.style.marginRight = width
-        // Set CSS custom property for background video positioning
         document.documentElement.style.setProperty('--panel-right-width', width)
     }
     
     _createPanel() {
         const panel = document.createElement('div')
-        panel.className = 'master-mixer-panel'
+        panel.className = 'main-mixer-panel'
         panel.innerHTML = `
             <div class="mixer-header">
-                <h3>Master Mixer</h3>
+                <h3>Main Mixer</h3>
                 <button class="collapse-btn" id="mixer-collapse-btn" title="Toggle panel">▶</button>
             </div>
             <div class="mixer-content">
@@ -104,29 +101,29 @@ export class MasterMixerUI {
 
         mixSlider.addEventListener('input', (e) => {
             const value = parseFloat(e.target.value)
-            masterMixer.setMixValue(value)
+            mainMixer.setMixValue(value)
         })
         
         const resolutionSelect = panel.querySelector('#resolution-select')
         resolutionSelect.addEventListener('change', (e) => {
             if (e.target.value === 'viewport') {
-                masterMixer.setViewportResolution()
+                mainMixer.setViewportResolution()
             } else {
-                masterMixer.setResolution(e.target.value)
+                mainMixer.setResolution(e.target.value)
             }
         })
         
         // Initialize with viewport resolution
-        masterMixer.setViewportResolution()
+        mainMixer.setViewportResolution()
         
         const bgToggle = panel.querySelector('#bg-toggle')
         bgToggle.addEventListener('change', (e) => {
-            masterMixer.setBackgroundVisible(e.target.checked)
+            mainMixer.setBackgroundVisible(e.target.checked)
         })
         
         const crossfadeSelect = panel.querySelector('#crossfade-select')
         crossfadeSelect.addEventListener('change', (e) => {
-            masterMixer.setCrossfadeMethod(parseInt(e.target.value))
+            mainMixer.setCrossfadeMethod(parseInt(e.target.value))
         })
     }
     
@@ -203,9 +200,6 @@ export class MasterMixerUI {
         }
 
         this._adjustBodyLayout()
-
-        // Trigger resize to update connections and port positions
-        window.dispatchEvent(new Event('resize'))
     }
 
     _startVideoPreview(previewVideo, sourceCanvas) {
@@ -239,8 +233,7 @@ export class MasterMixerUI {
             })
         }
         
-        // Restore body layout when destroying mixer
-        document.body.style.marginRight = '0'
+        document.documentElement.style.setProperty('--panel-right-width', '0px')
         if (this.panel && this.panel.parentNode) {
             this.panel.parentNode.removeChild(this.panel)
         }
@@ -249,4 +242,4 @@ export class MasterMixerUI {
 }
 
 // Global instance
-export const masterMixerUI = new MasterMixerUI()
+export const mainMixerUI = new MainMixerUI()

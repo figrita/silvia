@@ -1,5 +1,5 @@
 // Multimonitor support
-import {masterMixer} from '../masterMixer.js'
+import {mainMixer} from '../mainMixer.js'
 
 let projectorWindow = null
 let bgVideoRef = null
@@ -38,8 +38,8 @@ export const BackgroundRenderer = {
     },
 
     setCanvas(canvas){
-        console.log('BackgroundRenderer.setCanvas() disabled - using Master Mixer')
-        return  // DO NOTHING - Master mixer controls background now
+        console.log('BackgroundRenderer.setCanvas() disabled - using Main Mixer')
+        return  // DO NOTHING - Main mixer controls background now
     },
 
     openProjector(){
@@ -49,16 +49,16 @@ export const BackgroundRenderer = {
             return
         }
 
-        // Get dimensions from master mixer, fallback to default 1280x720
+        // Get dimensions from main mixer, fallback to default 1280x720
         let width = 1280
         let height = 720
 
-        if (masterMixer.canvas && masterMixer.canvas.width > 0 && masterMixer.canvas.height > 0) {
-            width = masterMixer.canvas.width
-            height = masterMixer.canvas.height
-            console.log(`Projector using master mixer dimensions: ${width}x${height}`)
+        if (mainMixer.canvas && mainMixer.canvas.width > 0 && mainMixer.canvas.height > 0) {
+            width = mainMixer.canvas.width
+            height = mainMixer.canvas.height
+            console.log(`Projector using main mixer dimensions: ${width}x${height}`)
         } else {
-            console.log('Master mixer not ready, using default projector dimensions')
+            console.log('Main mixer not ready, using default projector dimensions')
         }
 
         // Create blank window and inject content directly
@@ -130,16 +130,16 @@ export const BackgroundRenderer = {
 
             // Try both connection methods for compatibility
             if (projectorVideoEl) {
-                // Try masterMixer.connectProjector first (original method)
-                const connected = masterMixer.connectProjector(projectorVideoEl)
+                // Try mainMixer.connectProjector first (original method)
+                const connected = mainMixer.connectProjector(projectorVideoEl)
                 if (connected) {
-                    console.log('Master mixer stream connected to projector (direct)')
+                    console.log('Main mixer stream connected to projector (direct)')
                 } else {
-                    console.log('No master mixer stream available yet, setting up periodic check')
+                    console.log('No main mixer stream available yet, setting up periodic check')
                     // Set up a periodic check for the stream
                     const checkStream = setInterval(() => {
-                        if (masterMixer.connectProjector(projectorVideoEl)) {
-                            console.log('Master mixer stream connected to projector (delayed)')
+                        if (mainMixer.connectProjector(projectorVideoEl)) {
+                            console.log('Main mixer stream connected to projector (delayed)')
                             clearInterval(checkStream)
                         }
                     }, 500)
@@ -156,20 +156,20 @@ export const BackgroundRenderer = {
     updateProjectorSize(){
         if(!projectorWindow || projectorWindow.closed) return
 
-        // Get current dimensions from master mixer
+        // Get current dimensions from main mixer
         let width = 1280
         let height = 720
 
-        if (masterMixer.canvas && masterMixer.canvas.width > 0 && masterMixer.canvas.height > 0) {
-            width = masterMixer.canvas.width
-            height = masterMixer.canvas.height
+        if (mainMixer.canvas && mainMixer.canvas.width > 0 && mainMixer.canvas.height > 0) {
+            width = mainMixer.canvas.width
+            height = mainMixer.canvas.height
             console.log(`📏 Updating projector size to: ${width}x${height}`)
         }
 
         // Resize the projector window (same method for both web and Electron with nativeWindowOpen)
         projectorWindow.resizeTo(width, height)
 
-        // Master mixer will handle stream reconnection automatically
+        // Main mixer will handle stream reconnection automatically
         // when the new stream is created after canvas resize
     },
 
