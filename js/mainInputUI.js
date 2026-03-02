@@ -2,7 +2,7 @@
  * Main Input UI Panel
  *
  * Left-side panel for configuring global video and audio input sources.
- * Mirrors the structure of masterMixerUI.js for consistency.
+ * Mirrors the structure of mainMixerUI.js for consistency.
  */
 
 import {mainInput} from './mainInput.js'
@@ -49,10 +49,7 @@ export class MainInputUI {
     }
 
     _adjustBodyLayout() {
-        // Reserve space for main input panel on the left
         const width = this.isCollapsed ? '40px' : '240px'
-        document.body.style.marginLeft = width
-        // Set CSS custom property for background video positioning
         document.documentElement.style.setProperty('--panel-left-width', width)
     }
 
@@ -646,9 +643,6 @@ export class MainInputUI {
         }
 
         this._adjustBodyLayout()
-
-        // Trigger resize to update connections and port positions
-        window.dispatchEvent(new Event('resize'))
     }
 
     destroy() {
@@ -659,8 +653,7 @@ export class MainInputUI {
             this._updateLoopId = null
         }
 
-        // Restore body layout
-        document.body.style.marginLeft = '0'
+        document.documentElement.style.setProperty('--panel-left-width', '0px')
 
         if (this.panel && this.panel.parentNode) {
             this.panel.parentNode.removeChild(this.panel)

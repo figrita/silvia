@@ -27,8 +27,8 @@ import { Connection } from './js/connections.js'
 import { updateCropButtonState, expandWorkspaceToViewport } from './js/editor.js'
 import { themeManager } from './js/themeManager.js'
 import { AssetManager } from './js/assetManager.js'
-import { masterMixer } from './js/masterMixer.js'
-import { masterMixerUI } from './js/masterMixerUI.js'
+import { mainMixer } from './js/mainMixer.js'
+import { mainMixerUI } from './js/mainMixerUI.js'
 import { WorkspaceManager } from './js/workspaceManager.js'
 import { workspaceTabBar } from './js/workspaceTabBar.js'
 import { mainInput } from './js/mainInput.js'
@@ -225,8 +225,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 2. Initialize core systems that need DOM elements
     Connection.init()
     BackgroundRenderer.init()
-    masterMixer.init()
-    masterMixerUI.init()
+    mainMixer.init()
+    mainMixerUI.init()
     mainInput.init()
     await mainInputUI.init()
 
@@ -415,7 +415,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 8. Start the global render loop
     renderLoop(0)
 
-    // 9. Attach comprehensive window state change listeners
+    // 9. Attach resize listeners — ResizeObserver catches grid reflows (panel toggles),
+    //    window resize catches viewport changes
+    new ResizeObserver(onWindowResize).observe(document.getElementById('editor'))
     window.addEventListener('resize', onWindowResize)
 
     // Additional listeners for macOS window state changes
@@ -653,9 +655,9 @@ function renderLoop(time) {
         }
     }
 
-    // Update master mixer
-    if (masterMixer.isInitialized) {
-        masterMixer.updateMasterOutput()
+    // Update main mixer
+    if (mainMixer.isInitialized) {
+        mainMixer.updateMainOutput()
     }
 
     requestAnimationFrame(renderLoop)

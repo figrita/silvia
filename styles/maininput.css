@@ -3,11 +3,9 @@
 /* ===== MAIN INPUT PANEL ===== */
 
 .main-input-panel {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 240px;
-    height: 100vh;
+    grid-column: 1;
+    grid-row: 1 / -1;
+    height: 100%;
     background: var(--bg-primary);
     border-right: 1px solid var(--border-normal);
     z-index: 1000;
@@ -16,7 +14,6 @@
 }
 
 .main-input-panel.collapsed {
-    width: 40px;
     overflow: hidden;
 }
 
@@ -26,6 +23,11 @@
 
 .main-input-panel.collapsed .main-input-header h3 {
     display: none;
+}
+
+.main-input-panel.collapsed .main-input-header {
+    padding: 8px;
+    justify-content: center;
 }
 
 .main-input-header {
@@ -43,6 +45,7 @@
     font-size: 0.9rem;
     font-weight: bold;
     flex: 1;
+    text-align: center;
 }
 
 /* ===== COLLAPSE BUTTON (scoped) ===== */

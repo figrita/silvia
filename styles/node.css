@@ -11,9 +11,14 @@ html {
 body {
     user-select: none;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: var(--panel-left-width, 0px) 1fr var(--panel-right-width, 0px);
+    grid-template-rows: auto 1fr;
     height: 100vh;
+}
+
+#modal-container {
+    display: contents;
 }
 
 body.s-number-scrubbing .node .input-control s-color {
@@ -24,9 +29,10 @@ body.s-number-scrubbing .node .input-control s-color {
     overflow-y: hidden;
     overflow-x: scroll;
     position: relative;
-    flex: 1;
-    min-height: 0; /* Allow flex child to shrink below content size */
-    width: 100%; /* Fill available width after body margins */
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 0;
+    min-width: 0;
 
     #node-root {
         position: absolute;

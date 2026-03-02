@@ -101,16 +101,14 @@ export function updateCropButtonState(){
 }
 
 /**
- * Adjusts the workspace width when the window resizes.
- * Ensures the workspace is at least as wide as the viewport by expanding it if needed.
- * It will NOT shrink the workspace.
+ * Expands the workspace width when the viewport grows (e.g. panel closes).
+ * Never shrinks — the user controls that via the crop button.
  */
 export function expandWorkspaceToViewport(){
     if(!nodeRoot){return}
     const currentWidth = nodeRoot.offsetWidth
     const editorWidth = editor.getBoundingClientRect().width
 
-    // If the editor has become wider than the workspace, expand the workspace to match.
     if(editorWidth > currentWidth){
         setWorkspaceWidth(editorWidth)
     }

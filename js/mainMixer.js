@@ -1,7 +1,7 @@
 import {WebGLRenderer} from './webgl.js'
 import {BackgroundRenderer} from './nodes/_background.js'
 
-export class MasterMixer {
+export class MainMixer {
     constructor() {
         this.channelA = null  // Output node reference
         this.channelB = null  // Output node reference  
@@ -38,7 +38,7 @@ export class MasterMixer {
         this.renderer.updateProgram(MIXING_FRAGMENT_SHADER)
 
         this.isInitialized = true
-        console.log('Master Mixer initialized')
+        console.log('Main Mixer initialized')
     }
     
     assignToChannelA(outputNode) {
@@ -82,7 +82,7 @@ export class MasterMixer {
         gl.clearColor(0, 0, 0, 1)
         gl.clear(gl.COLOR_BUFFER_BIT)
         gl.flush()
-        console.log('Master mixer cleared to black')
+        console.log('Main mixer cleared to black')
     }
     
     setResolution(resolutionString) {
@@ -176,7 +176,7 @@ export class MasterMixer {
         return false
     }
     
-    updateMasterOutput() {
+    updateMainOutput() {
         if (!this.isInitialized) return
 
         // If both channels are empty, just clear to black and return
@@ -428,4 +428,4 @@ void main() {
 }`
 
 // Global instance
-export const masterMixer = new MasterMixer()
+export const mainMixer = new MainMixer()

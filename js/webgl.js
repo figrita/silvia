@@ -179,7 +179,7 @@ export class WebGLRenderer{
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
         gl.useProgram(this.program)
 
-        // Skip standard uniforms for master mixer
+        // Skip standard uniforms for main mixer
         if(!customOptions.skipStandardUniforms){
             gl.uniform1f(gl.getUniformLocation(this.program, 'u_time'), time)
             gl.uniform2f(gl.getUniformLocation(this.program, 'u_resolution'), gl.canvas.width, gl.canvas.height)
