@@ -1,6 +1,5 @@
 import {registerNode} from '../registry.js'
-import {autowire, StringToFragment, formatFloatGLSL} from '../utils.js'
-import {SNode} from '../snode.js'
+import {autowire, StringToFragment} from '../utils.js'
 
 registerNode({
     slug: 'text',
@@ -25,8 +24,7 @@ registerNode({
     },
     runtimeState: {
         renderCanvas: null,
-        isDirty: true, // Dirty flag to avoid re-rendering the canvas on every single frame
-        aspect: 1.0
+        isDirty: true // Dirty flag to avoid re-rendering the canvas on every single frame
     },
 
     input: {
@@ -54,7 +52,8 @@ registerNode({
                     vec4 bg = ${bgColor};
                     vec4 textColor = ${textColor};
 
-                    float aspect = ${formatFloatGLSL(this.runtimeState.aspect)};
+                    ivec2 texSize = textureSize(${uniformName}, 0);
+                    float aspect = float(texSize.x) / float(texSize.y);
 
                     // Aspect-ratio correct the coordinates only for mask sampling
                     vec2 maskUV = uv;
@@ -212,7 +211,6 @@ registerNode({
         if(this.runtimeState.renderCanvas){
             this.runtimeState.renderCanvas.width = width
             this.runtimeState.renderCanvas.height = height
-            this.runtimeState.aspect = width / height
             this.runtimeState.isDirty = true
         }
     },
@@ -257,40 +255,37 @@ registerNode({
         this.elements = autowire(fragment)
         this.customArea.appendChild(fragment)
 
-        const markDirtyAndRefresh = () => {
+        const markDirty = () => {
             this.runtimeState.isDirty = true
-            if(SNode){
-                SNode.refreshDownstreamOutputs(this)
-            }
         }
 
         this.elements.textInput.addEventListener('input', (e) => {
             this.values.textContent = e.target.value
-            markDirtyAndRefresh()
+            markDirty()
         })
         this.elements.fontSizeControl.addEventListener('input', (e) => {
             this.values.fontSize = parseFloat(e.target.value)
-            markDirtyAndRefresh()
+            markDirty()
         })
         this.elements.fontWeightSelect.addEventListener('change', (e) => {
             this.values.fontWeight = e.target.value
-            markDirtyAndRefresh()
+            markDirty()
         })
         this.elements.textAlignSelect.addEventListener('change', (e) => {
             this.values.textAlign = e.target.value
-            markDirtyAndRefresh()
+            markDirty()
         })
         this.elements.verticalAlignSelect.addEventListener('change', (e) => {
             this.values.verticalAlign = e.target.value
-            markDirtyAndRefresh()
+            markDirty()
         })
 
         const resOption = this.nodeEl.querySelector('[data-option-el="canvas_res"]')
         resOption.addEventListener('change', () => {
             this._updateCanvasResolution()
-            markDirtyAndRefresh()
+            markDirty()
         })
         const fontOption = this.nodeEl.querySelector('[data-option-el="font_family"]')
-        fontOption.addEventListener('change', markDirtyAndRefresh)
+        fontOption.addEventListener('change', markDirty)
     }
 })

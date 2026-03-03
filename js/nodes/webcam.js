@@ -1,7 +1,5 @@
 import {registerNode} from '../registry.js'
 import {Connection} from '../connections.js'
-import {SNode} from '../snode.js'
-import {formatFloatGLSL} from '../utils.js'
 
 registerNode({
     slug: 'webcam',
@@ -12,8 +10,7 @@ registerNode({
         video: null
     },
     runtimeState: {
-        stream: null, // To hold the MediaStream object
-        aspect: 1.0
+        stream: null // To hold the MediaStream object
     },
 
     input: {},
@@ -38,9 +35,10 @@ registerNode({
                 const xCoord = mirror ? '1.0 - uv.x' : 'uv.x'
                 
                 return `vec4 ${funcName}(vec2 uv) {
-    float aspect = ${formatFloatGLSL(this.runtimeState.aspect)};
-    uv.x = (uv.x / aspect + 1.0) * 0.5;  // [-imageAspectRatio, imageAspectRatio] -> [0,1]
-    uv.y = (1.0 - uv.y) * 0.5;                     // [-1, 1] -> [0,1]
+    ivec2 texSize = textureSize(${uniformName}, 0);
+    float aspect = float(texSize.x) / float(texSize.y);
+    uv.x = (uv.x / aspect + 1.0) * 0.5;
+    uv.y = (1.0 - uv.y) * 0.5;
     return texture(${uniformName}, vec2(${xCoord}, uv.y));
 }`
             },
@@ -105,9 +103,6 @@ registerNode({
 
                 // Once the video metadata is loaded
                 this.elements.video.onloadedmetadata = () => {
-                    // Calculate aspect ratio from intrinsic dimensions
-                    this.runtimeState.aspect = this.elements.video.videoWidth / this.elements.video.videoHeight
-
                     // Show video and hide button
                     this.elements.video.style.display = 'block'
                     startButton.style.display = 'none'
@@ -115,7 +110,6 @@ registerNode({
                     // Update node dimensions so connections redraw correctly
                     this.updatePortPoints()
                     Connection.redrawAllConnections()
-                    SNode.refreshDownstreamOutputs(this)
                 }
 
             } catch(err){
