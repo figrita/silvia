@@ -10,7 +10,7 @@ registerNode({
             label: 'Input',
             type: 'color',
             control: null,
-            samplingCost: 81
+            samplingCost: 25
         },
         'threshold': {
             label: 'Threshold',
@@ -43,9 +43,9 @@ registerNode({
     float samples = 0.0;
     
     // Sample in a circular pattern for bloom effect
-    for(int i = 0; i < 16; i++) {
-        float angle = float(i) * 0.392699;
-        for(float r = ${radius} * 0.2; r <= ${radius}; r += ${radius} * 0.2) {
+    for(int i = 0; i < 8; i++) {
+        float angle = float(i) * 0.785398;
+        for(float r = ${radius} / 3.0; r <= ${radius}; r += ${radius} / 3.0) {
             vec2 offset = vec2(cos(angle), sin(angle)) * r;
             vec4 texSample = ${this.getInput('input', cc, 'uv + offset')};
             

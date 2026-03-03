@@ -10,12 +10,12 @@ registerNode({
             label: 'Input',
             type: 'color',
             control: null,
-            samplingCost: '5-197'
+            samplingCost: '5-49'
         },
         'kernelSize': {
             label: 'Kernel Size',
             type: 'float',
-            control: {default: 3.0, min: 1.0, max: 8.0, step: 1.0}
+            control: {default: 3.0, min: 1.0, max: 4.0, step: 1.0}
         },
         'cutoff': {
             label: 'Cutoff',
