@@ -11,7 +11,7 @@ registerNode({
             label: 'Input',
             type: 'color',
             control: null,
-            samplingCost: '5-317'
+            samplingCost: '5-30'
         },
         'amount': {
             label: 'Amount',
@@ -98,14 +98,13 @@ registerNode({
     // Unsharp mask
     vec4 blurred = vec4(0.0);
     float totalWeight = 0.0;
-    
-    // Variable radius Gaussian blur
-    float samples = ceil(radius * 2.0);
-    for (float x = -samples; x <= samples; x++) {
-        for (float y = -samples; y <= samples; y++) {
+
+    // Fixed 7x7 kernel, radius controls Gaussian sigma
+    for (float x = -3.0; x <= 3.0; x++) {
+        for (float y = -3.0; y <= 3.0; y++) {
             vec2 offset = vec2(x, y) * texelSize;
             float dist = length(vec2(x, y));
-            if (dist <= samples) {
+            if (dist <= 3.0) {
                 float weight = exp(-(dist * dist) / (2.0 * radius * radius));
                 blurred += ${this.getInput('input', cc, 'uv + offset')} * weight;
                 totalWeight += weight;
