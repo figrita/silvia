@@ -1,6 +1,5 @@
 import {registerNode} from '../registry.js'
-import {autowire, StringToFragment, formatFloatGLSL} from '../utils.js'
-import {SNode} from '../snode.js'
+import {autowire, StringToFragment} from '../utils.js'
 
 registerNode({
     slug: 'drawingcanvas',
@@ -33,7 +32,6 @@ registerNode({
         lastX: 0,
         lastY: 0,
         ctx: null,
-        aspect: 1.0,
         isDirty: true
     },
 
@@ -52,11 +50,9 @@ registerNode({
             type: 'color',
             genCode(cc, funcName, uniformName) {
                 return `vec4 ${funcName}(vec2 uv) {
-    float aspect = ${formatFloatGLSL(this.runtimeState.aspect)};
-
-    // Convert from world space to texture coordinates
+    ivec2 texSize = textureSize(${uniformName}, 0);
+    float aspect = float(texSize.x) / float(texSize.y);
     vec2 texCoords = vec2((uv.x / aspect + 1.0) * 0.5, (1.0 - uv.y) * 0.5);
-
     return texture(${uniformName}, texCoords);
 }`
             },
@@ -181,7 +177,6 @@ registerNode({
         if (this.elements.drawingCanvas) {
             this.elements.drawingCanvas.width = width
             this.elements.drawingCanvas.height = height
-            this.runtimeState.aspect = width / height
             this.values.canvasWidth = width
             this.values.canvasHeight = height
 

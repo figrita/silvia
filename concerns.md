@@ -44,9 +44,8 @@ Fix: delete `_updateProjectorStream`.
 **H3. `buildWorkspaceIdMap` reuses existing workspace IDs on load without clear**
 `load.js:858` — if a saved workspace ID matches an existing session workspace ID, it silently reuses it, mixing old and new nodes. Should always create fresh workspaces and remap.
 
-**H4. Aspect ratio baked as literal in genCode instead of being a uniform**
-`video.js:86`, `screencapture.js:26`, `nodes/maininput.js:34`, `imagegif.js:35`, `drawingcanvas.js:55` — aspect is embedded as a compile-time float literal, requiring a downstream shader recompile whenever the source changes. Should be a `floatUniformUpdate` instead. Additionally `drawingcanvas.js` never calls `refreshDownstreamOutputs` on resize, so the baked aspect is never updated after initial compile.
-Fix: tracked separately — **DONE** (see commit for uniform refactor).
+**H4. Aspect ratio baked as literal in genCode instead of being dynamic — FIXED**
+`video.js`, `screencapture.js`, `nodes/maininput.js`, `imagegif.js`, `drawingcanvas.js` — resolved by using `textureSize(sampler, 0)` in GLSL to derive aspect from the uploaded texture dimensions each frame. Eliminated all `refreshDownstreamOutputs` calls that existed solely to propagate aspect changes. Also fixed a latent bug in `drawingcanvas.js` where aspect was never updated after initial compile.
 
 ---
 

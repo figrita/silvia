@@ -1,7 +1,5 @@
 import {registerNode} from '../registry.js'
 import {Connection} from '../connections.js'
-import {SNode} from '../snode.js'
-import {formatFloatGLSL} from '../utils.js'
 
 registerNode({
     slug: 'screencapture',
@@ -12,8 +10,7 @@ registerNode({
         video: null
     },
     runtimeState: {
-        stream: null,
-        aspect: 1.0
+        stream: null
     },
 
     input: {},
@@ -23,9 +20,10 @@ registerNode({
             type: 'color',
             genCode(cc, funcName, uniformName){
                 return `vec4 ${funcName}(vec2 uv) {
-    float aspect = ${formatFloatGLSL(this.runtimeState.aspect)};
-    uv.x = (uv.x / aspect + 1.0) * 0.5;  // [-imageAspectRatio, imageAspectRatio] -> [0,1]
-    uv.y = (uv.y + 1.0) * 0.5;                     // [-1, 1] -> [0,1]
+    ivec2 texSize = textureSize(${uniformName}, 0);
+    float aspect = float(texSize.x) / float(texSize.y);
+    uv.x = (uv.x / aspect + 1.0) * 0.5;
+    uv.y = (uv.y + 1.0) * 0.5;
     return texture(${uniformName}, vec2(uv.x, 1.0 - uv.y));
 }`
             },
@@ -90,9 +88,6 @@ registerNode({
 
                 // Once metadata is loaded
                 this.elements.video.onloadedmetadata = () => {
-                    // Calculate aspect ratio from intrinsic dimensions
-                    this.runtimeState.aspect = this.elements.video.videoWidth / this.elements.video.videoHeight
-
                     // Show video and hide button
                     this.elements.video.style.display = 'block'
                     startButton.style.display = 'none'
@@ -100,7 +95,6 @@ registerNode({
                     // Update node dimensions for connections
                     this.updatePortPoints()
                     Connection.redrawAllConnections()
-                    SNode.refreshDownstreamOutputs(this)
                 }
 
                 // Add a listener to reset the UI if the user stops sharing via browser controls.
@@ -113,12 +107,8 @@ registerNode({
                     startButton.textContent = 'Start Screen Capture'
                     startButton.disabled = false
 
-                    // Reset aspect ratio
-                    this.runtimeState.aspect = 1.0
-
                     this.updatePortPoints()
                     Connection.redrawAllConnections()
-                    SNode.refreshDownstreamOutputs(this)
                 })
 
             } catch(err){

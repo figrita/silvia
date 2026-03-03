@@ -1,7 +1,5 @@
 import {registerNode} from '../registry.js'
 import {Connection} from '../connections.js'
-import {formatFloatGLSL} from '../utils.js'
-import {SNode} from '../snode.js'
 import {AssetManager} from '../assetManager.js'
 
 registerNode({
@@ -17,7 +15,6 @@ registerNode({
         input: null
     },
     runtimeState: {
-        aspect: 1.0,
         animator: null, // To hold the gifler instance
         currentAssetPath: null // Track current asset for cleanup
     },
@@ -32,9 +29,10 @@ registerNode({
             type: 'color',
             genCode(cc, funcName, uniformName){
                 return `vec4 ${funcName}(vec2 uv) {
-    float aspect = ${formatFloatGLSL(this.runtimeState.aspect)};
-    uv.x = (uv.x / aspect + 1.0) * 0.5;  // [-imageAspectRatio, imageAspectRatio] -> [0,1]
-    uv.y = (uv.y + 1.0) * 0.5;                     // [-1, 1] -> [0,1]
+    ivec2 texSize = textureSize(${uniformName}, 0);
+    float aspect = float(texSize.x) / float(texSize.y);
+    uv.x = (uv.x / aspect + 1.0) * 0.5;
+    uv.y = (uv.y + 1.0) * 0.5;
     return texture(${uniformName}, vec2(uv.x, 1.0 - uv.y));
 }`
             },
@@ -370,10 +368,9 @@ registerNode({
             this.elements.buttonContainer.style.display = 'flex'
             this.elements.buttonContainer.style.opacity = '1'
 
-            // Update layout and downstream nodes
+            // Update layout
             this.updatePortPoints()
             Connection.redrawAllConnections()
-            SNode.refreshDownstreamOutputs(this)
         } catch (error) {
             console.error('Failed to load asset:', error)
         }
@@ -383,7 +380,6 @@ registerNode({
         return new Promise((resolve, reject) => {
             this.elements.imageLoader.onload = () => {
                 const {naturalWidth, naturalHeight} = this.elements.imageLoader
-                this.runtimeState.aspect = naturalWidth / naturalHeight
 
                 this.elements.previewCanvas.width = naturalWidth
                 this.elements.previewCanvas.height = naturalHeight
@@ -416,8 +412,6 @@ registerNode({
                 tempImg.onerror = reject
             })
 
-            this.runtimeState.aspect = tempImg.naturalWidth / tempImg.naturalHeight
-            
             // Use gifler for animation if available
             if (window.gifler) {
                 const animator = await new Promise((resolve, reject) => {
@@ -454,16 +448,13 @@ registerNode({
                     this.runtimeState.animator = animator
                     
                     const {width, height} = animator
-                    this.runtimeState.aspect = width / height
-
                     this.elements.previewCanvas.style.display = 'block'
                     this.elements.placeholder.style.display = 'none'
                     this.elements.replaceBtn.style.display = 'block'
-                    
-                    // Update layout and downstream nodes
+
+                    // Update layout
                     this.updatePortPoints()
                     Connection.redrawAllConnections()
-                    SNode.refreshDownstreamOutputs(this)
                 }).catch(err => {
                     console.error('Gifler failed to animate:', err)
                     this.elements.previewCanvas.style.display = 'none'
@@ -482,22 +473,20 @@ registerNode({
 
         this.elements.imageLoader.onload = () => {
             const {naturalWidth, naturalHeight} = this.elements.imageLoader
-            this.runtimeState.aspect = naturalWidth / naturalHeight
 
             this.elements.previewCanvas.width = naturalWidth
             this.elements.previewCanvas.height = naturalHeight
-            
+
             const ctx = this.elements.previewCanvas.getContext('2d')
             ctx.drawImage(this.elements.imageLoader, 0, 0)
-            
+
             this.elements.previewCanvas.style.display = 'block'
             this.elements.placeholder.style.display = 'none'
             this.elements.replaceBtn.style.display = 'block'
 
-            // Update layout and downstream nodes
+            // Update layout
             this.updatePortPoints()
             Connection.redrawAllConnections()
-            SNode.refreshDownstreamOutputs(this)
         }
 
         this.elements.imageLoader.onerror = () => {
