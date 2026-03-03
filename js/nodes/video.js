@@ -1,7 +1,6 @@
 import {registerNode} from '../registry.js'
 import {Connection} from '../connections.js'
-import {SNode} from '../snode.js'
-import {autowire, formatFloatGLSL, StringToFragment} from '../utils.js'
+import {autowire, StringToFragment} from '../utils.js'
 import {AudioAnalyzer} from '../audioAnalyzer.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
 import {AssetManager} from '../assetManager.js'
@@ -34,7 +33,6 @@ registerNode({
         canvasHasData: false // Track if canvas has been drawn to at least once
     },
     values: {
-        aspect: 1.0, // Moved from runtimeState so it persists and triggers shader recompilation
         playbackRate: 1.0,
         thresholds: DEFAULT_THRESHOLDS,
         debounceMs: 100,
@@ -83,9 +81,10 @@ registerNode({
             type: 'color',
             genCode(cc, funcName, uniformName){
                 return `vec4 ${funcName}(vec2 uv) {
-    float aspect = ${formatFloatGLSL(this.values.aspect)};
-    uv.x = (uv.x / aspect + 1.0) * 0.5;  // [-imageAspectRatio, imageAspectRatio] -> [0,1]
-    uv.y = (uv.y + 1.0) * 0.5;                     // [-1, 1] -> [0,1]
+    ivec2 texSize = textureSize(${uniformName}, 0);
+    float aspect = float(texSize.x) / float(texSize.y);
+    uv.x = (uv.x / aspect + 1.0) * 0.5;
+    uv.y = (uv.y + 1.0) * 0.5;
     return texture(${uniformName}, vec2(uv.x, 1.0 - uv.y));
 }`
             },
@@ -559,7 +558,6 @@ registerNode({
         console.log(`Video node setting video.src to: ${videoPath}`)
         return new Promise((resolve, reject) => {
             this.elements.video.onloadedmetadata = () => {
-                this.values.aspect = this.elements.video.videoWidth / this.elements.video.videoHeight
                 this.elements.video.playbackRate = this.values.playbackRate // Apply saved speed
 
                 // Set up canvas with video dimensions
@@ -584,10 +582,6 @@ registerNode({
                 this.updatePortPoints()
                 Connection.redrawAllConnections()
 
-                // IMPORTANT: Refresh outputs AFTER aspect ratio is set
-                // This forces shader recompilation with correct aspect ratio
-                SNode.refreshDownstreamOutputs(this)
-
                 resolve()
             }
 
@@ -610,7 +604,6 @@ registerNode({
         this.runtimeState.currentAssetPath = url
 
         this.elements.video.onloadedmetadata = () => {
-            this.values.aspect = this.elements.video.videoWidth / this.elements.video.videoHeight
             this.elements.video.playbackRate = this.values.playbackRate
 
             this.elements.canvas.width = this.elements.video.videoWidth
@@ -631,10 +624,6 @@ registerNode({
 
             this.updatePortPoints()
             Connection.redrawAllConnections()
-
-            // IMPORTANT: Refresh outputs AFTER aspect ratio is set
-            // This forces shader recompilation with correct aspect ratio
-            SNode.refreshDownstreamOutputs(this)
         }
         this.elements.video.play()
     },

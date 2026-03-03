@@ -8,7 +8,6 @@
 
 import {registerNode} from '../registry.js'
 import {mainInput} from '../mainInput.js'
-import {formatFloatGLSL} from '../utils.js'
 
 registerNode({
     slug: 'maininput',
@@ -30,9 +29,9 @@ registerNode({
             label: 'Video',
             type: 'color',
             genCode(cc, funcName, uniformName) {
-                const aspect = mainInput.getAspect()
                 return `vec4 ${funcName}(vec2 uv) {
-    float aspect = ${formatFloatGLSL(aspect)};
+    ivec2 texSize = textureSize(${uniformName}, 0);
+    float aspect = float(texSize.x) / float(texSize.y);
     uv.x = (uv.x / aspect + 1.0) * 0.5;
     uv.y = (uv.y + 1.0) * 0.5;
     return texture(${uniformName}, vec2(uv.x, 1.0 - uv.y));

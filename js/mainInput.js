@@ -8,7 +8,6 @@
  */
 
 import {AudioAnalyzer} from './audioAnalyzer.js'
-import {SNode} from './snode.js'
 import {AssetManager} from './assetManager.js'
 import {applyBandConfig, DEFAULT_BAND_CONFIG} from './audioHistogram.js'
 
@@ -116,7 +115,6 @@ class MainInputManager {
         }
 
         this._notifyStateChange()
-        this._refreshMainInputNodes()
     }
 
     async _loadVideoFile(fileOrPath) {
@@ -288,7 +286,6 @@ class MainInputManager {
         if (gen !== this._audioGeneration) return
 
         this._notifyStateChange()
-        this._refreshMainInputNodes()
     }
 
     async _loadAudioFile(fileOrPath) {
@@ -490,15 +487,6 @@ class MainInputManager {
     _notifyStateChange() {
         if (this.onStateChange) {
             this.onStateChange()
-        }
-    }
-
-    _refreshMainInputNodes() {
-        // Find all Main Input nodes and trigger shader recompilation
-        for (const node of SNode.nodes) {
-            if (node.slug === 'maininput') {
-                SNode.refreshDownstreamOutputs(node)
-            }
         }
     }
 
