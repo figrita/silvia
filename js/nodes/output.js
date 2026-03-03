@@ -3,7 +3,7 @@ import {compile, compileAsync} from '../compiler.js'
 import {SNode} from '../snode.js'
 import {WebGLRenderer} from '../webgl.js'
 import {BackgroundRenderer} from './_background.js'
-import {formatFloatGLSL, formatBytes} from '../utils.js'
+import {formatBytes} from '../utils.js'
 import {mainMixer} from '../mainMixer.js'
 import {mainMixerUI} from '../mainMixerUI.js'
 
@@ -81,7 +81,8 @@ registerNode({
             type: 'color',
             genCode(cc, funcName, uniformName){
                 return `vec4 ${funcName}(vec2 uv) {
-    float aspect = ${formatFloatGLSL(this.runtimeState.aspect)};
+    ivec2 texSize = textureSize(${uniformName}, 0);
+    float aspect = float(texSize.x) / float(texSize.y);
     uv.x = (uv.x / aspect + 1.0) * 0.5;
     uv.y = (uv.y + 1.0) * 0.5;
     return texture(${uniformName}, vec2(uv.x, 1.0 - uv.y));
@@ -147,11 +148,6 @@ registerNode({
             this.elements.canvas.width = width
             this.elements.canvas.height = height
             this.elements.canvas.style.aspectRatio = `${width} / ${height}`
-            this.runtimeState.aspect = width / height
-            // Only refresh downstream outputs if we have connections
-            if(this.input.input.connection){
-                SNode.refreshDownstreamOutputs(this)
-            }
             this.runtimeState.renderer.onResize()
         }
         this._updateVramDisplay() // Update VRAM when resolution changes
