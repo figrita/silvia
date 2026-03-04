@@ -22,12 +22,9 @@ Tracked issues from pre-ship code review. Ordered by priority within each sectio
 
 ## High Priority
 
-**H1. `_updateProjectorStream` is dead code**
-`mainMixer.js:268` — never called; `reconnectProjector()` is what's used. Contains a latent cross-origin `window.parent.frames` access.
-Fix: delete `_updateProjectorStream`.
+~~**H1. `_updateProjectorStream` is dead code**~~ ✅ Fixed — deleted the method (no callers).
 
-**H2. `captureStream(60)` unconditional 60fps GPU cost**
-`mainMixer.js:264` — forces 60fps frame capture from the WebGL canvas regardless of render frequency. Should be `captureStream(0)` (manual, frame pushed on `gl.flush()`) or match the configured render rate.
+~~**H2. `captureStream(60)` unconditional 60fps GPU cost**~~ ✅ Fixed — changed to `captureStream()` (no arg) which auto-captures on canvas change, matching actual render rate.
 
 **H3. `buildWorkspaceIdMap` reuses existing workspace IDs on load without clear**
 `load.js:858` — if a saved workspace ID matches an existing session workspace ID, it silently reuses it, mixing old and new nodes. Should always create fresh workspaces and remap.
