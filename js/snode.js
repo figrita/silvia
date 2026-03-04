@@ -14,14 +14,6 @@ export class SNode{
     static outputs = new Set()
     static rootDIV
 
-    // Legacy compatibility - delegate to WorkspaceManager
-    static get currentWorkspace() {
-        return WorkspaceManager.activeWorkspaceId
-    }
-    static set currentWorkspace(value) {
-        WorkspaceManager.setActive(value)
-    }
-
     static {
         this.rootDIV = document.getElementById('node-root')
     }
