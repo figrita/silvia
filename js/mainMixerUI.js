@@ -25,7 +25,6 @@ export class MainMixerUI {
         document.addEventListener('workspace-visibility-changed', refreshLabels)
 
         this.isInitialized = true
-        console.log('Main Mixer UI initialized')
     }
     
     _adjustBodyLayout() {

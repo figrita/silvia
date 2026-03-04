@@ -126,7 +126,6 @@ registerNode({
         if(this.runtimeState.stream){
             this.runtimeState.stream.getTracks().forEach(track => track.stop())
             this.runtimeState.stream = null
-            console.log('Screen capture stream stopped.')
         }
         if(this.elements.video){
             this.elements.video.srcObject = null

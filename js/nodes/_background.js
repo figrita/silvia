@@ -38,14 +38,12 @@ export const BackgroundRenderer = {
     },
 
     setCanvas(canvas){
-        console.log('BackgroundRenderer.setCanvas() disabled - using Main Mixer')
-        return  // DO NOTHING - Main mixer controls background now
+        return  // Main mixer controls background now
     },
 
     openProjector(){
         if(projectorWindow && !projectorWindow.closed){
             projectorWindow.focus()
-            console.log('Projector window already open.')
             return
         }
 
@@ -56,19 +54,13 @@ export const BackgroundRenderer = {
         if (mainMixer.canvas && mainMixer.canvas.width > 0 && mainMixer.canvas.height > 0) {
             width = mainMixer.canvas.width
             height = mainMixer.canvas.height
-            console.log(`Projector using main mixer dimensions: ${width}x${height}`)
-        } else {
-            console.log('Main mixer not ready, using default projector dimensions')
         }
 
-        // Create blank window and inject content directly
-        console.log('Opening blank projector window')
         projectorWindow = window.open('about:blank', 'projector', `width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no,scrollbars=no,resizable=yes`)
         if(!projectorWindow){
             alert('Popup blocker may have prevented the projector window from opening.')
             return
         }
-        console.log('Projector window opened:', projectorWindow)
 
         // Inject HTML content directly
         const projectorHTML = `
@@ -93,26 +85,13 @@ export const BackgroundRenderer = {
 <body>
     <video id="projector-video" autoplay muted></video>
     <script>
-        console.log('Projector window loaded')
-        console.log('electronAPI available:', !!window.electronAPI)
-
-        // Global function for stream connection
         window.connectProjectorStream = (stream) => {
             const video = document.getElementById('projector-video')
             if (video && stream) {
-                console.log('Connecting stream to projector video:', stream)
                 video.srcObject = stream
-                video.play().then(() => {
-                    console.log('Projector video playing successfully')
-                }).catch(e => {
-                    console.error('Failed to play projector video:', e)
-                })
-            } else {
-                console.error('No video element or stream:', { video, stream })
+                video.play().catch(e => console.error('Failed to play projector video:', e))
             }
         }
-
-        console.log('Projector window ready for stream connection')
     </script>
 </body>
 </html>`
@@ -123,33 +102,21 @@ export const BackgroundRenderer = {
 
         // Set up stream connection after content is injected
         setTimeout(() => {
-            console.log('Setting up projector stream connection')
-
-            // Store reference for later use
             projectorVideoEl = projectorWindow.document.getElementById('projector-video')
 
-            // Try both connection methods for compatibility
             if (projectorVideoEl) {
-                // Try mainMixer.connectProjector first (original method)
                 const connected = mainMixer.connectProjector(projectorVideoEl)
-                if (connected) {
-                    console.log('Main mixer stream connected to projector (direct)')
-                } else {
-                    console.log('No main mixer stream available yet, setting up periodic check')
+                if (!connected) {
                     // Set up a periodic check for the stream
                     const checkStream = setInterval(() => {
                         if (mainMixer.connectProjector(projectorVideoEl)) {
-                            console.log('Main mixer stream connected to projector (delayed)')
                             clearInterval(checkStream)
                         }
                     }, 500)
-                    // Stop checking after 10 seconds
                     setTimeout(() => clearInterval(checkStream), 10000)
                 }
-            } else {
-                console.error('Could not find #projector-video element')
             }
-        }, 100) // Small delay to ensure content is fully loaded
+        }, 100)
     },
 
 
@@ -163,7 +130,6 @@ export const BackgroundRenderer = {
         if (mainMixer.canvas && mainMixer.canvas.width > 0 && mainMixer.canvas.height > 0) {
             width = mainMixer.canvas.width
             height = mainMixer.canvas.height
-            console.log(`📏 Updating projector size to: ${width}x${height}`)
         }
 
         // Resize the projector window (same method for both web and Electron with nativeWindowOpen)
@@ -174,37 +140,15 @@ export const BackgroundRenderer = {
     },
 
     reconnectProjectorStream(newStream){
-        console.log('reconnectProjectorStream called with:', {
-            projectorWindow: !!projectorWindow,
-            projectorWindowClosed: projectorWindow?.closed,
-            newStream: !!newStream
-        })
+        if(!projectorWindow || projectorWindow.closed) return false
+        if(!newStream) return false
 
-        if(!projectorWindow || projectorWindow.closed) {
-            console.log('No projector window available')
-            return false
-        }
-
-        if(!newStream) {
-            console.warn('No stream provided for reconnection')
-            return false
-        }
-
-        console.log(`Reconnecting projector with new stream:`, newStream)
-
-        // Use the projector window's connection function if available
         if (projectorWindow.connectProjectorStream) {
             projectorWindow.connectProjectorStream(newStream)
         } else if (projectorVideoEl) {
-            // Fallback to direct DOM access
             projectorVideoEl.srcObject = newStream
-            projectorVideoEl.play().then(() => {
-                console.log('Projector stream reconnected successfully (direct)')
-            }).catch(e => {
-                console.error('Failed to play projector stream:', e)
-            })
+            projectorVideoEl.play().catch(e => console.error('Failed to play projector stream:', e))
         } else {
-            console.log('No projector connection method available')
             return false
         }
 

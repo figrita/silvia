@@ -48,9 +48,7 @@ Fix: replace the video element with a div in the error case, or use a sibling pl
 `mainInput.js:533` — `destroy()` properly stops streams and releases AudioContext but nothing calls it on page close. Active webcam/mic/screen-capture streams leak.
 Fix: `window.addEventListener('beforeunload', () => mainInput.destroy())`
 
-**M5. Debug `console.log` calls throughout mainMixer**
-`mainMixer.js:50,61,72,79,84,98` — `'Main Mixer initialized'`, `'Channel A assigned: [node]'`, `'Main mixer cleared to black'` etc. fire on every assignment. Log holding object references can also keep DevTools memory alive.
-Fix: remove before ship.
+~~**M5. Debug `console.log` calls throughout codebase**~~ ✅ Fixed — removed all `console.log` calls across 18 files. Kept `console.warn`/`console.error` for genuine error paths.
 
 **M6. Cross-workspace animation tags use hardcoded 200ms fallback**
 `connections.js` in `updateCrossWorkspaceTags()` — `setTimeout(..., 200)` assumes CSS animation finishes in 200ms.

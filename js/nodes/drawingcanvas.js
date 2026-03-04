@@ -146,7 +146,6 @@ registerNode({
         this.elements.brushColorPicker.addEventListener('change', (e) => {
             // Make sure we're getting the event from the s-color element itself
             if (e.target === this.elements.brushColorPicker) {
-                console.log('Brush color changed to:', e.target.value)
                 this.values.brushColor = e.target.value
             }
         })
@@ -208,7 +207,6 @@ registerNode({
             const currentX = (e.clientX - rect.left) * scaleX
             const currentY = (e.clientY - rect.top) * scaleY
 
-            console.log('Drawing with brush color:', this.values.brushColor)
             this.runtimeState.ctx.strokeStyle = this.values.brushColor
             this.runtimeState.ctx.lineWidth = this.values.brushSize
             this.runtimeState.ctx.beginPath()

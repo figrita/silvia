@@ -125,7 +125,6 @@ export class AudioAnalyzer{
         this.#shadowPlayer.currentTime = visibleMediaElement.currentTime
         this.#shadowPlayer.playbackRate = visibleMediaElement.playbackRate
 
-        console.log('AudioAnalyzer initialized from file.')
     }
 
     /**
@@ -144,7 +143,6 @@ export class AudioAnalyzer{
         this.#sourceNode.connect(this.#analyser)
 
         this.start()
-        console.log('AudioAnalyzer initialized from stream.')
     }
 
     /** Starts the analysis loop. */
@@ -176,7 +174,6 @@ export class AudioAnalyzer{
         this.#sourceNode = null
         this.#analyser = null
         this.#audioCtx = null
-        console.log('AudioAnalyzer closed.')
     }
 
     // --- Private Methods ---

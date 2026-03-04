@@ -239,7 +239,6 @@ export const AssetManager = {
                         // Copy file to assets using path
                         const assetPath = await window.electronAPI.copyAssetFromPath(filePath, fileType, thumbnailData)
                         uploadPromises.push({ success: true, fileName: file.name, assetPath, type: fileType })
-                        console.log(`Successfully uploaded: ${file.name} -> ${assetPath}`)
                     } catch (error) {
                         console.error(`Failed to upload ${file.name}:`, error)
                         uploadPromises.push({ success: false, fileName: file.name, error: error.message || error })
@@ -255,7 +254,6 @@ export const AssetManager = {
                     const failCount = uploadPromises.filter(p => !p.success).length
 
                     if (successCount > 0 && failCount === 0) {
-                        console.log(`Successfully uploaded ${successCount} file(s)`)
                     } else if (successCount > 0 && failCount > 0) {
                         const failedFiles = uploadPromises.filter(p => !p.success).map(p => `${p.fileName}: ${p.error}`).join('\n')
                         alert(`Uploaded ${successCount} file(s), ${failCount} failed:\n\n${failedFiles}`)
@@ -607,7 +605,6 @@ export const AssetManager = {
                                     // Refresh the current tab content to reflect tag changes
                                     await loadTabContent(activeTab)
                                 }
-                                console.log('Asset updated successfully')
                             } else {
                                 alert('Failed to update asset. Please try again.')
                             }
@@ -785,8 +782,6 @@ export const AssetManager = {
 
                         // Click handler - edit panel in global mode, selection in node mode
                         assetCard.addEventListener('click', () => {
-                            console.log(`Selected asset: ${asset.originalName}`, asset)
-
                             if (onSelect && typeof onSelect === 'function') {
                                 // Selection Mode: opened from a node
                                 // Only call selection if asset type matches nodeType (when specified)

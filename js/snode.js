@@ -42,7 +42,6 @@ export class SNode{
         // Trigger recompile on each affected output node
         for(const outputNode of affectedOutputs){
             if(typeof outputNode.recompile === 'function'){
-                console.log(`Auto-recompiling Output ${outputNode.id} due to upstream change.`)
                 outputNode.recompile()
             }
         }

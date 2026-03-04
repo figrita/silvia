@@ -124,6 +124,6 @@ registerNode({
      * so they can be used directly as event callbacks.
      */
     _myActionHandler(){
-        console.log('Action triggered!', this.id)
+        // TODO: implement action
     }
 })

@@ -181,7 +181,6 @@ registerNode({
             AssetManager.showGlobalAssetManager({
                 nodeType: 'image',
                 onSelect: (assetPath, assetInfo) => {
-                    console.log('Selected image asset:', assetPath, assetInfo)
                     this.values.assetPath = assetPath // Asset browser is Electron-only
                     this._loadFromAssetPath(assetPath)
                 }
@@ -329,8 +328,6 @@ registerNode({
 
             // Load the asset
             await this._loadFromAssetPath(assetPath)
-
-            console.log(`Image asset stored: ${assetPath}`)
         } catch (error) {
             console.error('Failed to handle image file:', error)
             // Fallback to old blob URL method

@@ -38,9 +38,8 @@ export class MainMixer {
         this.renderer.updateProgram(MIXING_FRAGMENT_SHADER)
 
         this.isInitialized = true
-        console.log('Main Mixer initialized')
     }
-    
+
     assignToChannelA(outputNode) {
         const oldNode = this.channelA
         this.channelA = outputNode
@@ -48,7 +47,6 @@ export class MainMixer {
         if (oldNode && oldNode !== outputNode && oldNode._updateStatusLine) {
             oldNode._updateStatusLine()
         }
-        console.log('Channel A assigned:', outputNode)
     }
 
     assignToChannelB(outputNode) {
@@ -58,17 +56,14 @@ export class MainMixer {
         if (oldNode && oldNode !== outputNode && oldNode._updateStatusLine) {
             oldNode._updateStatusLine()
         }
-        console.log('Channel B assigned:', outputNode)
     }
 
     clearChannel(outputNode) {
         if (this.channelA === outputNode) {
             this.channelA = null
-            console.log('Channel A cleared')
         }
         if (this.channelB === outputNode) {
             this.channelB = null
-            console.log('Channel B cleared')
         }
     }
 
@@ -82,7 +77,6 @@ export class MainMixer {
         gl.clearColor(0, 0, 0, 1)
         gl.clear(gl.COLOR_BUFFER_BIT)
         gl.flush()
-        console.log('Main mixer cleared to black')
     }
     
     setResolution(resolutionString) {

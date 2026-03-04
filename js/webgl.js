@@ -35,7 +35,6 @@ export class WebGLRenderer{
     setFrameBufferSize(newSize){
         if(this.frameBufferSize === newSize){return}
         this.frameBufferSize = Math.max(1, Math.min(120, newSize))
-        console.log(`Renderer framebuffer resized to ${this.frameBufferSize} frames.`)
         this._initFramebuffers() // Rebuild textures and FBOs with the new size
     }
 
@@ -155,7 +154,6 @@ export class WebGLRenderer{
                 this.pendingProgram = null
 
                 const elapsed = performance.now() - this.compilationStartTime
-                console.log(`Async shader compilation completed in ${elapsed.toFixed(1)}ms`)
 
                 if(onComplete) onComplete(true)
             } else {

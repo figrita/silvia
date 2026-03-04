@@ -82,8 +82,6 @@ class CompileContext{
 }
 
 export function compile(input, frameBufferSize){
-    console.log('Starting shader compilation...')
-
     try {
         if(!input.connection){
             console.warn('No input connected to output node. Compilation aborted.')
@@ -91,9 +89,6 @@ export function compile(input, frameBufferSize){
         }
         const cc = new CompileContext(input)
         const result = cc.build()
-        console.log('Shader compiled successfully!')
-        console.log('Final shader code:')
-        console.log(result.shaderCode)
         return result
     } catch(error){
         console.error('Shader compilation failed:', error)
@@ -102,8 +97,6 @@ export function compile(input, frameBufferSize){
 }
 
 export async function compileAsync(input, frameBufferSize, onProgress = null){
-    console.log('Starting async shader compilation...')
-
     try {
         if(!input.connection){
             console.warn('No input connected to output node. Compilation aborted.')
@@ -120,9 +113,6 @@ export async function compileAsync(input, frameBufferSize, onProgress = null){
 
         if(onProgress) onProgress('Shader code generated successfully')
 
-        console.log('Async shader compiled successfully!')
-        console.log('Final shader code:')
-        console.log(result.shaderCode)
         return result
     } catch(error){
         console.error('Async shader compilation failed:', error)
