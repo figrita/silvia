@@ -181,8 +181,20 @@ export class MainMixerUI {
         }
     }
     
+    _stopPreviewStream(previewElement) {
+        const video = previewElement.querySelector('video')
+        if (video) {
+            if (video._previewStream) {
+                video._previewStream.getTracks().forEach(track => track.stop())
+                video._previewStream = null
+            }
+            video.srcObject = null
+        }
+    }
+
     _updateChannelPreview(previewElement, node) {
-        // Clear existing content
+        // Stop existing stream before clearing to prevent leak
+        this._stopPreviewStream(previewElement)
         previewElement.innerHTML = ''
 
         // Only create preview if node is active (has compiled shader rendering)
@@ -195,17 +207,16 @@ export class MainMixerUI {
             previewVideo.muted = true
             previewVideo.autoplay = true
             previewVideo.playsInline = true
-            
+
             previewElement.appendChild(previewVideo)
-            
+
             // Start video stream preview
             this._startVideoPreview(previewVideo, node.elements.canvas)
-        } else {
-            previewElement.innerHTML = ''
         }
     }
-    
+
     _clearChannelPreview(previewElement) {
+        this._stopPreviewStream(previewElement)
         previewElement.innerHTML = ''
     }
 
