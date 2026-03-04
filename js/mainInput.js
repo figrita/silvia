@@ -43,6 +43,11 @@ class MainInputManager {
         // Generation counters to detect stale async results from rapid source switching
         this._videoGeneration = 0
         this._audioGeneration = 0
+
+        // Shared GPU texture cache: one upload per GL context per frame
+        this._sharedTextureCache = new WeakMap() // WeakMap<WebGLRenderingContext, {texture, lastUploadedFrame}>
+        this._frameCount = 0
+        this._blackPixel = new Uint8Array([0, 0, 0, 255])
     }
 
     init() {
@@ -223,6 +228,7 @@ class MainInputManager {
                 this.canvasHasData = true
             }
 
+            this._frameCount++
             this.videoRenderLoop = requestAnimationFrame(renderFrame)
         }
 
@@ -383,6 +389,31 @@ class MainInputManager {
     }
 
     // ============ GETTER METHODS (for Main Input node) ============
+
+    uploadSharedTexture(gl, textureUnit) {
+        let entry = this._sharedTextureCache.get(gl)
+        if (!entry) {
+            const texture = gl.createTexture()
+            gl.bindTexture(gl.TEXTURE_2D, texture)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+            entry = {texture, lastUploadedFrame: -1}
+            this._sharedTextureCache.set(gl, entry)
+        }
+
+        gl.activeTexture(gl.TEXTURE0 + textureUnit)
+        gl.bindTexture(gl.TEXTURE_2D, entry.texture)
+
+        if (entry.lastUploadedFrame !== this._frameCount) {
+            if (this.canvasHasData && this.canvas.width > 0 && this.canvas.height > 0) {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.canvas)
+            } else {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, this._blackPixel)
+            }
+            entry.lastUploadedFrame = this._frameCount
+        }
+    }
 
     getVideoTexture() {
         if (this.canvasHasData) {
