@@ -255,7 +255,7 @@ export class MainMixer {
         if (!this.bgVideoElement) return
 
         if (!this.projectorStream) {
-            this.projectorStream = this.canvas.captureStream(60)
+            this.projectorStream = this.canvas.captureStream()
             this.reconnectProjector()
         }
 
@@ -265,22 +265,6 @@ export class MainMixer {
         }
     }
     
-    _updateProjectorStream() {
-        // Find projector video element if window is open
-        try {
-            const projectorWindow = Array.from(window.parent.frames).find(f => f.name === 'projector')
-            if (projectorWindow && projectorWindow.document) {
-                const projectorVideo = projectorWindow.document.getElementById('projector-video')
-                if (projectorVideo && this.projectorStream) {
-                    projectorVideo.srcObject = this.projectorStream
-                    projectorVideo.play()
-                }
-            }
-        } catch (e) {
-            // Projector window may not be accessible or open, that's fine
-        }
-    }
-
     // Force reconnect projector stream (called when we have a new stream)
     reconnectProjector() {
         if (!this.projectorStream) return
