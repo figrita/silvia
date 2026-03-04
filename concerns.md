@@ -8,19 +8,13 @@ Tracked issues from pre-ship code review. Ordered by priority within each sectio
 
 ~~**C1. Audio source type set before async, not reset on `_loadAudioFile` failure**~~ ✅ Fixed — try/catch in `setAudioSource()` resets `audioSourceType = 'none'` on any failure.
 
-**C2. Preview stream leak on channel reassignment**
-`mainMixerUI.js` — `_updateChannelPreview` clears `previewElement.innerHTML = ''` to replace the old preview. This removes the `<video>` from the DOM but does NOT stop its `captureStream`. The `_previewStream` ref is on the now-detached element, so `destroy()`'s `querySelectorAll` misses it. Every channel reassignment leaks a live canvas capture stream.
-Fix: before clearing `innerHTML`, stop existing stream tracks. Better: never replace the video element — swap `srcObject` instead.
+~~**C2. Preview stream leak on channel reassignment**~~ ✅ Fixed — `_stopPreviewStream()` helper stops tracks before clearing innerHTML.
 
 ~~**C3. Node duplication copies all workspace visibility instead of current workspace only**~~ ✅ Fixed — `duplicate()` now uses `[WorkspaceManager.activeWorkspaceId]`.
 
-**C4. Workspace deletion orphans nodes**
-`workspaceManager.js:88` — `delete(id)` removes the workspace from the Map but never updates `node.workspaceVisibility` on any SNode. Nodes only on the deleted workspace become invisible and unreachable but remain in `SNode.nodes`, consuming memory and being serialized into saves.
-Fix: before deleting, remove the ID from each node's visibility set; destroy nodes whose set becomes empty.
+~~**C4. Workspace deletion orphans nodes**~~ ✅ Fixed — `WorkspaceManager.delete()` now calls `_onBeforeDelete` callback (registered by snode.js) to clean up node visibility and destroy orphans.
 
-**C5. `deserializeWorkspace` and `loadPatchAsNewWorkspace` mutate `patchData.nodes` in-place**
-`load.js:797`, `load.js:273` — both do `nodeData.workspaceVisibility = ...` directly on the input objects before passing to `createNodesAndConnections`. The input data is permanently mutated.
-Fix: deep-copy `patchData.nodes` before remapping.
+~~**C5. `deserializeWorkspace` and `loadPatchAsNewWorkspace` mutate `patchData.nodes` in-place**~~ ✅ Fixed — both functions now shallow-copy nodes before remapping workspace visibility.
 
 ~~**C6. `SNode.currentWorkspace` setter doesn't call `updateVisibility()`**~~ ✅ Fixed — removed dead getter/setter entirely (no callers found).
 
