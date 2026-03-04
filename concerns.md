@@ -6,17 +6,13 @@ Tracked issues from pre-ship code review. Ordered by priority within each sectio
 
 ## Critical Bugs (pre-ship blockers)
 
-**C1. Audio source type set before async, not reset on `_loadAudioFile` failure**
-`mainInput.js` — `setAudioSource()` sets `this.audioSourceType = type` at the top, before the async work. If `_loadAudioFile` rejects, the exception propagates but `audioSourceType` stays `'audio'` while `audioAnalyzer` is `null`. `_startMic` correctly resets to `'none'` in its catch; `_loadAudioFile` doesn't.
-Fix: wrap the switch body in try/catch, reset `this.audioSourceType = 'none'` on any failure.
+~~**C1. Audio source type set before async, not reset on `_loadAudioFile` failure**~~ ✅ Fixed — try/catch in `setAudioSource()` resets `audioSourceType = 'none'` on any failure.
 
 **C2. Preview stream leak on channel reassignment**
 `mainMixerUI.js` — `_updateChannelPreview` clears `previewElement.innerHTML = ''` to replace the old preview. This removes the `<video>` from the DOM but does NOT stop its `captureStream`. The `_previewStream` ref is on the now-detached element, so `destroy()`'s `querySelectorAll` misses it. Every channel reassignment leaks a live canvas capture stream.
 Fix: before clearing `innerHTML`, stop existing stream tracks. Better: never replace the video element — swap `srcObject` instead.
 
-**C3. Node duplication copies all workspace visibility instead of current workspace only**
-`snode.js:653` — `duplicate()` passes `workspaceVisibility: [...this.workspaceVisibility]`. If a node is on 3 workspaces, its duplicate is also on all 3. Expected: duplicate appears only on the active workspace.
-Fix: `workspaceVisibility: [WorkspaceManager.activeWorkspaceId]`
+~~**C3. Node duplication copies all workspace visibility instead of current workspace only**~~ ✅ Fixed — `duplicate()` now uses `[WorkspaceManager.activeWorkspaceId]`.
 
 **C4. Workspace deletion orphans nodes**
 `workspaceManager.js:88` — `delete(id)` removes the workspace from the Map but never updates `node.workspaceVisibility` on any SNode. Nodes only on the deleted workspace become invisible and unreachable but remain in `SNode.nodes`, consuming memory and being serialized into saves.
@@ -43,9 +39,6 @@ Fix: delete `_updateProjectorStream`.
 
 **H3. `buildWorkspaceIdMap` reuses existing workspace IDs on load without clear**
 `load.js:858` — if a saved workspace ID matches an existing session workspace ID, it silently reuses it, mixing old and new nodes. Should always create fresh workspaces and remap.
-
-**H4. Aspect ratio baked as literal in genCode instead of being dynamic — FIXED**
-`video.js`, `screencapture.js`, `nodes/maininput.js`, `imagegif.js`, `drawingcanvas.js` — resolved by using `textureSize(sampler, 0)` in GLSL to derive aspect from the uploaded texture dimensions each frame. Eliminated all `refreshDownstreamOutputs` calls that existed solely to propagate aspect changes. Also fixed a latent bug in `drawingcanvas.js` where aspect was never updated after initial compile.
 
 ---
 
@@ -94,8 +87,7 @@ Fix: if `nodeMap.size === 0` after `createNodesAndConnections`, report a distinc
 `mainMixer.js:56` — records `WorkspaceManager.getActiveWorkspace()?.id` when user clicks "Assign to A/B". If the output node later moves workspace, the mixer shows the wrong workspace name.
 Fix: derive workspace ID from the output node's `workspaceVisibility` at render time.
 
-**D2. Multiple Main Input proxy nodes each upload the same canvas texture every frame**
-`nodes/maininput.js` — N instances each call `texImage2D` with the same canvas per frame. Should upload once to a shared texture; all proxy nodes sample from it.
+~~**D2. Multiple Main Input proxy nodes each upload the same canvas texture every frame**~~ ✅ Fixed — `MainInputManager.uploadSharedTexture()` uploads once per GL context per frame via `_sharedTextureCache` WeakMap.
 
 **D3. WorkspaceManager numeric IDs can collide with saved patch IDs on partial restore**
 `workspaceManager.js:15` — `nextId` starts at 1. `buildWorkspaceIdMap` reuses existing workspace IDs when they match saved IDs, which can mix nodes from different sessions silently on the `shouldClearWorkspace = false` path.
