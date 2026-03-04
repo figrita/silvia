@@ -10,7 +10,7 @@ registerNode({
             label: 'Input',
             type: 'color',
             control: null,
-            samplingCost: 6
+            samplingCost: '6'
         },
         'radius': {
             label: 'Radius',

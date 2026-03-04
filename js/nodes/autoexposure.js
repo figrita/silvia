@@ -11,7 +11,7 @@ registerNode({
             label: 'Input',
             type: 'color',
             control: null,
-            samplingCost: 10
+            samplingCost: '10'
         },
         'targetBrightness': {
             label: 'Target',

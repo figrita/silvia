@@ -32,38 +32,23 @@ Tracked issues from pre-ship code review. Ordered by priority within each sectio
 
 ## Medium Priority
 
-**M1. Dither node "Blue Noise" option is actually hash/white noise**
-`nodes/dither.js:972` — uses `sin(dot(...))` hash which has white noise spectral characteristics. Real blue noise suppresses low frequencies for visually pleasant dithering. Mislabeled.
-Fix: rename to "Hash Noise" or "Pseudo-random".
+~~**M1. Dither node "Blue Noise" option is actually hash/white noise**~~ ✅ Fixed — renamed to "Hash Noise" in UI and comment.
 
-**M2. `samplingCost` inconsistent types across nodes**
-`nodes/bloom.js`, `nodes/sharpen.js`, `nodes/sincfilter.js` — some use integers (`81`, `34`), some use strings (`'5-317'`). The tooltip interpolates the value directly; both work but types should be consistent.
-Fix: use strings throughout for range support.
+~~**M2. `samplingCost` inconsistent types across nodes**~~ ✅ Fixed — converted all integer `samplingCost` values to strings across 8 node files.
 
-**M3. `previewVideo.innerHTML = '<span>...'` on a `<video>` element is a no-op**
-`mainMixerUI.js:245` — setting `innerHTML` on a video element doesn't display fallback content in any real browser.
-Fix: replace the video element with a div in the error case, or use a sibling placeholder element.
+~~**M3. `previewVideo.innerHTML = '<span>...'` on a `<video>` element is a no-op**~~ ✅ Fixed — replaced with `replaceWith()` to swap the video element for a span placeholder.
 
-**M4. `mainInput.destroy()` never registered as page unload handler**
-`mainInput.js:533` — `destroy()` properly stops streams and releases AudioContext but nothing calls it on page close. Active webcam/mic/screen-capture streams leak.
-Fix: `window.addEventListener('beforeunload', () => mainInput.destroy())`
+~~**M4. `mainInput.destroy()` never registered as page unload handler**~~ Won't fix — browser tears down all MediaStreams and AudioContexts automatically on page unload; explicit cleanup is unnecessary.
 
 ~~**M5. Debug `console.log` calls throughout codebase**~~ ✅ Fixed — removed all `console.log` calls across 18 files. Kept `console.warn`/`console.error` for genuine error paths.
 
-**M6. Cross-workspace animation tags use hardcoded 200ms fallback**
-`connections.js` in `updateCrossWorkspaceTags()` — `setTimeout(..., 200)` assumes CSS animation finishes in 200ms.
-Fix: use `animationend` event with `setTimeout` only as a fallback for off-screen elements.
+~~**M6. Cross-workspace animation tags use hardcoded 200ms fallback**~~ Won't fix — code already uses `animationend` as primary with `setTimeout(200)` as fallback for off-screen elements where `animationend` won't fire. Animation is 150ms; 200ms margin is correct.
 
-**M7. `updateCrossWorkspaceTags()` implicitly depends on `redrawAllConnections()` having run first**
-`connections.js` — reads `connection._sourceVisible` / `connection._destVisible` flags set only during `redrawAllConnections`. Stale if called independently.
-Fix: compute visibility inline, or merge into one method.
+~~**M7. `updateCrossWorkspaceTags()` implicitly depends on `redrawAllConnections()` having run first**~~ Won't fix — `updateCrossWorkspaceTags` is only called from within `redrawAllConnections` (never independently), so the dependency is always satisfied.
 
-**M8. `loadPatchAsNewWorkspace` continues rendering on full node-creation failure**
-`load.js:714-733` — marks dirty and renders tab bar even if every node failed to load. No check that any content was actually created.
-Fix: if `nodeMap.size === 0` after `createNodesAndConnections`, report a distinct failure.
+~~**M8. `loadPatchAsNewWorkspace` continues rendering on full node-creation failure**~~ ✅ Fixed — if `nodeMap.size === 0` after `createNodesAndConnections`, deletes the empty workspace and alerts instead of proceeding.
 
-**M9. Bloom shader uses hardcoded 16 angle iterations regardless of radius**
-`nodes/bloom.js:850` — original loop iterated proportionally; new `for(int i = 0; i < 16; i++)` uses exactly 16 at every radius. Small radii oversample, large radii may show banding. `samplingCost: 81` annotation also appears inaccurate (16×5=80).
+~~**M9. Bloom shader uses hardcoded 16 angle iterations regardless of radius**~~ Won't fix — concern was written against an older version. Current code uses 8 angles × 3 radius steps = 24 offset samples + 1 original = 25 total. `samplingCost: '25'` is accurate. Radius step scales proportionally (`radius/3.0`), so the pattern adapts to radius size.
 
 ---
 

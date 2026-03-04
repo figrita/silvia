@@ -708,7 +708,13 @@ function loadPatchAsNewWorkspace(patchData) {
             nodes = patchData.nodes.map(n => ({...n, workspaceVisibility: [newWorkspace.id]}))
         }
 
-        const {errors} = createNodesAndConnections(nodes, patchData.connections)
+        const {nodeMap, errors} = createNodesAndConnections(nodes, patchData.connections)
+
+        if (nodeMap.size === 0) {
+            WorkspaceManager.delete(activeNewId)
+            alert('Import failed: no nodes could be created.')
+            return
+        }
 
         if (patchData.editorWidth) {
             const nodeRoot = document.getElementById('node-root')

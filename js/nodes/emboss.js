@@ -11,7 +11,7 @@ registerNode({
             label: 'Input',
             type: 'color',
             control: null,
-            samplingCost: 3
+            samplingCost: '3'
         },
         'strength': {
             label: 'Strength',
