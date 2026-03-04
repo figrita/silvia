@@ -200,6 +200,7 @@ export class WebGLRenderer{
                 if(location){
                     // Use existing textureMap caching system
                     let texture = textureMap.get(uniformName)
+                    gl.activeTexture(gl.TEXTURE0 + textureUnit)
                     if(!texture){
                         texture = gl.createTexture()
                         textureMap.set(uniformName, texture)
@@ -211,8 +212,6 @@ export class WebGLRenderer{
                     } else {
                         gl.bindTexture(gl.TEXTURE_2D, texture)
                     }
-                    
-                    gl.activeTexture(gl.TEXTURE0 + textureUnit)
                     
                     const canvas = provider()  // Returns HTMLCanvasElement or null
                     if(canvas instanceof HTMLCanvasElement && canvas.width > 0 && canvas.height > 0){
