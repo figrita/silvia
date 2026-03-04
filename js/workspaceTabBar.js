@@ -224,6 +224,8 @@ class WorkspaceTabBar {
         // remaining nodes' visibility sets and destroying any newly orphaned nodes
         WorkspaceManager.delete(workspace.id)
         SNode.updateVisibility()
+        mainMixerUI.updateChannelStatus('A', mainMixer.channelA)
+        mainMixerUI.updateChannelStatus('B', mainMixer.channelB)
         this.render()
         window.markDirty()
     }

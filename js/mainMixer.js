@@ -1,13 +1,10 @@
 import {WebGLRenderer} from './webgl.js'
 import {BackgroundRenderer} from './nodes/_background.js'
-import {WorkspaceManager} from './workspaceManager.js'
 
 export class MainMixer {
     constructor() {
         this.channelA = null  // Output node reference
         this.channelB = null  // Output node reference
-        this.channelAWorkspaceId = null  // Workspace ID at time of assignment
-        this.channelBWorkspaceId = null  // Workspace ID at time of assignment  
         this.mixValue = 0.0   // 0=A, 1=B
         this.canvas = null    // Hidden mixing canvas
         this.renderer = null  // WebGL renderer instance
@@ -47,7 +44,6 @@ export class MainMixer {
     assignToChannelA(outputNode) {
         const oldNode = this.channelA
         this.channelA = outputNode
-        this.channelAWorkspaceId = outputNode ? WorkspaceManager.getActiveWorkspace()?.id : null
         // Notify old node to update its status line (it's no longer on A)
         if (oldNode && oldNode !== outputNode && oldNode._updateStatusLine) {
             oldNode._updateStatusLine()
@@ -58,7 +54,6 @@ export class MainMixer {
     assignToChannelB(outputNode) {
         const oldNode = this.channelB
         this.channelB = outputNode
-        this.channelBWorkspaceId = outputNode ? WorkspaceManager.getActiveWorkspace()?.id : null
         // Notify old node to update its status line (it's no longer on B)
         if (oldNode && oldNode !== outputNode && oldNode._updateStatusLine) {
             oldNode._updateStatusLine()
@@ -69,12 +64,10 @@ export class MainMixer {
     clearChannel(outputNode) {
         if (this.channelA === outputNode) {
             this.channelA = null
-            this.channelAWorkspaceId = null
             console.log('Channel A cleared')
         }
         if (this.channelB === outputNode) {
             this.channelB = null
-            this.channelBWorkspaceId = null
             console.log('Channel B cleared')
         }
     }

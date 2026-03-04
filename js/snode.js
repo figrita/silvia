@@ -767,12 +767,14 @@ export class SNode{
             if (this.workspaceVisibility.size > 1) {
                 this.workspaceVisibility.delete(workspaceId)
                 window.markDirty()
+                document.dispatchEvent(new CustomEvent('workspace-visibility-changed'))
                 return true
             }
             return false
         } else {
             this.workspaceVisibility.add(workspaceId)
             window.markDirty()
+            document.dispatchEvent(new CustomEvent('workspace-visibility-changed'))
             return true
         }
     }
@@ -784,6 +786,7 @@ export class SNode{
     addToWorkspace(workspaceId) {
         this.workspaceVisibility.add(workspaceId)
         window.markDirty()
+        document.dispatchEvent(new CustomEvent('workspace-visibility-changed'))
     }
 
     /**
@@ -796,6 +799,7 @@ export class SNode{
         if (this.workspaceVisibility.size > 1) {
             this.workspaceVisibility.delete(workspaceId)
             window.markDirty()
+            document.dispatchEvent(new CustomEvent('workspace-visibility-changed'))
             return true
         }
         return false
