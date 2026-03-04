@@ -862,11 +862,6 @@ function buildWorkspaceIdMap(patchData, shouldClearWorkspace) {
 
         savedWorkspaces.forEach(ws => {
             if (idMap.has(ws.id)) return
-            // Check if workspace already exists (e.g., from restoreSession)
-            if (WorkspaceManager.workspaces.has(ws.id)) {
-                idMap.set(ws.id, ws.id)
-                return
-            }
             const newWs = WorkspaceManager.create(ws.name)
             idMap.set(ws.id, newWs.id)
         })

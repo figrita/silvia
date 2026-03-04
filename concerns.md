@@ -26,8 +26,7 @@ Tracked issues from pre-ship code review. Ordered by priority within each sectio
 
 ~~**H2. `captureStream(60)` unconditional 60fps GPU cost**~~ ✅ Fixed — changed to `captureStream()` (no arg) which auto-captures on canvas change, matching actual render rate.
 
-**H3. `buildWorkspaceIdMap` reuses existing workspace IDs on load without clear**
-`load.js:858` — if a saved workspace ID matches an existing session workspace ID, it silently reuses it, mixing old and new nodes. Should always create fresh workspaces and remap.
+~~**H3. `buildWorkspaceIdMap` reuses existing workspace IDs on load without clear**~~ ✅ Fixed — removed the `WorkspaceManager.workspaces.has()` shortcut; always creates fresh workspaces with new IDs and remaps.
 
 ---
 
@@ -78,5 +77,4 @@ Fix: derive workspace ID from the output node's `workspaceVisibility` at render 
 
 ~~**D2. Multiple Main Input proxy nodes each upload the same canvas texture every frame**~~ ✅ Fixed — `MainInputManager.uploadSharedTexture()` uploads once per GL context per frame via `_sharedTextureCache` WeakMap.
 
-**D3. WorkspaceManager numeric IDs can collide with saved patch IDs on partial restore**
-`workspaceManager.js:15` — `nextId` starts at 1. `buildWorkspaceIdMap` reuses existing workspace IDs when they match saved IDs, which can mix nodes from different sessions silently on the `shouldClearWorkspace = false` path.
+~~**D3. WorkspaceManager numeric IDs can collide with saved patch IDs on partial restore**~~ ✅ Fixed — same root cause as H3; `buildWorkspaceIdMap` now always creates fresh workspaces, so ID collisions are harmlessly remapped.
