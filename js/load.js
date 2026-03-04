@@ -676,6 +676,7 @@ function loadPatchAsNewWorkspace(patchData) {
         // Build workspace ID map: old saved IDs → new created IDs
         const idMap = new Map()
         let activeNewId = null
+        let nodes
 
         if (isCompound) {
             // Compound patch: create all workspaces
@@ -687,8 +688,9 @@ function loadPatchAsNewWorkspace(patchData) {
             const savedActiveId = patchData.workspaceTree?.activeWorkspaceId
             activeNewId = idMap.get(savedActiveId) || idMap.values().next().value
 
-            // Remap node workspace visibility
-            patchData.nodes.forEach(n => {
+            // Remap node workspace visibility on shallow copies to avoid mutating cached patchData
+            nodes = patchData.nodes.map(n => ({...n}))
+            nodes.forEach(n => {
                 if (n.workspaceVisibility && Array.isArray(n.workspaceVisibility)) {
                     n.workspaceVisibility = n.workspaceVisibility
                         .map(id => idMap.get(id))
@@ -703,10 +705,10 @@ function loadPatchAsNewWorkspace(patchData) {
             const workspaceName = patchData.meta?.name || 'Imported Workspace'
             const newWorkspace = WorkspaceManager.create(workspaceName)
             activeNewId = newWorkspace.id
-            patchData.nodes.forEach(n => n.workspaceVisibility = [newWorkspace.id])
+            nodes = patchData.nodes.map(n => ({...n, workspaceVisibility: [newWorkspace.id]}))
         }
 
-        const {errors} = createNodesAndConnections(patchData.nodes, patchData.connections)
+        const {errors} = createNodesAndConnections(nodes, patchData.connections)
 
         if (patchData.editorWidth) {
             const nodeRoot = document.getElementById('node-root')
@@ -790,8 +792,9 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
         // Build workspace ID mapping (old IDs → new IDs)
         const workspaceIdMap = buildWorkspaceIdMap(patchData, shouldClearWorkspace)
 
-        // Remap workspace visibility on each node before creation
-        patchData.nodes.forEach(nodeData => {
+        // Remap workspace visibility on shallow copies to avoid mutating cached patchData
+        const nodes = patchData.nodes.map(n => ({...n}))
+        nodes.forEach(nodeData => {
             if (nodeData.workspaceVisibility && Array.isArray(nodeData.workspaceVisibility)) {
                 nodeData.workspaceVisibility = nodeData.workspaceVisibility
                     .map(id => workspaceIdMap.get(id))
@@ -803,7 +806,7 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
         })
 
         // Create nodes and connections
-        const {errors, failedIds} = createNodesAndConnections(patchData.nodes, patchData.connections)
+        const {errors, failedIds} = createNodesAndConnections(nodes, patchData.connections)
 
         // Restore editor width
         if (patchData.editorWidth) {
