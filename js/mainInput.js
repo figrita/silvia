@@ -271,21 +271,26 @@ class MainInputManager {
 
         this.audioSourceType = type
 
-        switch (type) {
-            case 'none':
-                break
+        try {
+            switch (type) {
+                case 'none':
+                    break
 
-            case 'audio':
-                await this._loadAudioFile(options.assetPath || options.file)
-                break
+                case 'audio':
+                    await this._loadAudioFile(options.assetPath || options.file)
+                    break
 
-            case 'mic':
-                await this._startMic(options.deviceId)
-                break
+                case 'mic':
+                    await this._startMic(options.deviceId)
+                    break
 
-            case 'video':
-                this._initAudioFromVideo()
-                break
+                case 'video':
+                    this._initAudioFromVideo()
+                    break
+            }
+        } catch (err) {
+            console.error('Failed to set audio source:', err)
+            this.audioSourceType = 'none'
         }
 
         // Bail out if another setAudioSource call came in while we were awaiting
