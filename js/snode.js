@@ -650,7 +650,7 @@ export class SNode{
             controlRanges,
             optionValues: {...this.optionValues},
             values: this.values ? JSON.parse(JSON.stringify(this.values)) : {}, // Deep clone values
-            workspaceVisibility: [...this.workspaceVisibility]
+            workspaceVisibility: [WorkspaceManager.activeWorkspaceId]
         }
 
         // Create the duplicate node
