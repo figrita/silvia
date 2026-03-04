@@ -21,7 +21,7 @@ registerNode({
         'sampleDistance': {
             label: 'Sample Distance',
             type: 'float',
-            control: {default: 0.001, min: 0.0, max: 5.0, step: 0.001}
+            control: {default: 1.0, min: 0.0, max: 10.0, step: 0.001}
         },
         'invert': {
             label: 'Invert',
@@ -41,18 +41,22 @@ registerNode({
                 const sampleDistance = this.getInput('sampleDistance', cc)
                 const invert = this.getInput('invert', cc)
                 const mode = this.getOption('mode')
+                const kernelSpace = this.getOption('kernel_space')
+                const kernelStep = kernelSpace === 'pixel'
+                    ? `vec2(${sampleDistance}) / u_resolution`
+                    : `vec2(${sampleDistance})`
 
                 return `vec4 ${funcName}(vec2 uv) {
     // Edge detection kernels
     const mat3 Gx_sobel = mat3(-1, -2, -1, 0, 0, 0, 1, 2, 1);
     const mat3 Gy_sobel = mat3(-1, 0, 1, -2, 0, 2, -1, 0, 1);
-    
+
     const mat3 Gx_prewitt = mat3(-1, -1, -1, 0, 0, 0, 1, 1, 1);
     const mat3 Gy_prewitt = mat3(-1, 0, 1, -1, 0, 1, -1, 0, 1);
-    
+
     const mat3 laplacian_k = mat3(0, 1, 0, 1, -4, 1, 0, 1, 0);
 
-    vec2 pixel_offset = vec2(${sampleDistance});
+    vec2 kernel_step = ${kernelStep};
     vec3 gradX = vec3(0.0);
     vec3 gradY = vec3(0.0);
     vec3 laplacian_sum = vec3(0.0);
@@ -64,7 +68,7 @@ registerNode({
     // Convolve with the kernels by sampling neighboring pixels
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {
-            vec2 uv_offset = uv + vec2(float(i), float(j)) * pixel_offset;
+            vec2 uv_offset = uv + vec2(float(i), float(j)) * kernel_step;
             vec4 neighbor_color = ${inputColor.replace('(uv)', '(uv_offset)')};
             
             if (i == 0 && j == 0) {
@@ -145,6 +149,15 @@ registerNode({
         }
     },
     options: {
+        'kernel_space': {
+            label: 'Sample Space',
+            type: 'select',
+            default: 'pixel',
+            choices: [
+                {value: 'pixel', name: 'Pixel'},
+                {value: 'uv', name: 'UV'}
+            ]
+        },
         'mode': {
             label: 'Mode',
             type: 'select',
