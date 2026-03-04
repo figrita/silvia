@@ -260,8 +260,9 @@ export class MainMixerUI {
             
         } catch (error) {
             console.warn('Failed to create preview stream:', error)
-            // Fallback to placeholder on capture failure
-            previewVideo.innerHTML = '<span>Preview Unavailable</span>'
+            const placeholder = document.createElement('span')
+            placeholder.textContent = 'Preview Unavailable'
+            previewVideo.replaceWith(placeholder)
         }
     }
     

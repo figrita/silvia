@@ -37,7 +37,7 @@ registerNode({
                 {value: 'bayer2', name: 'Bayer 2x2'},
                 {value: 'bayer4', name: 'Bayer 4x4'},
                 {value: 'bayer8', name: 'Bayer 8x8'},
-                {value: 'bluenoise', name: 'Blue Noise'}
+                {value: 'bluenoise', name: 'Hash Noise'}
             ]
         },
         'pixelate': {
@@ -109,7 +109,7 @@ registerNode({
     val |= (y & 4) >> 2;
     float threshold = (float(val) + 0.5) / 64.0;
     ` : `
-    // Blue noise via double hash
+    // Hash noise via double sin-hash
     vec2 p = pixelCoord;
     float n = fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
     n = fract(n * fract(sin(dot(p.yx + 31.71, vec2(269.5, 183.3))) * 28461.7231));

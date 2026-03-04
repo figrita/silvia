@@ -11,7 +11,7 @@ registerNode({
             label: 'Input',
             type: 'color',
             control: null,
-            samplingCost: 4
+            samplingCost: '4'
         },
         'offset': {
             label: 'Offset',

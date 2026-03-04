@@ -11,7 +11,7 @@ registerNode({
             label: 'Input (Height)',
             type: 'color',
             control: null,
-            samplingCost: 8
+            samplingCost: '8'
         },
         'strength': {
             label: 'Strength',

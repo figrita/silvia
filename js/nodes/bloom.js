@@ -10,7 +10,7 @@ registerNode({
             label: 'Input',
             type: 'color',
             control: null,
-            samplingCost: 25
+            samplingCost: '25'
         },
         'threshold': {
             label: 'Threshold',
