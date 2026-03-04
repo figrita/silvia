@@ -13,6 +13,7 @@ export class WorkspaceManager {
     static workspaces = new Map()  // id → Workspace
     static activeWorkspaceId = null
     static nextId = 1
+    static _onBeforeDelete = null // Registered by snode.js to clean up node visibility
 
     /**
      * Initialize with a default workspace. Called from main.js on startup.
@@ -78,6 +79,9 @@ export class WorkspaceManager {
      */
     static delete(workspaceId) {
         if (!this.workspaces.has(workspaceId)) return false
+
+        // Clean up node visibility before removing workspace
+        this._onBeforeDelete?.(workspaceId)
 
         this.workspaces.delete(workspaceId)
 

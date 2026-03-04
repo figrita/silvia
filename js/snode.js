@@ -1365,6 +1365,14 @@ export class SNode{
     }
 }
 
+// Register workspace deletion cleanup so WorkspaceManager.delete() is safe to call from anywhere
+WorkspaceManager._onBeforeDelete = (workspaceId) => {
+    for (const node of [...SNode.nodes]) {
+        node.workspaceVisibility.delete(workspaceId)
+        if (node.workspaceVisibility.size === 0) node.destroy()
+    }
+}
+
 /**
  * Finds all descendant nodes (downstream) for a given start node.
  * @param {SNode} startNode The node to start traversal from.
