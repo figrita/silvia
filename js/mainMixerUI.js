@@ -15,6 +15,15 @@ export class MainMixerUI {
         this._adjustBodyLayout()
         this.panel = this._createPanel()
         document.body.appendChild(this.panel)
+
+        // Refresh channel labels when workspace context changes
+        const refreshLabels = () => {
+            this.updateChannelStatus('A', mainMixer.channelA)
+            this.updateChannelStatus('B', mainMixer.channelB)
+        }
+        document.addEventListener('workspace-switched', refreshLabels)
+        document.addEventListener('workspace-visibility-changed', refreshLabels)
+
         this.isInitialized = true
         console.log('Main Mixer UI initialized')
     }
@@ -137,8 +146,8 @@ export class MainMixerUI {
 
         if (statusElement && previewElement) {
             if (node) {
-                // Update status label with workspace name
-                const wsId = channel === 'A' ? mainMixer.channelAWorkspaceId : mainMixer.channelBWorkspaceId
+                // Derive workspace ID from the node's current visibility
+                const wsId = node.workspaceVisibility?.values().next().value ?? null
                 this._updateStatusLabel(statusElement, wsId)
 
                 // Only rebuild preview if the node actually changed

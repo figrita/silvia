@@ -71,9 +71,7 @@ Fix: if `nodeMap.size === 0` after `createNodesAndConnections`, report a distinc
 
 ## Design / Opportunity Cost
 
-**D1. Channel assignment workspace ID cached at click time, not derived dynamically**
-`mainMixer.js:56` — records `WorkspaceManager.getActiveWorkspace()?.id` when user clicks "Assign to A/B". If the output node later moves workspace, the mixer shows the wrong workspace name.
-Fix: derive workspace ID from the output node's `workspaceVisibility` at render time.
+~~**D1. Channel assignment workspace ID cached at click time, not derived dynamically**~~ ✅ Fixed — removed cached `channelAWorkspaceId`/`channelBWorkspaceId` from MainMixer; UI derives workspace ID from the node's `workspaceVisibility` and refreshes on `workspace-switched` and `workspace-visibility-changed` events. Cross-workspace tags also update their labels on `redrawAllConnections` (e.g. after rename).
 
 ~~**D2. Multiple Main Input proxy nodes each upload the same canvas texture every frame**~~ ✅ Fixed — `MainInputManager.uploadSharedTexture()` uploads once per GL context per frame via `_sharedTextureCache` WeakMap.
 

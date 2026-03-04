@@ -383,8 +383,10 @@ export class Connection{
                 if(existingEl.classList.contains('cross-ws-tag-out')) {
                     existingEl.remove()
                     this._createSourceTag(connection, activeId, key)
+                } else {
+                    // Update label text in case workspace was renamed
+                    this._updateSourceTagLabel(existingEl, connection, activeId)
                 }
-                // Otherwise leave it alone — no re-animation
             } else {
                 this._createSourceTag(connection, activeId, key)
             }
@@ -443,6 +445,27 @@ export class Connection{
         if(nodeInputRow) {
             nodeInputRow.appendChild(tag)
         }
+    }
+
+    /**
+     * Updates label and tooltip of an existing cross-workspace tag (e.g. after rename).
+     */
+    static _updateSourceTagLabel(tag, connection, activeId) {
+        const sourceNode = connection.source.parent
+        let sourceWorkspaceId = null
+        for(const wsId of sourceNode.workspaceVisibility) {
+            if(wsId !== activeId) { sourceWorkspaceId = wsId; break }
+        }
+        if(sourceWorkspaceId === null) return
+        const workspace = WorkspaceManager.workspaces.get(sourceWorkspaceId)
+        if(!workspace) return
+
+        const wsName = workspace.name.length > 12 ? workspace.name.slice(0, 11) + '\u2026' : workspace.name
+        const labelEl = tag.querySelector('.cross-ws-tag-label')
+        if(labelEl) labelEl.textContent = wsName
+
+        const portLabel = connection.source.label || connection.source.key
+        tag.title = `${workspace.name} \u2192 ${sourceNode.label} \u2192 ${portLabel}`
     }
 
     source
