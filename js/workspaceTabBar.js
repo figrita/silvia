@@ -213,13 +213,15 @@ class WorkspaceTabBar {
     }
 
     executeDelete(workspace, orphanedNodes) {
+        // Clear mixer channels before destroying orphaned nodes
         orphanedNodes.forEach(node => {
             if (mainMixer.channelA === node) { mainMixer.assignToChannelA(null); mainMixerUI.updateChannelStatus('A', null) }
             if (mainMixer.channelB === node) { mainMixer.assignToChannelB(null); mainMixerUI.updateChannelStatus('B', null) }
             node.destroy()
         })
 
-        SNode.nodes.forEach(node => node.workspaceVisibility.delete(workspace.id))
+        // WorkspaceManager.delete() handles removing the workspace ID from all
+        // remaining nodes' visibility sets and destroying any newly orphaned nodes
         WorkspaceManager.delete(workspace.id)
         SNode.updateVisibility()
         this.render()
