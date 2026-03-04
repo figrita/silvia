@@ -22,9 +22,7 @@ Fix: before deleting, remove the ID from each node's visibility set; destroy nod
 `load.js:797`, `load.js:273` — both do `nodeData.workspaceVisibility = ...` directly on the input objects before passing to `createNodesAndConnections`. The input data is permanently mutated.
 Fix: deep-copy `patchData.nodes` before remapping.
 
-**C6. `SNode.currentWorkspace` setter doesn't call `updateVisibility()`**
-`snode.js:21-23` — the compatibility setter calls `WorkspaceManager.setActive(value)` but not `SNode.updateVisibility()`. `setCurrentWorkspace()` calls both. Old callers using the setter get broken visibility with no error.
-Fix: call `SNode.updateVisibility()` in the setter, or remove the setter and force callers to use `setCurrentWorkspace`.
+~~**C6. `SNode.currentWorkspace` setter doesn't call `updateVisibility()`**~~ ✅ Fixed — removed dead getter/setter entirely (no callers found).
 
 ---
 
