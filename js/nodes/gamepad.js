@@ -77,14 +77,12 @@ registerNode({
     },
 
     _handleConnection(e){
-        console.log('Gamepad connected:', e.gamepad.id)
         if(!this.runtimeState.gamepad){
             this._scanGamepads()
         }
     },
 
     _handleDisconnection(e){
-        console.log('Gamepad disconnected:', e.gamepad.id)
         if(this.runtimeState.gamepad && this.runtimeState.gamepad.index === e.gamepad.index){
             this.runtimeState.gamepad = null
             this._stopPolling()

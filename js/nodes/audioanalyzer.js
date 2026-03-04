@@ -216,7 +216,6 @@ registerNode({
             AssetManager.showGlobalAssetManager({
                 nodeType: 'audio',
                 onSelect: (assetPath, assetInfo) => {
-                    console.log('Selected audio asset:', assetPath, assetInfo)
                     this.values.assetPath = assetPath // Asset browser is Electron-only
                     this._loadFromAssetPath(assetPath)
                 }
@@ -374,11 +373,7 @@ registerNode({
             this.values.assetPath = assetPath
             this.runtimeState.currentAssetPath = assetPath
 
-            console.log(`Audio file handled, calling _loadFromAssetPath with: ${assetPath}`)
-            // Load the asset
             await this._loadFromAssetPath(assetPath)
-
-            console.log(`Audio asset stored: ${assetPath}`)
         } catch (error) {
             console.error('Failed to handle audio file:', error)
             // Fallback to old blob URL method
@@ -388,9 +383,7 @@ registerNode({
 
     async _loadFromAssetPath(assetPath) {
         try {
-            console.log(`Audio node loading from asset path: ${assetPath}`)
             const resolvedPath = await AssetManager.loadAsset(assetPath)
-            console.log(`Audio node resolved path: ${resolvedPath}`)
             if (!resolvedPath) {
                 console.error('Failed to resolve asset path:', assetPath)
                 return
@@ -404,7 +397,6 @@ registerNode({
     },
 
     async _loadAudioFromPath(audioPath) {
-        console.log(`Audio node setting audio.src to: ${audioPath}`)
         return new Promise((resolve, reject) => {
             this.elements.audio.onloadedmetadata = () => {
                 this.runtimeState.analyzer = new AudioAnalyzer()

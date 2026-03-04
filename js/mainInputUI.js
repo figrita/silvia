@@ -45,7 +45,6 @@ export class MainInputUI {
         mainInput.onStateChange = () => this._updateUI()
 
         this.isInitialized = true
-        console.log('Main Input UI initialized')
     }
 
     _adjustBodyLayout() {

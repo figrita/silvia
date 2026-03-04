@@ -775,7 +775,6 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
         }
 
         if (patchData.version) {
-            console.log(`Loading patch version: ${patchData.version}`)
         }
 
         const isCompound = (patchData.workspaceTree?.workspaces?.length || 0) > 1
@@ -921,7 +920,6 @@ async function copyPatchToStorage(patchData){
 
             const success = await window.electronAPI.savePatchFile(patchData, filename, null)
             if (success) {
-                console.log(`Patch copied to workspace Root: ${filename}`)
                 return true
             } else {
                 console.error('Failed to copy patch to workspace')
@@ -942,7 +940,6 @@ async function copyPatchToStorage(patchData){
 
             regularPatches.push(patchCopy)
             localStorage.setItem('silvia_patches', JSON.stringify(regularPatches))
-            console.log('Patch copied to local storage')
             return true
         }
     } catch(e) {

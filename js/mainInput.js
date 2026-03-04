@@ -81,7 +81,6 @@ class MainInputManager {
         document.body.appendChild(this.audioElement)
 
         this.isInitialized = true
-        console.log('Main Input Manager initialized')
     }
 
     // ============ VIDEO SOURCE METHODS ============
@@ -358,7 +357,6 @@ class MainInputManager {
     _initAudioFromVideo() {
         if (this.videoSourceType === 'none' || this.videoSourceType === 'webcam' || this.videoSourceType === 'screencapture') {
             // No audio track available from these sources
-            console.log('No audio available from current video source')
             return
         }
 

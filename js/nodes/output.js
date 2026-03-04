@@ -174,7 +174,6 @@ registerNode({
             this.runtimeState.shaderInfo = compilationResult
             this.runtimeState.renderer.updateProgram(this.runtimeState.shaderInfo.shaderCode)
             this.runtimeState.isActive = true
-            console.log(`Output node ${this.id} recompiled and is active.`)
         } else {
             this.runtimeState.isActive = false
             this._clearCanvasToBlack()
@@ -186,7 +185,6 @@ registerNode({
 
     async recompileAsync(){
         if(this.runtimeState.isCompiling){
-            console.log('Compilation already in progress, skipping...')
             return
         }
 
@@ -207,7 +205,6 @@ registerNode({
                         this.runtimeState.isCompiling = false
                         if(success){
                             this.runtimeState.isActive = true
-                            console.log(`Output node ${this.id} async recompiled and is active.`)
                         } else {
                             this.runtimeState.isActive = false
                             this._clearCanvasToBlack()
@@ -310,7 +307,6 @@ registerNode({
             this.runtimeState.isRecording = true
             this._updateStatusLine()
             
-            console.log('🎬 Recording started')
             
             // Auto-stop recording after duration
             const duration = this.getOption('recordDuration')
@@ -337,7 +333,6 @@ registerNode({
         this.runtimeState.mediaRecorder.stop()
         this._updateStatusLine()
         
-        console.log('🎬 Recording stopped')
         
         this.runtimeState.mediaRecorder = null
     },

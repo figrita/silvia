@@ -367,7 +367,6 @@ registerNode({
             AssetManager.showGlobalAssetManager({
                 nodeType: 'video',
                 onSelect: (assetPath, assetInfo) => {
-                    console.log('Selected video asset:', assetPath, assetInfo)
                     this.values.assetPath = assetPath // Asset browser is Electron-only
                     this._loadFromAssetPath(assetPath)
                 }
@@ -485,8 +484,6 @@ registerNode({
         }
 
         try {
-            console.log(`Copying video from path (no size limit): ${filePath}`)
-
             // Generate thumbnail using AssetManager
             let thumbnailData = null
             try {
@@ -500,9 +497,7 @@ registerNode({
             this.values.assetPath = assetPath
             this.runtimeState.currentAssetPath = assetPath
 
-            console.log(`Video file handled, calling _loadFromAssetPath with: ${assetPath}`)
             await this._loadFromAssetPath(assetPath)
-            console.log(`Video asset stored: ${assetPath}`)
         } catch (error) {
             console.error('Failed to handle video file path:', error)
             alert(`Failed to load video: ${error.message}`)
@@ -538,9 +533,7 @@ registerNode({
 
     async _loadFromAssetPath(assetPath) {
         try {
-            console.log(`Video node loading from asset path: ${assetPath}`)
             const resolvedPath = await AssetManager.loadAsset(assetPath)
-            console.log(`Video node resolved path: ${resolvedPath}`)
             if (!resolvedPath) {
                 console.error('Failed to resolve asset path:', assetPath)
                 return
@@ -555,7 +548,6 @@ registerNode({
     },
 
     async _loadVideoFromPath(videoPath) {
-        console.log(`Video node setting video.src to: ${videoPath}`)
         return new Promise((resolve, reject) => {
             this.elements.video.onloadedmetadata = () => {
                 this.elements.video.playbackRate = this.values.playbackRate // Apply saved speed

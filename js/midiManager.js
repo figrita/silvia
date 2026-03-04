@@ -26,7 +26,6 @@ class MidiManager {
         
         try {
             this.midiAccess = await navigator.requestMIDIAccess()
-            console.log('MIDI access granted')
             
             // Listen for device changes
             this.midiAccess.onstatechange = (e) => this.handleStateChange(e)
@@ -64,17 +63,11 @@ class MidiManager {
     }
     
     connectInput(input) {
-        console.log(`MIDI input connected: ${input.name}`)
         this.inputs.set(input.id, input)
         input.onmidimessage = (e) => this.handleMidiMessage(e)
-        
-        // Test if messages are coming through
-        console.log('MIDI input state:', input.state)
-        console.log('MIDI input connection:', input.connection)
     }
     
     disconnectInput(input) {
-        console.log(`MIDI input disconnected: ${input.name}`)
         this.inputs.delete(input.id)
     }
     
@@ -211,7 +204,6 @@ class MidiManager {
         // Cancel any existing learning session first
         this.cancelLearning()
 
-        console.log('Starting MIDI learn:', { element, type })
         this.isLearning = true
         this.learningTarget = { element, type }
         
@@ -223,17 +215,12 @@ class MidiManager {
         
         // Cancel learning on timeout
         this.learningTimeout = setTimeout(() => {
-            console.log('MIDI learn timeout')
             this.cancelLearning()
         }, 10000) // 10 second timeout
     }
     
     learnCC(ccNumber) {
-        console.log('Learning CC:', ccNumber)
-        if (!this.learningTarget || this.learningTarget.type !== 'cc') {
-            console.log('Not in CC learn mode or no target')
-            return
-        }
+        if (!this.learningTarget || this.learningTarget.type !== 'cc') return
         
         const element = this.learningTarget.element
         
@@ -284,11 +271,7 @@ class MidiManager {
     }
     
     learnNote(note) {
-        console.log('Learning Note:', note)
-        if (!this.learningTarget || this.learningTarget.type !== 'note') {
-            console.log('Not in note learn mode or no target')
-            return
-        }
+        if (!this.learningTarget || this.learningTarget.type !== 'note') return
         
         const button = this.learningTarget.element
         
