@@ -120,7 +120,7 @@ export class AudioAnalyzer{
 
         // Perform initial synchronization
         if(!visibleMediaElement.paused){
-            this.#shadowPlayer.play().catch(e => console.error('Shadow player failed to play:', e))
+            this.#shadowPlayer.play().catch(e => console.warn('Shadow player play interrupted:', e))
         }
         this.#shadowPlayer.currentTime = visibleMediaElement.currentTime
         this.#shadowPlayer.playbackRate = visibleMediaElement.playbackRate
@@ -162,13 +162,18 @@ export class AudioAnalyzer{
     /** Cleans up all resources used by the analyzer. */
     close(){
         this.stop()
+        this.#sourceNode?.disconnect()
         if(this.#visibleElement){
             this.#removeSyncListeners()
-            this.#shadowPlayer?.pause()
-            this.#shadowPlayer = null
             this.#visibleElement = null
         }
-        this.#sourceNode?.disconnect()
+        if(this.#shadowPlayer){
+            this.#shadowPlayer.pause()
+            this.#shadowPlayer.src = ''
+            this.#shadowPlayer.removeAttribute('src')
+            this.#shadowPlayer.load() // Force browser to release decoded video/audio from VRAM
+            this.#shadowPlayer = null
+        }
         this.#audioCtx?.close().catch(e => console.error('Error closing AudioContext', e))
 
         this.#sourceNode = null
