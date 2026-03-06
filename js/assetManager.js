@@ -321,7 +321,7 @@ export const AssetManager = {
                 if (isActiveTab) tabElement.classList.add('asset-tab-active')
                 if (isDisabled) tabElement.classList.add('asset-tab-disabled')
 
-                tabElement.innerHTML = `${tab.icon} ${tab.name}`
+                tabElement.textContent = `${tab.icon} ${tab.name}`
 
                 tabElement.addEventListener('click', async () => {
                     if (isDisabled) return // Don't allow clicking disabled tabs
