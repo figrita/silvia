@@ -476,12 +476,28 @@ registerNode({
     },
     
     async _handleVideoFilePath(filePath){
+        // Stop existing loops and pause video before changing src
+        if(this.runtimeState.renderLoop){
+            cancelAnimationFrame(this.runtimeState.renderLoop)
+            this.runtimeState.renderLoop = null
+        }
+        if(this.runtimeState.uiUpdateFrameId){
+            cancelAnimationFrame(this.runtimeState.uiUpdateFrameId)
+            this.runtimeState.uiUpdateFrameId = null
+        }
+        this.elements.video.pause()
+
         // Cleanup previous state and mark canvas as invalid immediately
         this.runtimeState.canvasHasData = false
         this.runtimeState.analyzer?.close()
+        this.runtimeState.analyzer = null
         if(this.elements.video.src && this.runtimeState.currentAssetPath && !this.runtimeState.currentAssetPath.startsWith('asset://')){
             URL.revokeObjectURL(this.elements.video.src)
         }
+        // Force browser to release decoded video from VRAM
+        this.elements.video.src = ''
+        this.elements.video.removeAttribute('src')
+        this.elements.video.load()
 
         try {
             // Generate thumbnail using AssetManager
@@ -507,12 +523,28 @@ registerNode({
     async _handleVideoFile(file){
         if(!file || !file.type.startsWith('video/')) return
 
+        // Stop existing loops and pause video before changing src
+        if(this.runtimeState.renderLoop){
+            cancelAnimationFrame(this.runtimeState.renderLoop)
+            this.runtimeState.renderLoop = null
+        }
+        if(this.runtimeState.uiUpdateFrameId){
+            cancelAnimationFrame(this.runtimeState.uiUpdateFrameId)
+            this.runtimeState.uiUpdateFrameId = null
+        }
+        this.elements.video.pause()
+
         // Cleanup previous state and mark canvas as invalid immediately
         this.runtimeState.canvasHasData = false
         this.runtimeState.analyzer?.close()
+        this.runtimeState.analyzer = null
         if(this.elements.video.src && this.runtimeState.currentAssetPath && !this.runtimeState.currentAssetPath.startsWith('asset://')){
             URL.revokeObjectURL(this.elements.video.src)
         }
+        // Force browser to release decoded video from VRAM
+        this.elements.video.src = ''
+        this.elements.video.removeAttribute('src')
+        this.elements.video.load()
 
         // Web mode: Use blob URL directly (faster, no size limit, no persistence anyway)
         if (!isElectronMode) {
@@ -584,7 +616,7 @@ registerNode({
             }
 
             this.elements.video.src = videoPath
-            this.elements.video.play()
+            this.elements.video.play().catch(e => console.warn('Video play interrupted:', e))
         })
     },
 
@@ -592,9 +624,9 @@ registerNode({
         // Fallback method using blob URL
         this.runtimeState.canvasHasData = false // Reset flag for new video
         const url = URL.createObjectURL(file)
-        this.elements.video.src = url
         this.runtimeState.currentAssetPath = url
 
+        // Attach handlers BEFORE setting src to avoid race conditions
         this.elements.video.onloadedmetadata = () => {
             this.elements.video.playbackRate = this.values.playbackRate
 
@@ -617,7 +649,15 @@ registerNode({
             this.updatePortPoints()
             Connection.redrawAllConnections()
         }
-        this.elements.video.play()
+
+        this.elements.video.onerror = () => {
+            console.error('Failed to load video from blob:', this.elements.video.error)
+            URL.revokeObjectURL(url)
+            this.runtimeState.currentAssetPath = null
+        }
+
+        this.elements.video.src = url
+        this.elements.video.play().catch(e => console.warn('Video play interrupted:', e))
     },
 
 
