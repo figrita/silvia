@@ -1,4 +1,6 @@
 import {registerNode} from '../registry.js'
+import {autowire, StringToFragment} from '../utils.js'
+import {PhaseAccumulator} from '../phaseAccumulator.js'
 
 registerNode({
     slug: 'tunnel3d',
@@ -6,16 +8,22 @@ registerNode({
     label: 'Tunnel 3D',
     tooltip: 'Raymarched demoscene tunnel with twists and turns. Camera flies through a curved tube textured with the input.',
 
+    elements: {
+        speedControl: null
+    },
+    values: {
+        speed: 0.5,
+        isRunning: true
+    },
+    runtimeState: {
+        phaseAccumulator: null
+    },
+
     input: {
         'texture': {
             label: 'Texture',
             type: 'color',
             control: null
-        },
-        'speed': {
-            label: 'Speed',
-            type: 'float',
-            control: {default: 0.5, min: -2, max: 2, step: 0.01}
         },
         'twist': {
             label: 'Twist',
@@ -31,6 +39,22 @@ registerNode({
             label: 'Zoom',
             type: 'float',
             control: {default: 1.5, min: 0.3, max: 4, step: 0.01}
+        },
+        'startStop': {
+            label: 'Start/Stop',
+            type: 'action',
+            control: {},
+            downCallback(){
+                this._toggleTunnel()
+            }
+        },
+        'restart': {
+            label: 'Restart',
+            type: 'action',
+            control: {},
+            downCallback(){
+                this._restartTunnel()
+            }
         }
     },
 
@@ -51,12 +75,17 @@ registerNode({
         'output': {
             label: 'Output',
             type: 'color',
-            genCode(cc, funcName){
-                const speed = this.getInput('speed', cc)
+            genCode(cc, funcName, uniformName){
                 const twist = this.getInput('twist', cc)
                 const radius = this.getInput('radius', cc)
                 const zoom = this.getInput('zoom', cc)
                 const path = this.getOption('path')
+
+                const phaseUniform = `${uniformName}_phase`
+                cc.uniforms.set(phaseUniform, {
+                    type: 'float',
+                    sourcePort: this.output.output
+                })
 
                 const pathAt = (z) => {
                     switch(path){
@@ -72,7 +101,7 @@ registerNode({
                 return `vec4 ${funcName}(vec2 uv) {
     float t3d_tw = ${twist};
     float t3d_r = ${radius};
-    float t3d_camZ = u_time * ${speed};
+    float t3d_camZ = ${phaseUniform};
 
     vec2 t3d_camXY = ${pathAt('t3d_camZ')};
     vec3 t3d_ro = vec3(t3d_camXY, t3d_camZ);
@@ -103,7 +132,71 @@ registerNode({
 
     return ${this.getInput('texture', cc, 't3d_tc')};
 }`
+            },
+            floatUniformUpdate(uniformName, gl, program){
+                if(this.isDestroyed) return
+                if(!uniformName.endsWith('_phase')) return
+                const location = gl.getUniformLocation(program, uniformName)
+                if(location) gl.uniform1f(location, this._getCurrentPhase())
             }
         }
+    },
+
+    _getCurrentPhase(){
+        if(!this.runtimeState.phaseAccumulator){
+            this.runtimeState.phaseAccumulator = new PhaseAccumulator({
+                initialSpeed: this.values.speed,
+                transitionDuration: 0.05,
+                minSpeed: -2.0,
+                maxSpeed: 2.0
+            })
+        }
+        if(!this.values.isRunning){
+            return this.runtimeState.phaseAccumulator.getPhase()
+        }
+        return this.runtimeState.phaseAccumulator.update(this.values.speed)
+    },
+
+    _toggleTunnel(){
+        if(!this.values.isRunning){
+            this.values.isRunning = true
+            if(this.runtimeState.phaseAccumulator) this.runtimeState.phaseAccumulator.resume()
+        } else {
+            this.values.isRunning = false
+            if(this.runtimeState.phaseAccumulator) this.runtimeState.phaseAccumulator.pause()
+        }
+    },
+
+    _restartTunnel(){
+        this.values.isRunning = true
+        if(this.runtimeState.phaseAccumulator){
+            this.runtimeState.phaseAccumulator.resetPhase(0)
+            this.runtimeState.phaseAccumulator.resume()
+        }
+    },
+
+    onCreate(){
+        if(!this.customArea) return
+
+        const html = `
+            <div style="padding: 0.5rem; display:flex; flex-direction:column; gap: 0.5rem;">
+                <div style="display:flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                    <label style="font-size:0.9rem; color:#ccc;">Speed</label>
+                    <s-number value="${this.values.speed}" default="${this.defaults.speed}" min="-2.0" max="2.0" step="0.01" unit="×" data-el="speedControl"></s-number>
+                </div>
+            </div>
+        `
+
+        const fragment = StringToFragment(html)
+        this.elements = autowire(fragment)
+        this.customArea.appendChild(fragment)
+
+        this.elements.speedControl.addEventListener('input', (e) => {
+            this.values.speed = parseFloat(e.target.value)
+        })
+    },
+
+    onDestroy(){
+        this.runtimeState.phaseAccumulator = null
     }
 })
