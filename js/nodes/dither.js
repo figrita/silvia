@@ -65,10 +65,11 @@ registerNode({
                 return `vec4 ${funcName}(vec2 uv) {
     float scale = ${this.getInput('scale', cc)};
 
-    // Quantize UV to dither tile grid
-    vec2 pixelCoord = floor(gl_FragCoord.xy / scale);
-    vec2 quantizedScreenUV = (pixelCoord * scale + scale * 0.5) / u_resolution;
+    // Derive pixel coords from uv so dither follows UV transformations
     float aspectRatio = u_resolution.x / u_resolution.y;
+    vec2 screenUV = vec2((uv.x / aspectRatio + 1.0) * 0.5, (uv.y + 1.0) * 0.5);
+    vec2 pixelCoord = floor(screenUV * u_resolution / scale);
+    vec2 quantizedScreenUV = (pixelCoord * scale + scale * 0.5) / u_resolution;
     vec2 quv = vec2((2.0 * quantizedScreenUV.x - 1.0) * aspectRatio, 2.0 * quantizedScreenUV.y - 1.0);
 
     float mask = clamp(${this.getInput('mask', cc, maskUV)}, 0.0, 1.0);
