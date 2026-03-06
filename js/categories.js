@@ -35,7 +35,7 @@ const categoryStructure = [
     {
         name: 'Distort',
         icon: '🌀',
-        nodes: ['wave', 'fisheye', 'whirlandpinch', 'tunnel', 'shakycam', 'glitch', 'domainwarp', 'scatter', 'kaleidoscope', 'wallpaper', 'tile', 'repeater']
+        nodes: ['wave', 'fisheye', 'whirlandpinch', 'tunnel', 'tunnel3d', 'shakycam', 'glitch', 'domainwarp', 'scatter', 'kaleidoscope', 'wallpaper', 'tile', 'repeater']
     },
     {
         name: 'Feedback',
