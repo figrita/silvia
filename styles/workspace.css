@@ -31,12 +31,6 @@
 
 /* ===== SAVE WORKSPACES BUTTON STATES ===== */
 
-
-#save-workspaces-btn .btn-icon {
-    display: inline-block;
-    width: 1em; /* Fixed width to prevent reflow */
-}
-
 #save-workspaces-btn.saving {
     background: var(--primary-color);
     animation: pulse-bright 1.5s ease-in-out infinite;
@@ -66,12 +60,13 @@
 /* ===== WORKSPACE CONTROLS ===== */
 #workspace-controls {
     position: fixed;
-    bottom: 20px;
-    right: calc(var(--panel-right-width, 0px) + 20px);
+    bottom: 8px;
+    right: calc(var(--panel-right-width, 0px) + 8px);
     z-index: 1001;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    align-items: flex-end;
+    gap: 4px;
 }
 
 #workspace-controls button {
@@ -79,31 +74,53 @@
     background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%);
     color: var(--text-primary);
     border: 1px solid var(--border-subtle);
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+    height: 22px;
+    border-radius: 4px;
     cursor: pointer;
-    transition: transform 0.2s ease;
-    font-size: 24px;
-    font-weight: bold;
+    display: flex;
+    align-items: center;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+#workspace-controls .ws-ctrl-icon {
+    width: 36px;
+    min-width: 36px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 18px;
+    padding-bottom: 1px;
+}
+
+#workspace-controls .ws-ctrl-label {
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    font-size: 11px;
+    font-weight: normal;
     padding: 0;
-    padding-bottom: 2px;
+    transition: max-width 0.2s ease, opacity 0.15s ease, padding 0.2s ease;
 }
 
 #workspace-controls button:hover {
     background: var(--bg-hover);
     border-color: var(--primary-muted);
-    transform: scale(1.1);
+}
+
+#workspace-controls button:hover .ws-ctrl-label {
+    max-width: 60px;
+    opacity: 1;
+    padding-left: 8px;
 }
 
 #workspace-controls button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
     background: var(--bg-primary);
-    transform: none;
     pointer-events: none;
 }
 
@@ -114,6 +131,8 @@
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    height: 30px;
+    box-sizing: border-box;
 }
 
 /* ===== WORKSPACE TAB BAR ===== */
@@ -122,8 +141,8 @@
     align-items: flex-end;
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-normal);
-    padding: 0 8px;
-    gap: 2px;
+    padding: 4px 4px 0;
+    gap: 4px;
     height: 30px;
     box-sizing: border-box;
     flex-shrink: 0;
@@ -132,7 +151,7 @@
 .workspace-tabs-container {
     display: flex;
     align-items: flex-end;
-    gap: 2px;
+    gap: 4px;
     overflow-x: auto;
     flex: 1;
     scrollbar-width: thin;
@@ -158,10 +177,10 @@
     align-items: center;
     gap: 4px;
     padding: 4px 12px;
-    background: var(--bg-secondary);
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%);
     border: 1px solid var(--border-subtle);
     border-bottom: none;
-    border-radius: 0;
+    border-radius: 4px 4px 0 0;
     cursor: pointer;
     user-select: none;
     position: relative;
@@ -172,13 +191,13 @@
 
 .workspace-tab:hover {
     background: var(--bg-hover);
-    border-color: var(--border-normal);
+    border-color: var(--primary-muted);
 }
 
-.workspace-tab.active {
+.workspace-tab.active,
+.workspace-tab.active:hover {
     background: var(--bg-interactive);
     border-color: var(--primary-muted);
-    border-bottom-color: var(--bg-interactive);
 }
 
 .workspace-tab-name {
@@ -213,26 +232,53 @@
 
 /* Add workspace/layer button */
 .workspace-tab-add {
-    background: var(--bg-secondary);
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%);
     border: 1px solid var(--border-subtle);
-    border-bottom: none;
-    color: var(--text-muted);
-    padding: 4px 10px;
-    border-radius: 0;
+    color: var(--text-primary);
+    height: 22px;
+    padding: 0;
+    border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
     display: flex;
     align-items: center;
-    justify-content: center;
     flex-shrink: 0;
     margin-left: auto;
-    align-self: flex-end;
+    margin-bottom: 4px;
+    align-self: center;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.workspace-tab-add .floating-btn-icon {
+    width: 28px;
+    min-width: 28px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.workspace-tab-add .floating-btn-label {
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    padding-top: 0.1em;
+    transition: max-width 0.2s ease, opacity 0.15s ease, padding 0.2s ease;
+}
+
+.workspace-tab-add:hover .floating-btn-label,
+.workspace-tab-add:active .floating-btn-label {
+    max-width: 60px;
+    opacity: 1;
+    padding-left: 8px;
 }
 
 .workspace-tab-add:hover {
     background: var(--bg-hover);
     border-color: var(--primary-muted);
-    color: var(--primary-color);
 }
 
 /* ===== WORKSPACE DELETE MODAL ===== */

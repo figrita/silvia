@@ -811,8 +811,26 @@ app.on('open-file', (event, filePath) => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.whenReady().then(async () => {
-    // Create minimal menu with just dev tools access
+    // Build application menu
+    const sendMenuClick = (id) => {
+        const win = BrowserWindow.getFocusedWindow()
+        if (win) win.webContents.send('menu-click', id)
+    }
     const template = [
+        {
+            label: 'File',
+            submenu: [
+                { label: 'Save Patch', click: () => sendMenuClick('save-patch-btn') },
+                { label: 'Load Patch', click: () => sendMenuClick('load-patch-btn') },
+                { label: 'Save Workspaces', click: () => sendMenuClick('save-workspaces-btn') },
+                { type: 'separator' },
+                { label: 'Assets', click: () => sendMenuClick('asset-manager-btn') },
+                { label: 'Settings', click: () => sendMenuClick('settings-btn') },
+                { type: 'separator' },
+                { label: 'About', click: () => sendMenuClick('about-btn') },
+                { label: 'How To', click: () => sendMenuClick('howto-btn') },
+            ]
+        },
         {
             label: 'View',
             submenu: [

@@ -162,9 +162,4 @@ document.addEventListener('DOMContentLoaded', () => {
         })
     }
 
-    const clearBtn = document.getElementById('clear-workspace-btn')
-    clearBtn.addEventListener('click', (e) => {
-        clearWorkspace()
-        e.target.blur() // Remove focus after click to allow scrolling
-    })
 })

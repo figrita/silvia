@@ -1129,7 +1129,7 @@ export function createMenu(){
             showQuickMenuCentered(centerEvent)
         }
         // Check for 'n' key to open start menu (like Windows key)
-        else if (e.key === 'n' && !e.target.closest('input') && !e.target.closest('textarea')) {
+        else if (e.key === 'n' && !e.target.closest('input') && !e.target.closest('textarea') && e.target.contentEditable !== 'true') {
             e.preventDefault()
             const isHidden = !startMenu.style.display || startMenu.style.display === 'none'
             if(isHidden){

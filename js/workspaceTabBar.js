@@ -43,7 +43,7 @@ class WorkspaceTabBar {
         this.containerEl.innerHTML = `
             <div class="workspace-tab-bar">
                 <div class="workspace-tabs-container"></div>
-                <button class="workspace-tab-add" title="New Workspace">+</button>
+                <button class="workspace-tab-add" title="New Workspace"><span class="floating-btn-label">Add Tab</span><span class="floating-btn-icon">+</span></button>
             </div>
         `
         this.tabBarEl = this.containerEl.firstElementChild
