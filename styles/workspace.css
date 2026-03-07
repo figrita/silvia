@@ -13,7 +13,7 @@
     color: var(--text-primary);
     border: 1px solid var(--border-normal);
     padding: 0.5rem 1rem;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
     font-family: monospace;
     font-size: 0.9rem;
@@ -295,7 +295,7 @@
 .workspace-delete-modal-content {
     background: var(--bg-primary);
     border: 1px solid var(--border-normal);
-    border-radius: 8px;
+    border-radius: 2px;
     padding: 20px;
     min-width: 320px;
     max-width: 450px;
@@ -322,7 +322,7 @@
 
 .workspace-delete-modal .modal-btn {
     padding: 10px 16px;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
 }
