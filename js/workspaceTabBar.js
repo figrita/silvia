@@ -146,13 +146,13 @@ class WorkspaceTabBar {
 
         const menu = document.createElement('div')
         menu.id = 'workspace-tab-context-menu'
-        menu.className = 'node-context-menu'
+        menu.className = 'tabbar-context-menu'
         menu.style.cssText = `position: fixed; left: ${x}px; top: ${y}px; z-index: 10000;`
 
         const items = workspaceId
             ? [
-                { icon: '✏️', label: 'Rename', action: () => this.startRenaming(this.tabBarEl.querySelector(`[data-workspace-id="${workspaceId}"]`)) },
-                { icon: '🗑️', label: 'Delete', action: () => this.deleteWorkspace(workspaceId) }
+                { icon: '⌫', label: 'Rename', action: () => this.startRenaming(this.tabBarEl.querySelector(`[data-workspace-id="${workspaceId}"]`)) },
+                { icon: '✘', label: 'Delete', action: () => this.deleteWorkspace(workspaceId) }
             ]
             : [{ icon: '+', label: 'New Workspace', action: () => this.createNewWorkspace() }]
 
