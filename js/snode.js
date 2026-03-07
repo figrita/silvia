@@ -1055,7 +1055,7 @@ export class SNode{
                 </div>`
     })}
         </div>
-        <hr />
+        ${Object.keys(this.input).length > 0 ? '<hr />' : ''}
         <div class="node-outputs">
         ${mapJoin(this.output, (output, key) =>
         `<div class="node-output">
@@ -1067,8 +1067,8 @@ export class SNode{
             </div>`
     )}
         </div>
-        ${this.options ? `
         <hr />
+        ${this.options ? `
         <div class="node-options">
             ${mapJoin(this.options, (option, key) => {
         if(typeof option === 'function'){return ''} // Filter out the 'get' helper
