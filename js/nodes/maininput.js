@@ -8,6 +8,8 @@
 
 import {registerNode} from '../registry.js'
 import {mainInput} from '../mainInput.js'
+import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
+import {setupHistogramCanvas, drawHistogram} from '../audioHistogram.js'
 
 registerNode({
     slug: 'maininput',
@@ -16,10 +18,19 @@ registerNode({
     tooltip: 'References the global Main Input panel. Configure video and audio sources in the left panel. Multiple nodes can reference the same input.',
 
     elements: {
-        statusText: null
+        statusText: null,
+        meters: {},
+        thresholdSliders: {},
+        meterContainer: null,
+        histogramCanvas: null
+    },
+    values: {
+        thresholds: DEFAULT_THRESHOLDS,
+        debounceMs: 100
     },
     runtimeState: {
-        uiUpdateFrameId: null
+        uiUpdateFrameId: null,
+        thresholdState: DEFAULT_THRESHOLD_STATE
     },
 
     input: {},
@@ -148,7 +159,9 @@ registerNode({
                 const location = gl.getUniformLocation(program, uniformName)
                 gl.uniform1i(location, textureUnit)
             }
-        }
+        },
+
+        ...THRESHOLD_ACTION_OUTPUTS
     },
 
     onCreate() {
@@ -171,7 +184,10 @@ registerNode({
         container.appendChild(this.elements.statusText)
         this.customArea.appendChild(container)
 
-        // Start status update loop
+        // Create audio meters with threshold sliders
+        createAudioMetersUI(this, false, {numbers: true, events: true})
+
+        // Start status + threshold update loop
         this._startStatusUpdateLoop()
     },
 
@@ -199,6 +215,21 @@ registerNode({
             }
 
             this.elements.statusText.innerHTML = `${videoStatus}<br>${audioStatus}`
+
+            // Update meters and check thresholds
+            if (mainInput.hasAudio()) {
+                const values = mainInput.getAudioValues()
+                const now = performance.now()
+                updateMeterAndCheckThreshold(this, 'bass', values.bass, now)
+                updateMeterAndCheckThreshold(this, 'bassExciter', values.bassExciter, now, 'bass+')
+                updateMeterAndCheckThreshold(this, 'mid', values.mid, now)
+                updateMeterAndCheckThreshold(this, 'high', values.high, now)
+
+                // Draw histogram if analyzer is available
+                if (this.elements.histogramCanvas && mainInput.audioAnalyzer) {
+                    drawHistogram(this.elements.histogramCanvas, mainInput.audioAnalyzer)
+                }
+            }
 
             this.runtimeState.uiUpdateFrameId = requestAnimationFrame(updateStatus)
         }
