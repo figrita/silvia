@@ -14,10 +14,10 @@
 }
 
 .modal-content {
-    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    background: var(--bg-primary);
     border: 1px solid var(--border-subtle);
     border-radius: 2px;
-    padding: 20px;
+    padding: 16px;
     min-width: 60rem;
     max-width: 90vw;
     min-height: 0;
@@ -32,9 +32,10 @@
     margin: 0 0 8px 0;
     font-family: monospace;
     font-weight: bold;
+    font-size: 1rem;
     border-bottom: 1px solid var(--border-subtle);
     padding-bottom: 8px;
-    color: var(--primary-light);
+    color: var(--text-primary);
 }
 
 .form-group {
@@ -138,10 +139,10 @@
 }
 
 .close-warning-details {
-    background: hsl(var(--theme-hue), var(--theme-sat-norm), 8%);
-    border: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    border: 1px inset var(--border-subtle);
     border-radius: 2px;
-    padding: 16px;
+    padding: 12px;
     font-family: monospace;
     font-size: 0.9rem;
 }
@@ -167,23 +168,23 @@
 }
 
 .save-and-close-btn {
-    background: hsl(120, 50%, 25%);
-    color: white;
-    border: 1px solid hsl(120, 50%, 35%);
+    background: hsl(calc(var(--theme-hue) + 120), var(--theme-sat-norm), 15%);
+    color: var(--text-primary);
+    border: 1px solid hsl(calc(var(--theme-hue) + 120), var(--theme-sat-norm), 25%);
 }
 
 .save-and-close-btn:hover {
-    background: hsl(120, 50%, 30%);
-    border-color: hsl(120, 50%, 45%);
+    background: hsl(calc(var(--theme-hue) + 120), var(--theme-sat-norm), 20%);
+    border-color: hsl(calc(var(--theme-hue) + 120), var(--theme-sat-strong), 35%);
 }
 
 .leave-anyway-btn {
-    background: hsl(0, 50%, 25%);
-    color: white;
-    border: 1px solid hsl(0, 50%, 35%);
+    background: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 15%);
+    color: var(--text-primary);
+    border: 1px solid hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 25%);
 }
 
 .leave-anyway-btn:hover {
-    background: hsl(0, 50%, 30%);
-    border-color: hsl(0, 50%, 45%);
+    background: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 20%);
+    border-color: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-strong), 35%);
 }

@@ -61,8 +61,8 @@
 }
 
 .mixer-header .header-spacer {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
     pointer-events: none;
 }
@@ -70,8 +70,8 @@
 /* ===== COLLAPSE BUTTON ===== */
 
 .main-mixer-panel .collapse-btn {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     padding: 0;
     background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%);
     border: 1px solid var(--border-subtle);
