@@ -38,7 +38,7 @@
 }
 
 .load-json-btn {
-    margin-top: 5px;
+    margin-top: 4px;
 }
 
 .load-patches-container {
@@ -52,7 +52,7 @@
 .patch-lists-container {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     overflow-y: auto;
     width: 50%;
     flex: 1;
@@ -60,7 +60,7 @@
 }
 
 .patch-lists-container h3 {
-    margin: 10px 0 5px 0;
+    margin: 8px 0 4px 0;
     color: var(--text-muted);
     font-size: 1rem;
 }
@@ -70,24 +70,24 @@
     flex-direction: column;
     gap: 2px;
     background: var(--bg-secondary);
-    border-radius: 4px;
-    padding: 5px;
+    border-radius: 2px;
+    padding: 4px;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
 }
 
 .patch-list p {
-    margin: 10px;
+    margin: 8px;
     color: var(--text-muted);
 }
 
 .patch-item {
     display: flex;
-    gap: 15px;
-    padding: 10px;
+    gap: 16px;
+    padding: 12px;
     background: var(--bg-interactive);
-    border-radius: 4px;
+    border-radius: 2px;
     cursor: pointer;
     border: 2px solid transparent;
     align-items: center;
@@ -116,7 +116,7 @@
     width: 256px;
     height: 144px;
     object-fit: cover;
-    border-radius: 3px;
+    border-radius: 2px;
     background-color: var(--bg-primary);
     flex-shrink: 0;
 }
@@ -134,7 +134,7 @@
     display: flex;
     flex-direction: column;
     align-self: stretch;
-    gap: 5px;
+    gap: 4px;
     flex-grow: 1;
     min-width: 0;
 }
@@ -142,7 +142,7 @@
 .patch-info-top {
     display: flex;
     justify-content: space-between;
-    gap: 10px;
+    gap: 8px;
 }
 
 .patch-name {
@@ -172,7 +172,7 @@
     margin-left: auto;
     flex-shrink: 0;
     display: flex;
-    gap: 1rem;
+    gap: 16px;
 }
 
 .patch-download-btn,
@@ -204,7 +204,7 @@
 
 .thumbnail-controls {
     display: flex;
-    gap: 5px;
+    gap: 4px;
 }
 
 .thumb-arrow-btn {
@@ -212,7 +212,7 @@
     background: var(--bg-interactive);
     color: var(--text-primary);
     border: 1px solid var(--border-normal);
-    padding: 0px 8px;
+    padding: 0 8px;
     font-size: 16px;
     line-height: 20px;
     border-radius: 4px;
@@ -229,11 +229,11 @@
     cursor: not-allowed;
 }
 
-/* ===== NEW LOAD MODAL DESIGN ===== */
+/* ===== LOAD MODAL ===== */
 .load-modal-window {
     background: var(--bg-primary);
     border: 1px solid var(--border-normal);
-    border-radius: 12px;
+    border-radius: 2px;
     width: 90vw;
     height: 80vh;
     max-width: 1200px;
@@ -243,7 +243,7 @@
     overflow: hidden;
     box-shadow: 0 20px 60px var(--shadow-primary);
     color: var(--text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: monospace;
 }
 
 /* Header */
@@ -271,15 +271,24 @@
     align-items: center;
 }
 
+.load-upload-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
 .load-upload-btn {
     padding: 8px 16px;
     background: var(--primary-color);
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     color: white;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
+    font-family: monospace;
 }
 
 .load-upload-btn:hover {
@@ -300,6 +309,7 @@
     color: var(--text-primary);
     cursor: pointer;
     font-size: 14px;
+    font-family: monospace;
     border-bottom: 3px solid transparent;
     display: flex;
     align-items: center;
@@ -368,11 +378,11 @@
     margin: 40px 0;
 }
 
-/* Patch Cards (similar to asset manager) */
+/* Patch Cards */
 .patch-card {
     background: var(--bg-interactive);
     border: 2px solid var(--border-subtle);
-    border-radius: 8px;
+    border-radius: 2px;
     overflow: hidden;
     cursor: pointer;
     display: flex;
@@ -389,17 +399,6 @@
 .patch-card.selected {
     border-color: var(--primary-color);
     background: hsl(var(--theme-hue), var(--theme-sat-strong), 20%);
-}
-
-/* Button hover effects within patch cards */
-.patch-card .patch-load-btn:hover {
-    background: var(--primary-dark) !important;
-}
-
-.patch-card .patch-download-btn:hover,
-.patch-card .patch-delete-btn:hover {
-    background: var(--bg-hover) !important;
-    border-color: var(--primary-muted) !important;
 }
 
 .patch-card-preview {
@@ -451,7 +450,7 @@
     width: 20px;
     height: 20px;
     font-size: 11px;
-    margin-left: 6px;
+    margin-left: 8px;
     border-radius: 50%;
     background: var(--bg-secondary);
     border: 1px solid var(--border-normal);
@@ -475,6 +474,51 @@
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+}
+
+/* Patch Card Actions */
+.patch-card-actions {
+    margin-top: auto;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.patch-card-actions button {
+    padding: 4px 8px;
+    background: var(--bg-interactive);
+    border: 1px solid var(--border-normal);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-family: monospace;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.patch-card-actions button:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
+    color: var(--text-primary);
+}
+
+.patch-card-actions .patch-load-btn {
+    flex: 1;
+    min-width: 40px;
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.patch-card-actions .patch-load-btn:hover {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+}
+
+.patch-card-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: auto;
 }
 
 /* Footer */
@@ -502,12 +546,13 @@
 }
 
 .load-btn-primary {
-    padding: 10px 20px;
+    padding: 8px 20px;
     background: var(--primary-color);
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     color: white;
     font-weight: 600;
+    font-family: monospace;
     cursor: pointer;
 }
 
@@ -521,11 +566,12 @@
 }
 
 .load-btn-secondary {
-    padding: 10px 20px;
+    padding: 8px 20px;
     background: var(--bg-interactive);
     border: 1px solid var(--border-normal);
-    border-radius: 6px;
+    border-radius: 4px;
     color: var(--text-secondary);
+    font-family: monospace;
     cursor: pointer;
 }
 
@@ -538,7 +584,7 @@
 .filesystem-layout {
     display: flex;
     height: 100%;
-    min-height: 500px; /* Ensure minimum height for scrolling to work */
+    min-height: 500px;
     gap: 16px;
 }
 
@@ -546,17 +592,28 @@
     width: 200px;
     flex-shrink: 0;
     background: var(--bg-secondary);
-    border-radius: 8px;
+    border-radius: 2px;
     padding: 16px;
     display: flex;
     flex-direction: column;
     height: 100%;
-    overflow: visible; /* Allow tooltip to overflow */
+    overflow: visible;
 }
 
 .filesystem-sidebar-header {
     flex-shrink: 0;
     margin-bottom: 12px;
+}
+
+.filesystem-sidebar-header h4 {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
 }
 
 .folder-list-container {
@@ -584,7 +641,7 @@
     padding: 8px 12px;
     background: var(--bg-interactive);
     border: 1px solid var(--border-subtle);
-    border-radius: 6px;
+    border-radius: 2px;
     cursor: pointer;
     font-size: 12px;
     color: var(--text-primary);
@@ -619,16 +676,67 @@
     font-size: 10px;
     opacity: 0.7;
     background: rgba(255, 255, 255, 0.2);
-    padding: 2px 6px;
-    border-radius: 10px;
+    padding: 2px 8px;
+    border-radius: 8px;
 }
 
 /* ===== FOLDERS HELP TOOLTIP ===== */
+.folders-help-icon {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid var(--text-muted);
+    color: var(--text-muted);
+    font-size: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    font-weight: bold;
+    position: relative;
+}
+
 .folders-help-icon:hover .folders-tooltip {
     opacity: 1;
     visibility: visible;
 }
 
 .folders-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 70%;
+    transform: translateX(-30%);
+    background: var(--bg-interactive);
+    border: 1px solid var(--border-normal);
+    border-radius: 2px;
+    padding: 8px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 1000;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    visibility: hidden;
+    margin-bottom: 4px;
+    font-weight: normal;
     transition: none;
+}
+
+/* ===== DOWNLOAD LINK BUTTON ===== */
+.patch-download-link {
+    display: inline-block;
+    font-family: monospace;
+    background: var(--bg-interactive);
+    color: var(--text-primary);
+    border: 1px solid var(--border-normal);
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.patch-download-link:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
 }

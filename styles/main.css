@@ -203,7 +203,7 @@ input[type="checkbox"]:hover {
     padding: 0.4rem 1rem;
     margin-top: 0.5rem;
     background-color: var(--bg-secondary);
-    border-radius: 6px;
+    border-radius: 2px;
 }
 
 .checkbox-group label {
@@ -354,7 +354,7 @@ input[type="checkbox"]:hover {
     background: var(--bg-secondary);
     color: var(--text-primary);
     padding: 8px 12px;
-    border-radius: 6px;
+    border-radius: 2px;
     font-size: 0.85rem;
     font-family: monospace;
     max-width: 300px;

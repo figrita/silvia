@@ -139,7 +139,7 @@
     color: var(--text-primary);
     border: 1px solid var(--border-subtle);
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
     transition: transform 0.2s ease;
 }

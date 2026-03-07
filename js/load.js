@@ -105,13 +105,13 @@ function createLoadModal(){
 		<div class="load-modal-window">
 			<!-- Header -->
 			<div class="load-modal-header">
-				<h2>📂 Load Patch</h2>
+				<h2>Load Patch</h2>
 				<div class="load-modal-header-controls">
-					<label class="load-upload-checkbox" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary);">
+					<label class="load-upload-checkbox">
 						<input type="checkbox" data-el="copyUploadToPatchesCheckbox" checked>
 						Save uploaded patches
 					</label>
-					<button class="load-upload-btn" data-el="uploadSvsBtn">➕ Upload .svs File</button>
+					<button class="load-upload-btn" data-el="uploadSvsBtn">+ Upload .svs</button>
 				</div>
 			</div>
 
@@ -120,14 +120,8 @@ function createLoadModal(){
 
 			<!-- Tab Bar -->
 			<div class="load-modal-tab-bar">
-				<button class="load-tab load-tab-active" data-tab="default">
-					<span class="load-tab-icon">⭐</span>
-					Default Patches
-				</button>
-				<button class="load-tab" data-tab="filesystem" data-el="filesystemTab">
-					<span class="load-tab-icon">💾</span>
-					Your Patches
-				</button>
+				<button class="load-tab load-tab-active" data-tab="default">Default Patches</button>
+				<button class="load-tab" data-tab="filesystem" data-el="filesystemTab">Your Patches</button>
 			</div>
 
 			<!-- Content Area -->
@@ -289,49 +283,13 @@ function setupFilesystemTab() {
 
     if (typeof window !== 'undefined' && window.electronAPI) {
         // Electron mode: Use filesystem layout with sidebar
-        filesystemTab.innerHTML = '<span class="load-tab-icon">💾</span>Filesystem Patches'
+        filesystemTab.innerHTML = 'Filesystem Patches'
 
         filesystemContentContainer.innerHTML = `
             <div class="filesystem-layout">
                 <div class="filesystem-sidebar">
                     <div class="filesystem-sidebar-header">
-                        <h4 style="margin: 0; font-size: 12px; color: var(--text-secondary); font-weight: 600; display: flex; align-items: center; gap: 6px; position: relative;">
-                            Folders
-                            <span class="folders-help-icon" style="
-                                width: 12px;
-                                height: 12px;
-                                border-radius: 50%;
-                                border: 1px solid var(--text-muted);
-                                color: var(--text-muted);
-                                font-size: 8px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                cursor: help;
-                                font-weight: bold;
-                                position: relative;
-                            ">?
-                                <span class="folders-tooltip" style="
-                                    position: absolute;
-                                    bottom: 100%;
-                                    left: 70%;
-                                    transform: translateX(-30%);
-                                    background: var(--bg-interactive);
-                                    border: 1px solid var(--border-normal);
-                                    border-radius: 4px;
-                                    padding: 6px 8px;
-                                    font-size: 11px;
-                                    white-space: nowrap;
-                                    z-index: 1000;
-                                    pointer-events: none;
-                                    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-                                    opacity: 0;
-                                    visibility: hidden;
-                                    margin-bottom: 4px;
-                                    font-weight: normal;
-                                ">One sublevel of folders is supported</span>
-                            </span>
-                        </h4>
+                        <h4>Folders <span class="folders-help-icon">?<span class="folders-tooltip">One sublevel of folders is supported</span></span></h4>
                     </div>
                     <div class="folder-list-container">
                         <div class="folder-list" data-el="folderListEl">
@@ -348,7 +306,7 @@ function setupFilesystemTab() {
         `
     } else {
         // Web mode: Simple grid layout without sidebar
-        filesystemTab.innerHTML = '<span class="load-tab-icon">💾</span>Local Storage'
+        filesystemTab.innerHTML = 'Local Storage'
 
         filesystemContentContainer.innerHTML = `
             <div class="patch-grid" data-el="localPatchListEl">
@@ -369,23 +327,6 @@ function setupFilesystemTab() {
         folderListEl = newFolderListEl
     }
 
-    // Setup tooltip functionality for the folders help icon (Electron mode only)
-    if (typeof window !== 'undefined' && window.electronAPI) {
-        const helpIcon = containerEl.querySelector('.folders-help-icon')
-        const tooltip = containerEl.querySelector('.folders-tooltip')
-
-        if (helpIcon && tooltip) {
-            helpIcon.addEventListener('mouseenter', () => {
-                tooltip.style.opacity = '1'
-                tooltip.style.visibility = 'visible'
-            })
-
-            helpIcon.addEventListener('mouseleave', () => {
-                tooltip.style.opacity = '0'
-                tooltip.style.visibility = 'hidden'
-            })
-        }
-    }
 }
 
 
@@ -523,53 +464,15 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
     item.title = patchDescription
 
     infoDiv.innerHTML = `
-        <div class="patch-card-name">${patchName}${wsCount > 1 ? `<span class="patch-card-compound-badge" title="${wsCount} workspaces">📦</span>` : ''}</div>
+        <div class="patch-card-name">${patchName}${wsCount > 1 ? `<span class="patch-card-compound-badge" title="${wsCount} workspaces">${wsCount}</span>` : ''}</div>
         <div class="patch-card-author">${patchAuthor}</div>
         <div class="patch-card-description">${patchDescription}</div>
-        ${patchFile ? `<div class="patch-card-meta" style="font-size: 10px; color: var(--text-muted); margin-top: auto;">
-            ${modifiedDate} • ${fileSize}
-        </div>` : ''}
-        <div class="patch-card-actions" style="margin-top: auto; display: flex; gap: 4px; flex-wrap: wrap;">
-            <button class="patch-load-btn" title="Load patch" style="
-                flex: 1;
-                padding: 4px 8px;
-                background: var(--primary-color);
-                border: none;
-                border-radius: 4px;
-                color: white;
-                font-size: 10px;
-                cursor: pointer;
-                min-width: 40px;
-            ">Load</button>
-            <button class="patch-new-ws-btn" title="Load as new workspace" style="
-                padding: 4px 6px;
-                background: var(--bg-interactive);
-                border: 1px solid var(--border-normal);
-                border-radius: 4px;
-                color: var(--text-secondary);
-                font-size: 10px;
-                cursor: pointer;
-                transition: background 0.2s;
-            ">+New</button>
-            <button class="patch-download-btn" title="Download .svs file" style="
-                padding: 4px 6px;
-                background: var(--bg-interactive);
-                border: 1px solid var(--border-normal);
-                border-radius: 4px;
-                color: var(--text-secondary);
-                font-size: 10px;
-                cursor: pointer;
-                transition: background 0.2s;
-            ">💾</button>
-            ${isDefaultPatch ? '' : `<button class="patch-delete-btn" title="Delete patch" style="
-                padding: 4px 6px;
-                background: var(--bg-interactive);
-                border: 1px solid var(--border-normal);
-                border-radius: 4px;
-                color: var(--text-secondary);
-                font-size: 10px;
-                cursor: pointer;
-            ">🗑️</button>`}
+        ${patchFile ? `<div class="patch-card-meta">${modifiedDate} · ${fileSize}</div>` : ''}
+        <div class="patch-card-actions">
+            <button class="patch-load-btn" title="Load patch">Load</button>
+            <button class="patch-new-ws-btn" title="Load as new workspace">+New</button>
+            <button class="patch-download-btn" title="Download .svs file">↓</button>
+            ${isDefaultPatch ? '' : `<button class="patch-delete-btn" title="Delete patch">×</button>`}
         </div>
     `
 
@@ -1063,7 +966,7 @@ async function loadPatchFolders(){
                 folderItem.classList.add('selected')
             }
 
-            const folderIcon = folder.name === null ? '🏠' : '📁'
+            const folderIcon = folder.name === null ? '/' : '▸'
             folderItem.innerHTML = `
                 <span class="folder-item-icon">${folderIcon}</span>
                 <span class="folder-item-name">${folder.displayName}</span>

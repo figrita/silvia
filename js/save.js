@@ -51,8 +51,8 @@ function createSaveModal(){
                         <div class="thumbnail-header">
                             <label>Thumbnail</label>
                             <div class="thumbnail-controls">
-                                <button class="thumb-arrow-btn" data-el="thumbPrevBtn">⬅</button>
-                                <button class="thumb-arrow-btn" data-el="thumbNextBtn">⮕</button>
+                                <button class="thumb-arrow-btn" data-el="thumbPrevBtn">←</button>
+                                <button class="thumb-arrow-btn" data-el="thumbNextBtn">→</button>
                             </div>
                         </div>
                         <img src="" alt="Patch thumbnail preview" style="display:none;" data-el="patchThumbnailPreviewEl">
@@ -411,7 +411,7 @@ async function handleSave(){
         downloadLink.href = url
         downloadLink.download = `${safeFilename}.svs`
         downloadLink.textContent = `Download ${downloadLink.download}`
-        downloadLink.classList.add('floating-btn') // Reuse style
+        downloadLink.classList.add('patch-download-link')
         downloadLinkContainerEl.appendChild(downloadLink)
     }
 }

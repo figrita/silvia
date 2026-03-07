@@ -45,7 +45,7 @@ body.s-number-scrubbing .node .input-control s-color {
             color: var(--text-primary);
             font-family: monospace;
             font-size: 1rem;
-            border-radius: 12px;
+            border-radius: 2px;
 
             background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%);
             border: 1px solid var(--border-subtle);
@@ -72,7 +72,7 @@ body.s-number-scrubbing .node .input-control s-color {
 
                 .node-header {
                     margin-bottom: 0;
-                    border-radius: 12px;
+                    border-radius: 2px;
                 }
 
                 .node-inputs,
@@ -158,7 +158,7 @@ body.s-number-scrubbing .node .input-control s-color {
                     right: 0.25rem;
                     top: 0.25rem;
                     position: absolute;
-                    border-radius: 6px;
+                    border-radius: 4px;
                     cursor: pointer;
                     mask-size: 14px;
 

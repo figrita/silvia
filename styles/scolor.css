@@ -74,7 +74,7 @@ s-color:hover .s-color-swatch {
     background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
     border: 1px solid var(--border-subtle);
     box-shadow: 0 4px 12px var(--shadow-secondary);
-    border-radius: 6px;
+    border-radius: 2px;
     font-family: monospace;
     font-size: 0.9rem;
     color: var(--text-secondary);
