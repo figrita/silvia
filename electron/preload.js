@@ -43,6 +43,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onOpenPatchFile: (callback) => {
         ipcRenderer.on('open-patch-file', (event, filePath) => callback(filePath))
     },
+    onMenuClick: (callback) => {
+        ipcRenderer.on('menu-click', (event, buttonId) => callback(buttonId))
+    },
 
     // Note: Window close handling now uses standard beforeunload events
 

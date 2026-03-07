@@ -83,26 +83,26 @@
             <button id="workspace-toggle-btn" title="Switch Workspace">Workspace 1</button>
         </div>
         <div id="workspace-controls">
-            <button id="workspace-extend-btn" title="Extend Workspace Width">↦</button>
-            <button id="workspace-crop-btn" title="Crop Workspace Width">⇤</button>
-            <button id="auto-layout-btn" title="Auto-Layout Nodes">⇉</button>
+            <button id="workspace-extend-btn" title="Extend Workspace Width"><span class="ws-ctrl-label">Extend</span><span class="ws-ctrl-icon">↦</span></button>
+            <button id="workspace-crop-btn" title="Crop Workspace Width"><span class="ws-ctrl-label">Crop</span><span class="ws-ctrl-icon">⇤</span></button>
+            <button id="auto-layout-btn" title="Auto-Layout Nodes"><span class="ws-ctrl-label">Layout</span><span class="ws-ctrl-icon">⇉</span></button>
         </div>
         <div id="node-root"></div>
         <svg id="connection-root"></svg>
+        <div id="app-menu-wrapper">
+            <button id="app-menu-toggle" class="floating-btn"><span class="floating-btn-icon">☰</span><span class="floating-btn-label">Menu</span></button>
+            <div id="app-menu" class="app-menu hidden">
+                <button id="save-patch-btn">Save Patch</button>
+                <button id="load-patch-btn">Load Patch</button>
+                <button id="save-workspaces-btn">Save Workspaces</button>
+                <button id="asset-manager-btn" style="display: none;" title="Asset Manager (Ctrl+Shift+A)">Assets</button>
+                <button id="settings-btn">Settings</button>
+                <button id="about-btn">About</button>
+                <button id="howto-btn">How To</button>
+            </div>
+        </div>
         <div class="floating-btn-container">
-            <button id="nodes-menu-btn" class="floating-btn">🗃️ Nodes</button>
-            <button id="save-patch-btn" class="floating-btn">Save Patch</button>
-            <button id="load-patch-btn" class="floating-btn">Load Patch</button>
-            <button id="save-workspaces-btn" class="floating-btn">
-                <span class="btn-icon">💾</span>
-                <span class="btn-text">Save Workspaces</span>
-            </button>
-            <button id="asset-manager-btn" class="floating-btn" style="display: none;" title="Asset Manager (Ctrl+Shift+A)">📂 Assets</button>
-            <button id="clear-workspace-btn" class="floating-btn">Clear</button>
-
-            <button id="settings-btn" class="floating-btn">Settings</button>
-            <button id="about-btn" class="floating-btn"><img src="assets/icons/favicon-16x16.png" style="vertical-align: text-bottom;"> About</button>
-            <button id="howto-btn" class="floating-btn">📘 How To</button>
+            <button id="nodes-menu-btn" class="floating-btn"><span class="floating-btn-icon"><img src="assets/icons/favicon-16x16.png" style="vertical-align: text-bottom;"></span><span class="floating-btn-label">Nodes</span></button>
         </div>
     </div>
     <div id="modal-container"></div>

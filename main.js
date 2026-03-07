@@ -238,6 +238,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     initAbout()
     initHowto()
 
+    // App menu — use native menubar in Electron, web dropdown otherwise
+    const appMenuWrapper = document.getElementById('app-menu-wrapper')
+    if (window.isElectronMode) {
+        appMenuWrapper.style.display = 'none'
+        window.electronAPI.onMenuClick((buttonId) => {
+            const btn = document.getElementById(buttonId)
+            if (btn) btn.click()
+        })
+    } else {
+        const appMenuToggle = document.getElementById('app-menu-toggle')
+        const appMenu = document.getElementById('app-menu')
+        appMenuToggle.addEventListener('click', () => {
+            appMenu.classList.toggle('hidden')
+        })
+        document.addEventListener('pointerdown', (e) => {
+            if (!appMenu.classList.contains('hidden') && !e.target.closest('#app-menu-wrapper')) {
+                appMenu.classList.add('hidden')
+            }
+        })
+        appMenu.addEventListener('click', (e) => {
+            if (e.target.closest('button')) appMenu.classList.add('hidden')
+        })
+    }
+
     // 4. Initialize workspace tab bar
     workspaceTabBar.init()
     window.workspaceTabBar = workspaceTabBar // Expose for load.js
@@ -245,14 +269,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Setup save workspaces button
     const saveWorkspacesBtn = document.getElementById('save-workspaces-btn')
     if (saveWorkspacesBtn) {
-        const iconEl = saveWorkspacesBtn.querySelector('.btn-icon')
-        const originalIcon = iconEl.textContent
 
         saveWorkspacesBtn.addEventListener('click', async () => {
             // Add saving state with smooth visual feedback
             saveWorkspacesBtn.disabled = true
             saveWorkspacesBtn.classList.add('saving')
-            iconEl.textContent = '⏳'
 
             const success = await saveAllWorkspaces()
 
@@ -260,18 +281,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             saveWorkspacesBtn.classList.remove('saving')
             if (success) {
                 saveWorkspacesBtn.classList.add('saved')
-                iconEl.textContent = '✓'
                 setTimeout(() => {
                     saveWorkspacesBtn.classList.remove('saved')
-                    iconEl.textContent = originalIcon
                     saveWorkspacesBtn.disabled = false
                 }, 1500)
             } else {
                 saveWorkspacesBtn.classList.add('failed')
-                iconEl.textContent = '✗'
                 setTimeout(() => {
                     saveWorkspacesBtn.classList.remove('failed')
-                    iconEl.textContent = originalIcon
                     saveWorkspacesBtn.disabled = false
                 }, 1500)
             }

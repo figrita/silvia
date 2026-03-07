@@ -8,7 +8,7 @@ function createHowtoModal(){
     const html = `
     <div class="modal-overlay" style="display: none;" data-el="howtoModal">
         <div class="modal-content" style="width: 65rem;">
-            <h2>📘 How To Use Silvia</h2>
+            <h2>How To Use Silvia</h2>
 
             <div class="howto-section">
                 <h3>Core Concepts</h3>
@@ -16,13 +16,13 @@ function createHowtoModal(){
                     <li><span><strong>Nodes:</strong> Each box is a "node" that performs a specific task, like generating a pattern, applying a filter, or getting input from a webcam.</span></li>
                     <li><span><strong>Ports:</strong> The dots on the sides of nodes are ports. Outputs are on the right, inputs are on the left. You connect them to build your visual "patch".</span></li>
                     <li><span><strong>Connections:</strong> Click and drag from a port to another compatible port to create a connection.</span></li>
-                    <li><span><strong>The Output Node 📺:</strong> This is the most important node! It takes a color connection and runs everything on your GPU! Happy hacking :^)</span></li>
+                    <li><span><strong>The Output Node:</strong> This is the most important node! It takes a color connection and runs everything on your GPU! Happy hacking :^)</span></li>
                     <li><span><strong>Coordinate System:</strong> Silvia uses a square coordinate system centered at (0,0). The edges extend from -1 to +1 in both X and Y directions. Think of it like a graph where the center is the origin, left edge is X=-1, right edge is X=+1, bottom is Y=-1, and top is Y=+1. This consistent coordinate system ensures patterns look the same regardless of your screen size.</span></li>
                 </ul>
             </div>
             
             <div class="howto-section">
-                <h3>🌐 Global Controls</h3>
+                <h3>Global Controls</h3>
                 <div class="howto-controls-grid">
                     <div><strong>Right-Click (workspace)</strong></div>
                     <div>Open the Quick Menu at cursor position with fuzzy search.</div>
@@ -51,7 +51,7 @@ function createHowtoModal(){
             </div>
 
             <div class="howto-section">
-                <h3>🗂️ Workspace Management</h3>
+                <h3>Workspace Management</h3>
                 <div class="howto-controls-grid">
                     <div><strong>Ctrl+T</strong></div>
                     <div>Create a new workspace tab.</div>
@@ -74,7 +74,7 @@ function createHowtoModal(){
             </div>
 
             <div class="howto-section">
-                <h3>🎛️ Main Input Panel</h3>
+                <h3>Main Input Panel</h3>
                 <ul>
                     <li><span>The left-side panel configures global video and audio sources for Main Input nodes.</span></li>
                     <li><span><strong>Video sources:</strong> video file, webcam, or screen capture.</span></li>
@@ -84,7 +84,7 @@ function createHowtoModal(){
             </div>
 
             <div class="howto-section">
-                <h3>📦 Node Controls</h3>
+                <h3>Node Controls</h3>
                 <div class="howto-controls-grid">
                     <div><strong>Click & Drag Header</strong></div>
                     <div>Move a node around the workspace.</div>
@@ -101,7 +101,7 @@ function createHowtoModal(){
             </div>
 
             <div class="howto-section">
-                <h3>🔌 Port & Connection Controls</h3>
+                <h3>Port & Connection Controls</h3>
                 <div class="howto-controls-grid">
                     <div><strong>Click & Drag Port</strong></div>
                     <div>Start creating a connection to another compatible port.</div>
@@ -118,7 +118,7 @@ function createHowtoModal(){
             </div>
 
             <div class="howto-section">
-                <h3>🔢 Number Input Controls</h3>
+                <h3>Number Input Controls</h3>
                 <div class="howto-controls-grid">
                     <div><strong>Click & Drag Value</strong></div>
                     <div>Scrub to adjust value. Hold Shift for fine control (0.1x).</div>
@@ -147,7 +147,7 @@ function createHowtoModal(){
             </div>
 
             <div class="howto-section">
-                <h3>🎨 Color Input Controls</h3>
+                <h3>Color Input Controls</h3>
                 <div class="howto-controls-grid">
                     <div><strong>Click Color Swatch</strong></div>
                     <div>Open HSL color picker with sliders and hex input.</div>
@@ -158,7 +158,7 @@ function createHowtoModal(){
             </div>
 
             <div class="howto-section">
-                <h3>🎬 Action Button Controls</h3>
+                <h3>Action Button Controls</h3>
                 <div class="howto-controls-grid">
                     <div><strong>Click Button</strong></div>
                     <div>Trigger the action.</div>
@@ -169,7 +169,7 @@ function createHowtoModal(){
             </div>
 
             <div class="howto-section">
-                <h3>📋 Node Menu Controls</h3>
+                <h3>Node Menu Controls</h3>
                 <div class="howto-controls-grid">
                     <div><strong>Quick Menu (Right-click/\`)</strong></div>
                     <div>Searchable list of all nodes with fuzzy filtering.</div>
@@ -204,7 +204,7 @@ function createHowtoModal(){
             </div>
             
             <div class="howto-section">
-                <h3>🎹 MIDI Control</h3>
+                <h3>MIDI Control</h3>
                 <ul>
                     <li><span><strong>MIDI Learn:</strong> Hold <strong>Alt</strong> (Windows/Linux) or <strong>Option</strong> (Mac) and click any number control or action button to enter MIDI learn mode.</span></li>
                     <li><span><strong>CC Mapping:</strong> Number controls can be mapped to MIDI CC (continuous controller) messages from knobs and faders.</span></li>
@@ -216,14 +216,14 @@ function createHowtoModal(){
             </div>
 
             <div class="howto-section">
-                <h3>⚡ Performance Tips</h3>
+                <h3>Performance Tips</h3>
                 <ul>
                     <li><span><strong>Video Optimization:</strong> For best performance and seamless looping, encode videos at your monitor's refresh rate (60fps, 120fps, etc.) with exact integer durations. Videos with fractional frame rates like 59.926fps may stutter at loop points, especially when sped up.</span></li>
                 </ul>
             </div>
 
             <div class="howto-section">
-                <h3>✨ Tips & Tricks</h3>
+                <h3>Tips & Tricks</h3>
                 <ul>
                     <li><span><strong>Background Rendering:</strong> On an <strong>Output</strong> node, click the <code class="howto-code">show</code> button in its header to make its result the live background for the whole application.</span></li>
                     <li><span><strong>Projector Window:</strong> After showing an output on the background, click the <strong>Projector</strong> button in the bottom-left to open a clean, fullscreen version of your output on a second monitor (if you have one). Great for VJing!</span></li>
