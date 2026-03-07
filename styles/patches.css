@@ -182,7 +182,6 @@
     color: var(--text-secondary);
     cursor: pointer;
     font-size: smaller;
-    line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -209,7 +208,7 @@
 }
 
 .thumb-arrow-btn {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: monospace;
     background: var(--bg-interactive);
     color: var(--text-primary);
     border: 1px solid var(--border-normal);

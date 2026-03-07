@@ -74,7 +74,7 @@ registerNode({
 
         const html = `
             <div style="padding: 0.5rem; display:flex; flex-direction:column; gap: 0.5rem;">
-                <div data-el="displayEl" style="text-align:center; font-size:1.2rem; color:var(--text-primary); padding:0.5rem; background:var(--bg-secondary); border-radius:4px; font-family:monospace;">
+                <div data-el="displayEl" style="text-align:center; font-size:1.2rem; color:var(--text-primary); padding:0.5rem; background:var(--bg-secondary); border-radius:4px; font-family: monospace;">
                     Input ${this.values.currentChannel + 1}
                 </div>
             </div>

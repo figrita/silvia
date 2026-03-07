@@ -102,7 +102,8 @@
 body {
     background: var(--bg-primary);
     color: var(--text-primary);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: monospace;
+    line-height: 1.2;
 }
 
 /* Global focus styling - replaces browser blue outline */
@@ -210,7 +211,7 @@ input[type="checkbox"]:hover {
     align-items: center;
     gap: 0.75rem;
     cursor: pointer;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: monospace;
     font-size: 0.9rem;
     color: var(--text-secondary);
     user-select: none;
@@ -230,7 +231,7 @@ input[type="checkbox"]:hover {
 }
 
 .node .node-custom .custom-control-group select {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: monospace;
     background: var(--bg-interactive);
     color: var(--text-primary);
     border: 1px solid var(--border-normal);
