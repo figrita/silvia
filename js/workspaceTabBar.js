@@ -40,25 +40,29 @@ class WorkspaceTabBar {
     }
 
     render() {
-        this.containerEl.innerHTML = `
-            <div class="workspace-tab-bar">
-                <div class="workspace-tabs-container"></div>
-                <button class="workspace-tab-add" title="New Workspace"><span class="floating-btn-label">Add Tab</span><span class="floating-btn-icon">+</span></button>
-            </div>
-        `
-        this.tabBarEl = this.containerEl.firstElementChild
-        const tabsContainer = this.tabBarEl.querySelector('.workspace-tabs-container')
+        // First render: build the stable shell
+        if (!this.tabBarEl) {
+            this.containerEl.innerHTML = `
+                <div class="workspace-tab-bar">
+                    <div class="workspace-tabs-container"></div>
+                    <button class="workspace-tab-add" title="New Workspace"><span class="floating-btn-label">Add Tab</span><span class="floating-btn-icon">+</span></button>
+                </div>
+            `
+            this.tabBarEl = this.containerEl.firstElementChild
+            this.tabsContainer = this.tabBarEl.querySelector('.workspace-tabs-container')
+            this.setupEvents(this.tabBarEl, this.tabsContainer)
+        }
 
+        // Update only the tabs
+        this.tabsContainer.innerHTML = ''
         WorkspaceManager.getAll().forEach(ws => {
             const isActive = WorkspaceManager.activeWorkspaceId === ws.id
-            tabsContainer.insertAdjacentHTML('beforeend',
+            this.tabsContainer.insertAdjacentHTML('beforeend',
                 `<div class="workspace-tab ${isActive ? 'active' : ''}" data-workspace-id="${ws.id}">
                     <span class="workspace-tab-name">${ws.name}</span>
                 </div>`
             )
         })
-
-        this.setupEvents(this.tabBarEl, tabsContainer)
     }
 
     setupEvents(tabBar, tabsContainer) {

@@ -187,6 +187,7 @@
     min-width: 60px;
     max-width: 200px;
     transition: background 0.15s ease, border-color 0.15s ease;
+    height: 25px;
 }
 
 .workspace-tab:hover {
@@ -276,7 +277,8 @@
     padding-left: 8px;
 }
 
-.workspace-tab-add:hover {
+.workspace-tab-add:hover,
+.workspace-tab-add:active {
     background: var(--bg-hover);
     border-color: var(--primary-muted);
 }

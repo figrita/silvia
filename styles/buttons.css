@@ -108,9 +108,10 @@
     background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
     color: var(--text-primary);
     border: 1px solid var(--border-subtle);
-    padding: 4px 8px;
+    border-radius: 4px;
+    padding: 4px 12px;
     cursor: pointer;
-    transition: transform 0.2s ease;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .modal-actions button:hover {
@@ -125,11 +126,13 @@
 }
 
 .modal-actions button.cancel-btn {
-    background: hsla(calc(var(--theme-hue) + 180), calc(var(--theme-sat) * 0.40), 25%, 0.75);
+    background: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 15%);
+    border-color: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 25%);
 }
 
 .modal-actions button.cancel-btn:hover {
-    background: hsla(calc(var(--theme-hue) + 180), calc(var(--theme-sat) * 0.50), 35%, 0.85);
+    background: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-norm), 20%);
+    border-color: hsl(calc(var(--theme-hue) + 180), var(--theme-sat-strong), 35%);
 }
 
 /* ===== FORM BUTTONS ===== */
@@ -138,10 +141,10 @@
     background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
     color: var(--text-primary);
     border: 1px solid var(--border-subtle);
-    padding: 8px 16px;
+    padding: 4px 12px;
     border-radius: 4px;
     cursor: pointer;
-    transition: transform 0.2s ease;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .form-group button:not(.s-number-btn):hover {

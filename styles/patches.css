@@ -91,6 +91,7 @@
     cursor: pointer;
     border: 2px solid transparent;
     align-items: center;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .patch-list > .patch-item:nth-child(even) {
@@ -177,16 +178,18 @@
 
 .patch-download-btn,
 .patch-delete-btn {
-    background: var(--bg-interactive);
-    border: 1px solid var(--border-normal);
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border: 1px solid var(--border-subtle);
     color: var(--text-secondary);
     cursor: pointer;
     font-size: smaller;
+    font-family: monospace;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 4px 8px;
     border-radius: 4px;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .patch-download-btn:hover,
@@ -209,14 +212,15 @@
 
 .thumb-arrow-btn {
     font-family: monospace;
-    background: var(--bg-interactive);
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
     color: var(--text-primary);
-    border: 1px solid var(--border-normal);
+    border: 1px solid var(--border-subtle);
     padding: 0 8px;
     font-size: 16px;
     line-height: 20px;
     border-radius: 4px;
     cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .thumb-arrow-btn:hover {
@@ -232,7 +236,7 @@
 /* ===== LOAD MODAL ===== */
 .load-modal-window {
     background: var(--bg-primary);
-    border: 1px solid var(--border-normal);
+    border: 1px solid var(--border-subtle);
     border-radius: 2px;
     width: 90vw;
     height: 80vh;
@@ -248,26 +252,30 @@
 
 /* Header */
 .load-modal-header {
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--border-normal);
+    box-sizing: border-box;
+    height: 30px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 8px;
     background: var(--bg-secondary);
+    flex-shrink: 0;
 }
 
 .load-modal-header h2 {
     margin: 0;
     color: var(--text-primary);
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 1rem;
+    font-weight: bold;
     border: none;
     padding: 0;
+    flex: 1;
 }
 
 .load-modal-header-controls {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     align-items: center;
 }
 
@@ -280,48 +288,52 @@
 }
 
 .load-upload-btn {
-    padding: 8px 16px;
-    background: var(--primary-color);
-    border: none;
+    padding: 4px 12px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border: 1px solid var(--border-subtle);
     border-radius: 4px;
-    color: white;
+    color: var(--text-primary);
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
     font-family: monospace;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .load-upload-btn:hover {
-    background: var(--primary-dark);
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
 }
 
 /* Tab Bar */
 .load-modal-tab-bar {
     display: flex;
-    border-bottom: 1px solid var(--border-normal);
+    border-bottom: 1px solid var(--border-subtle);
     background: var(--bg-secondary);
 }
 
 .load-tab {
-    padding: 12px 20px;
+    padding: 8px 16px;
     border: none;
     background: transparent;
-    color: var(--text-primary);
+    color: var(--text-secondary);
     cursor: pointer;
     font-size: 14px;
     font-family: monospace;
-    border-bottom: 3px solid transparent;
+    border-bottom: 2px solid transparent;
     display: flex;
     align-items: center;
     gap: 8px;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
 .load-tab:hover {
     background: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 .load-tab-active {
-    background: var(--bg-tertiary) !important;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%) !important;
+    color: var(--text-primary) !important;
     border-bottom-color: var(--primary-color) !important;
 }
 
@@ -334,14 +346,12 @@
     flex: 1;
     display: flex;
     overflow: hidden;
-    background: var(--bg-tertiary);
 }
 
 .load-modal-content-area {
     flex: 1;
     overflow: auto;
-    padding: 24px;
-    background: var(--bg-tertiary);
+    padding: 16px;
     min-height: 0;
 }
 
@@ -380,8 +390,8 @@
 
 /* Patch Cards */
 .patch-card {
-    background: var(--bg-interactive);
-    border: 2px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
     border-radius: 2px;
     overflow: hidden;
     cursor: pointer;
@@ -389,16 +399,18 @@
     flex-direction: column;
     height: 250px;
     position: relative;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .patch-card:hover {
+    background: var(--bg-tertiary);
     border-color: var(--primary-muted);
     box-shadow: 0 4px 12px var(--shadow-secondary);
 }
 
 .patch-card.selected {
     border-color: var(--primary-color);
-    background: hsl(var(--theme-hue), var(--theme-sat-strong), 20%);
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
 }
 
 .patch-card-preview {
@@ -425,7 +437,7 @@
 }
 
 .patch-card-info {
-    padding: 12px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -435,7 +447,7 @@
 .patch-card-name {
     display: flex;
     align-items: center;
-    font-weight: 600;
+    font-weight: bold;
     font-size: 14px;
     color: var(--text-primary);
     white-space: nowrap;
@@ -447,13 +459,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
-    font-size: 11px;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
     margin-left: 8px;
-    border-radius: 50%;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-normal);
+    border-radius: 2px;
+    background: var(--bg-interactive);
+    border: 1px solid var(--border-subtle);
     flex-shrink: 0;
 }
 
@@ -486,8 +498,8 @@
 
 .patch-card-actions button {
     padding: 4px 8px;
-    background: var(--bg-interactive);
-    border: 1px solid var(--border-normal);
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border: 1px solid var(--border-subtle);
     border-radius: 4px;
     color: var(--text-secondary);
     font-size: 10px;
@@ -505,14 +517,14 @@
 .patch-card-actions .patch-load-btn {
     flex: 1;
     min-width: 40px;
-    background: var(--primary-color);
-    border-color: var(--primary-color);
-    color: white;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border-color: var(--border-subtle);
+    color: var(--text-primary);
 }
 
 .patch-card-actions .patch-load-btn:hover {
-    background: var(--primary-dark);
-    border-color: var(--primary-dark);
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
 }
 
 .patch-card-meta {
@@ -523,8 +535,8 @@
 
 /* Footer */
 .load-modal-footer {
-    padding: 16px 24px;
-    border-top: 1px solid var(--border-normal);
+    padding: 8px 16px;
+    border-top: 1px solid var(--border-subtle);
     background: var(--bg-secondary);
     display: flex;
     justify-content: space-between;
@@ -542,22 +554,23 @@
 
 .load-modal-actions {
     display: flex;
-    gap: 12px;
+    gap: 8px;
 }
 
 .load-btn-primary {
-    padding: 8px 20px;
-    background: var(--primary-color);
-    border: none;
+    padding: 4px 12px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border: 1px solid var(--border-subtle);
     border-radius: 4px;
-    color: white;
-    font-weight: 600;
+    color: var(--text-primary);
     font-family: monospace;
     cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .load-btn-primary:hover:not(:disabled) {
-    background: var(--primary-dark);
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
 }
 
 .load-btn-primary:disabled {
@@ -566,17 +579,19 @@
 }
 
 .load-btn-secondary {
-    padding: 8px 20px;
-    background: var(--bg-interactive);
-    border: 1px solid var(--border-normal);
+    padding: 4px 12px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
+    border: 1px solid var(--border-subtle);
     border-radius: 4px;
     color: var(--text-secondary);
     font-family: monospace;
     cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .load-btn-secondary:hover {
     background: var(--bg-hover);
+    border-color: var(--primary-muted);
     color: var(--text-primary);
 }
 
@@ -592,8 +607,9 @@
     width: 200px;
     flex-shrink: 0;
     background: var(--bg-secondary);
+    border: 1px inset var(--border-subtle);
     border-radius: 2px;
-    padding: 16px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -638,27 +654,29 @@
 }
 
 .folder-item {
-    padding: 8px 12px;
-    background: var(--bg-interactive);
+    padding: 4px 8px;
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%);
     border: 1px solid var(--border-subtle);
     border-radius: 2px;
     cursor: pointer;
     font-size: 12px;
-    color: var(--text-primary);
+    color: var(--text-secondary);
     display: flex;
     align-items: center;
     gap: 8px;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .folder-item:hover {
     background: var(--bg-hover);
     border-color: var(--primary-muted);
+    color: var(--text-primary);
 }
 
 .folder-item.selected {
-    background: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
+    background: var(--bg-interactive);
+    color: var(--text-primary);
+    border-color: var(--primary-muted);
 }
 
 .folder-item-icon {
@@ -674,10 +692,10 @@
 
 .folder-item-count {
     font-size: 10px;
-    opacity: 0.7;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 2px 8px;
-    border-radius: 8px;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 0 4px;
+    border-radius: 2px;
 }
 
 /* ===== FOLDERS HELP TOOLTIP ===== */
@@ -726,14 +744,15 @@
 .patch-download-link {
     display: inline-block;
     font-family: monospace;
-    background: var(--bg-interactive);
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 15%);
     color: var(--text-primary);
-    border: 1px solid var(--border-normal);
-    padding: 8px 16px;
+    border: 1px solid var(--border-subtle);
+    padding: 4px 12px;
     border-radius: 4px;
     cursor: pointer;
     text-decoration: none;
     font-size: 0.85rem;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .patch-download-link:hover {
