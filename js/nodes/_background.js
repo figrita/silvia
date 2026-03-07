@@ -13,6 +13,7 @@ export const BackgroundRenderer = {
     isActive: false,
     outputCanvas: null,
     stream: null,
+    get _projectorWindow() { return projectorWindow },
 
     init(){
         const bgVideo = document.createElement('video')

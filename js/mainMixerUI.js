@@ -1,6 +1,7 @@
 import {mainMixer} from './mainMixer.js'
 import {WorkspaceManager} from './workspaceManager.js'
 import {SNode} from './snode.js'
+import {BackgroundRenderer} from './nodes/_background.js'
 
 export class MainMixerUI {
     constructor() {
@@ -28,7 +29,7 @@ export class MainMixerUI {
     }
     
     _adjustBodyLayout() {
-        const width = this.isCollapsed ? '40px' : '320px'
+        const width = this.isCollapsed ? '30px' : '320px'
         document.documentElement.style.setProperty('--panel-right-width', width)
     }
     
@@ -37,9 +38,11 @@ export class MainMixerUI {
         panel.className = 'main-mixer-panel'
         panel.innerHTML = `
             <div class="mixer-header">
+                <div class="header-spacer"></div>
                 <h3>Main Mixer</h3>
-                <button class="collapse-btn" id="mixer-collapse-btn" title="Toggle panel">▶</button>
+                <button class="collapse-btn" id="mixer-collapse-btn" title="Collapse panel">▶</button>
             </div>
+            <div class="panel-collapsed-label" id="mixer-collapsed-label">Main Mixer</div>
             <div class="mixer-content">
                 <div class="channel-section">
                     <h4>Channel A</h4>
@@ -59,19 +62,6 @@ export class MainMixerUI {
                         <span>B</span>
                     </div>
                 </div>
-                <div class="resolution-controls">
-                    <label>Resolution</label>
-                    <select id="resolution-select">
-                        <option value="viewport" selected>Match Viewport</option>
-                        <option value="1280x720">16:9 (1280x720)</option>
-                        <option value="1920x1080">16:9 (1920x1080)</option>
-                        <option value="3440x1440">21:9 (3440x1440)</option>
-                        <option value="1024x768">4:3 (1024x768)</option>
-                        <option value="1080x1080">1:1 (1080x1080)</option>
-                        <option value="720x1280">9:16 (720x1280)</option>
-                        <option value="1080x1920">9:16 (1080x1920)</option>
-                    </select>
-                </div>
                 <div class="crossfade-controls">
                     <label>Crossfade Method</label>
                     <div class="crossfade-select-container">
@@ -87,10 +77,40 @@ export class MainMixerUI {
                         </select>
                     </div>
                 </div>
-                <div class="background-controls">
-                    <label>
-                        <input type="checkbox" checked id="bg-toggle"> Background Visible
-                    </label>
+                <div class="projection-section">
+                    <div class="projection-header">
+                        <h4>Projection</h4>
+                        <button class="projection-info-btn" id="projection-info-btn" title="About projection">?</button>
+                    </div>
+                    <div class="projection-info" id="projection-info" style="display: none;">
+                        <p>The projector opens a separate browser window that displays the final mixed output fullscreen. Place it on a second monitor or projector display.</p>
+                        <p>Resolution controls the render size of the mix canvas. Match Viewport tracks the editor area; fixed presets let you target specific displays.</p>
+                        <p>The projector streams directly from the mix canvas — no re-encoding, minimal latency.</p>
+                    </div>
+                    <div class="resolution-controls">
+                        <label>Resolution</label>
+                        <select id="resolution-select">
+                            <option value="viewport" selected>Match Viewport</option>
+                            <option value="1280x720">16:9 (1280x720)</option>
+                            <option value="1920x1080">16:9 (1920x1080)</option>
+                            <option value="3440x1440">21:9 (3440x1440)</option>
+                            <option value="1024x768">4:3 (1024x768)</option>
+                            <option value="1080x1080">1:1 (1080x1080)</option>
+                            <option value="720x1280">9:16 (720x1280)</option>
+                            <option value="1080x1920">9:16 (1080x1920)</option>
+                        </select>
+                    </div>
+                    <div class="background-controls">
+                        <label>
+                            <input type="checkbox" checked id="bg-toggle"> Project to Background
+                        </label>
+                    </div>
+                    <div class="projector-controls">
+                        <button class="projector-btn" id="projector-open-btn">
+                            <span class="projector-status-dot" id="projector-status-dot"></span>
+                            Open Projector
+                        </button>
+                    </div>
                 </div>
             </div>
         `
@@ -103,6 +123,11 @@ export class MainMixerUI {
         // Collapse/expand toggle
         const collapseBtn = panel.querySelector('#mixer-collapse-btn')
         collapseBtn.addEventListener('click', () => {
+            this._toggleCollapse()
+        })
+
+        const collapsedLabel = panel.querySelector('#mixer-collapsed-label')
+        collapsedLabel.addEventListener('click', () => {
             this._toggleCollapse()
         })
 
@@ -134,6 +159,49 @@ export class MainMixerUI {
         crossfadeSelect.addEventListener('change', (e) => {
             mainMixer.setCrossfadeMethod(parseInt(e.target.value))
         })
+
+        // Projector controls
+        const projectorBtn = panel.querySelector('#projector-open-btn')
+        projectorBtn.addEventListener('click', () => {
+            BackgroundRenderer.openProjector()
+        })
+
+        // Info toggle
+        const infoBtn = panel.querySelector('#projection-info-btn')
+        const infoPanel = panel.querySelector('#projection-info')
+        infoBtn.addEventListener('click', () => {
+            const visible = infoPanel.style.display !== 'none'
+            infoPanel.style.display = visible ? 'none' : 'block'
+            infoBtn.classList.toggle('active', !visible)
+        })
+
+        // Poll projector status
+        this._projectorInterval = setInterval(() => {
+            this._updateProjectorStatus()
+        }, 1000)
+    }
+
+    _updateProjectorStatus() {
+        if (!this.panel) return
+        const dot = this.panel.querySelector('#projector-status-dot')
+        const btn = this.panel.querySelector('#projector-open-btn')
+        if (!dot || !btn) return
+
+        // Check if projector window is open by trying to access BackgroundRenderer internals
+        // We peek at the module-level variable via the openProjector behavior
+        const isOpen = this._isProjectorOpen()
+        dot.classList.toggle('connected', isOpen)
+        btn.title = isOpen ? 'Projector window is open — click to focus' : 'Open a projector window'
+    }
+
+    _isProjectorOpen() {
+        // BackgroundRenderer.openProjector checks/focuses if already open,
+        // so we can detect state by checking if the projector window ref exists
+        try {
+            // The projector window variable is module-scoped in _background.js
+            // We expose a status check via a lightweight probe
+            return BackgroundRenderer._projectorWindow && !BackgroundRenderer._projectorWindow.closed
+        } catch { return false }
     }
     
     updateChannelStatus(channel, node) {
@@ -267,6 +335,10 @@ export class MainMixerUI {
     }
     
     destroy() {
+        if (this._projectorInterval) {
+            clearInterval(this._projectorInterval)
+            this._projectorInterval = null
+        }
         // Clean up preview video streams
         if (this.panel) {
             const previewVideos = this.panel.querySelectorAll('.channel-preview video')

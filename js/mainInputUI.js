@@ -48,7 +48,7 @@ export class MainInputUI {
     }
 
     _adjustBodyLayout() {
-        const width = this.isCollapsed ? '40px' : '240px'
+        const width = this.isCollapsed ? '30px' : '240px'
         document.documentElement.style.setProperty('--panel-left-width', width)
     }
 
@@ -57,9 +57,11 @@ export class MainInputUI {
         panel.className = 'main-input-panel'
         panel.innerHTML = `
             <div class="main-input-header">
-                <button class="collapse-btn" id="main-input-collapse-btn" title="Toggle panel">◀</button>
+                <button class="collapse-btn" id="main-input-collapse-btn" title="Collapse panel">◀</button>
                 <h3>Main Input</h3>
+                <div class="header-spacer"></div>
             </div>
+            <div class="panel-collapsed-label" id="input-collapsed-label">Main Input</div>
             <div class="main-input-content">
                 <!-- Video Source Section -->
                 <div class="input-section">
@@ -183,6 +185,7 @@ export class MainInputUI {
     _cacheElements(panel) {
         this.elements = {
             collapseBtn: panel.querySelector('#main-input-collapse-btn'),
+            collapsedLabel: panel.querySelector('#input-collapsed-label'),
             header: panel.querySelector('.main-input-header'),
             content: panel.querySelector('.main-input-content'),
             videoTypeSelect: panel.querySelector('#main-input-video-type'),
@@ -216,6 +219,10 @@ export class MainInputUI {
     _setupEventListeners(panel) {
         // Collapse/expand toggle
         this.elements.collapseBtn.addEventListener('click', () => {
+            this._toggleCollapse()
+        })
+
+        this.elements.collapsedLabel.addEventListener('click', () => {
             this._toggleCollapse()
         })
 
