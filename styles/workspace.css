@@ -30,12 +30,9 @@
 }
 
 /* ===== SAVE WORKSPACES BUTTON STATES ===== */
-#save-workspaces-btn {
-    transition: all 0.3s ease;
-}
+
 
 #save-workspaces-btn .btn-icon {
-    transition: all 0.3s ease;
     display: inline-block;
     width: 1em; /* Fixed width to prevent reflow */
 }
@@ -89,7 +86,6 @@
     transition: transform 0.2s ease;
     font-size: 24px;
     font-weight: bold;
-    line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -126,9 +122,10 @@
     align-items: flex-end;
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-normal);
-    padding: 4px 8px 0 8px;
-    gap: 4px;
-    min-height: 32px;
+    padding: 0 8px;
+    gap: 2px;
+    height: 30px;
+    box-sizing: border-box;
     flex-shrink: 0;
 }
 
@@ -164,7 +161,7 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border-subtle);
     border-bottom: none;
-    border-radius: 6px 6px 0 0;
+    border-radius: 0;
     cursor: pointer;
     user-select: none;
     position: relative;
@@ -189,7 +186,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 1.2rem;
+    font-size: 1rem;
     color: var(--text-secondary);
     min-width: 40px;
 }
@@ -218,19 +215,18 @@
 .workspace-tab-add {
     background: var(--bg-secondary);
     border: 1px solid var(--border-subtle);
+    border-bottom: none;
     color: var(--text-muted);
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
+    padding: 4px 10px;
+    border-radius: 0;
     cursor: pointer;
-    font-size: 1.1rem;
     font-weight: bold;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
     flex-shrink: 0;
-    margin-bottom: 4px;
+    margin-left: auto;
+    align-self: flex-end;
 }
 
 .workspace-tab-add:hover {
