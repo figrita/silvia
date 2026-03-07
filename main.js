@@ -238,15 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initAbout()
     initHowto()
 
-    // 4. Add listener for the projector button
-    const projectorBtn = document.getElementById('projector-btn')
-    if (projectorBtn) {
-        projectorBtn.addEventListener('click', () => {
-            BackgroundRenderer.openProjector()
-        })
-    }
-
-    // 5. Initialize workspace tab bar
+    // 4. Initialize workspace tab bar
     workspaceTabBar.init()
     window.workspaceTabBar = workspaceTabBar // Expose for load.js
 
