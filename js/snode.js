@@ -1180,7 +1180,7 @@ export class SNode{
             // Replace the re-append hack with a z-index update.
             this.nodeEl.style.zIndex = SNode.nextZIndex++
 
-            if(header.contains(e.target)){
+            if(header.contains(e.target) && e.button === 0){
                 e.preventDefault() // Prevent text selection during drag
                 this.nodeEl.classList.add('dragging')
                 
