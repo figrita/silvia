@@ -58,7 +58,7 @@ registerNode({
 
         const html = `
             <div style="padding: 0.5rem;">
-                <div data-el="displayEl" style="text-align:center; font-size:0.8rem; color:var(--text-primary); padding:0.75rem; border:1px solid var(--border-normal); border-radius:4px; font-family:monospace;">
+                <div data-el="displayEl" style="text-align:center; font-size:0.8rem; color:var(--text-primary); padding:0.75rem; border:1px solid var(--border-normal); border-radius:4px; font-family: monospace;">
                     Click trigger to generate
                 </div>
             </div>

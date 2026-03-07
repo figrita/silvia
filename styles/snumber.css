@@ -30,7 +30,6 @@ s-number .s-number-btn {
     color: var(--text-secondary);
     cursor: pointer;
     font-weight: bold;
-    line-height: 1;
     padding: 4px 6px;
     height: 100%;
     z-index: 1;

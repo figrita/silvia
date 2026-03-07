@@ -482,7 +482,6 @@
     text-align: center;
     word-break: break-all;
     color: var(--text-secondary);
-    line-height: 1.2;
     font-family: monospace;
     margin-top: 8px;
 }

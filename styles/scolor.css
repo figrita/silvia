@@ -75,7 +75,7 @@ s-color:hover .s-color-swatch {
     border: 1px solid var(--border-subtle);
     box-shadow: 0 4px 12px var(--shadow-secondary);
     border-radius: 6px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: monospace;
     font-size: 0.9rem;
     color: var(--text-secondary);
     
@@ -153,7 +153,7 @@ input[type="range"].s-color-slider::-moz-range-thumb {
 }
 
 .s-color-hex-input {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: monospace;
     background: var(--bg-secondary);
     border: 1px solid var(--border-normal);
     color: var(--text-primary);
