@@ -57,6 +57,23 @@
     padding-right: 8px;
 }
 
+/* Nodes button: always show label */
+#nodes-menu-btn .floating-btn-label {
+    max-width: 60px;
+    opacity: 1;
+    padding-right: 8px;
+}
+
+/* Remove top corners when node menu is open (menu appears above) */
+#nodes-menu-btn.menu-open {
+    border-radius: 0 0 4px 4px;
+}
+
+/* Remove bottom corners when app menu is open (menu appears below) */
+#app-menu-toggle.menu-open {
+    border-radius: 4px 4px 0 0;
+}
+
 /* ===== APP MENU ===== */
 #app-menu-wrapper {
     position: fixed;

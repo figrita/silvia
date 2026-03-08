@@ -29,7 +29,7 @@ export class MainMixerUI {
     }
     
     _adjustBodyLayout() {
-        const width = this.isCollapsed ? '30px' : '320px'
+        const width = this.isCollapsed ? '31px' : '320px'
         document.documentElement.style.setProperty('--panel-right-width', width)
     }
     

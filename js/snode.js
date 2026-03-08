@@ -7,6 +7,48 @@ import {settings} from './settings.js'
 import {WorkspaceManager} from './workspaceManager.js'
 
 const editor = document.getElementById('editor')
+
+function attachTooltip(element, text) {
+    let tooltipEl = null
+    let tooltipTimeout = null
+
+    element.addEventListener('mouseenter', () => {
+        if (tooltipEl) { tooltipEl.remove(); tooltipEl = null }
+        if (tooltipTimeout) { clearTimeout(tooltipTimeout); tooltipTimeout = null }
+
+        tooltipEl = document.createElement('div')
+        tooltipEl.className = 'menu-tooltip'
+        tooltipEl.textContent = text
+        document.body.appendChild(tooltipEl)
+
+        const rect = element.getBoundingClientRect()
+        const tooltipRect = tooltipEl.getBoundingClientRect()
+
+        let left = rect.right + 10
+        let top = rect.top
+
+        if (left + tooltipRect.width > window.innerWidth) {
+            left = rect.left - tooltipRect.width - 10
+        }
+        if (top + tooltipRect.height > window.innerHeight) {
+            top = window.innerHeight - tooltipRect.height - 10
+        }
+
+        tooltipEl.style.left = `${left}px`
+        tooltipEl.style.top = `${top}px`
+
+        tooltipTimeout = setTimeout(() => {
+            if (tooltipEl) tooltipEl.classList.add('visible')
+            tooltipTimeout = null
+        }, 200)
+    })
+
+    element.addEventListener('mouseleave', () => {
+        if (tooltipTimeout) { clearTimeout(tooltipTimeout); tooltipTimeout = null }
+        if (tooltipEl) { tooltipEl.remove(); tooltipEl = null }
+    })
+}
+
 export class SNode{
     static nextID = 0
     static nextZIndex = 10 // Start z-index from 10 to be safe
@@ -1029,7 +1071,7 @@ export class SNode{
                 <div class="node-input">
                     <div class="port ${input.type}" data-in-port="${key}"></div>
                     <div class="input-label">
-                        <span>${input.label}</span>${input.samplingCost ? `<span class="sampling-cost-warning" title="Samples this input ${input.samplingCost}× per pixel. Connect an Output node before this to rasterize to a framebuffer and avoid multiplying the upstream graph.">🛆</span>` : ''}
+                        <span>${input.label}</span>${input.samplingCost ? `<span class="sampling-cost-warning" data-tip="Samples this input ${input.samplingCost}x per pixel. Connect an Output node before this to rasterize to a framebuffer and avoid multiplying the upstream graph.">!</span>` : ''}
                         ${(input.type === 'float' && input.range) ? `<span class="input-range">${input.range}</span>` : ''}
                     </div>
                     ${!input.control ? '' : `
@@ -1104,64 +1146,13 @@ export class SNode{
 
         // Add tooltip functionality to tooltip button if it exists
         if (tooltipBtn && this.tooltip) {
-            let nodeTooltipEl = null
-            let nodeTooltipTimeout = null
-            
-            tooltipBtn.addEventListener('mouseenter', (e) => {
-                // Clean up any existing tooltip first
-                if (nodeTooltipEl) {
-                    nodeTooltipEl.remove()
-                    nodeTooltipEl = null
-                }
-                if (nodeTooltipTimeout) {
-                    clearTimeout(nodeTooltipTimeout)
-                    nodeTooltipTimeout = null
-                }
-                
-                // Create tooltip element
-                nodeTooltipEl = document.createElement('div')
-                nodeTooltipEl.className = 'menu-tooltip'
-                nodeTooltipEl.textContent = this.tooltip
-                document.body.appendChild(nodeTooltipEl)
-                
-                // Position tooltip
-                const rect = tooltipBtn.getBoundingClientRect()
-                const tooltipRect = nodeTooltipEl.getBoundingClientRect()
-                
-                let left = rect.right + 10
-                let top = rect.top
-                
-                // Keep tooltip in viewport
-                if (left + tooltipRect.width > window.innerWidth) {
-                    left = rect.left - tooltipRect.width - 10
-                }
-                if (top + tooltipRect.height > window.innerHeight) {
-                    top = window.innerHeight - tooltipRect.height - 10
-                }
-                
-                nodeTooltipEl.style.left = `${left}px`
-                nodeTooltipEl.style.top = `${top}px`
-                
-                // Show tooltip after brief delay
-                nodeTooltipTimeout = setTimeout(() => {
-                    if (nodeTooltipEl) {
-                        nodeTooltipEl.classList.add('visible')
-                    }
-                    nodeTooltipTimeout = null
-                }, 200)
-            })
-            
-            tooltipBtn.addEventListener('mouseleave', (e) => {
-                if (nodeTooltipTimeout) {
-                    clearTimeout(nodeTooltipTimeout)
-                    nodeTooltipTimeout = null
-                }
-                if (nodeTooltipEl) {
-                    nodeTooltipEl.remove()
-                    nodeTooltipEl = null
-                }
-            })
+            attachTooltip(tooltipBtn, this.tooltip)
         }
+
+        // Attach tooltips to sampling-cost-warning icons
+        this.nodeEl.querySelectorAll('.sampling-cost-warning').forEach(el => {
+            attachTooltip(el, el.dataset.tip)
+        })
 
         // Context menu for header (right-click)
         header.addEventListener('contextmenu', (e) => {

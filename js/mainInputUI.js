@@ -48,7 +48,7 @@ export class MainInputUI {
     }
 
     _adjustBodyLayout() {
-        const width = this.isCollapsed ? '30px' : '240px'
+        const width = this.isCollapsed ? '31px' : '240px'
         document.documentElement.style.setProperty('--panel-left-width', width)
     }
 

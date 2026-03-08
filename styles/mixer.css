@@ -3,6 +3,7 @@
 /* ===== MAIN MIXER PANEL ===== */
 
 .main-mixer-panel {
+    box-sizing: border-box;
     grid-column: 3;
     grid-row: 1 / -1;
     height: 100%;

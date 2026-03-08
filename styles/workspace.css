@@ -31,6 +31,11 @@
 
 /* ===== SAVE WORKSPACES BUTTON STATES ===== */
 
+#save-workspaces-btn.dirty {
+  border-left: 2px dotted var(--bg-interactive);
+  margin-left: -2px;
+}
+
 #save-workspaces-btn.saving {
     background: var(--primary-color);
     animation: pulse-bright 1.5s ease-in-out infinite;
