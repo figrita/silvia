@@ -2,6 +2,7 @@ import {autowire, mapJoin, StringToFragment} from '../utils.js'
 import {registerNode} from '../registry.js'
 import {shaderUtils} from '../shaderUtils.js'
 import {SNode} from '../snode.js'
+import {iconHtml} from '../icons.js'
 
 registerNode({
     slug: 'sliderule',
@@ -100,7 +101,7 @@ registerNode({
             <div style="display: flex; flex-direction: column; padding: 0.5rem; gap: 0.5rem;">
                 <div style="display: flex; align-items: flex-end; justify-content: space-around; gap: 0.5rem;">
                     ${createSelect('inBasisSelect', 'From')}
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #888; padding-bottom: 0.2rem;">→</div>
+                    <div style="color: #888; padding-bottom: 0.2rem; display: flex; align-items: center;">${iconHtml('arrow-right', 20)}</div>
                     ${createSelect('outBasisSelect', 'To')}
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-around; gap: 0.5rem; margin-top: 0.2rem;">

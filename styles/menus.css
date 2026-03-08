@@ -217,7 +217,10 @@
 
 .context-menu-icon {
     width: 16px;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
 }
 
 /* ===== TABBAR CONTEXT MENU ===== */

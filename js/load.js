@@ -5,6 +5,7 @@ import {clearWorkspace, setWorkspaceWidth} from './editor.js'
 import {PatchValidator} from './patchValidator.js'
 import {nodeList} from './registry.js'
 import {WorkspaceManager} from './workspaceManager.js'
+import {iconHtml} from './icons.js'
 
 /**
  * Create nodes and connections from patch data.
@@ -289,7 +290,7 @@ function setupFilesystemTab() {
             <div class="filesystem-layout">
                 <div class="filesystem-sidebar">
                     <div class="filesystem-sidebar-header">
-                        <h4>Folders <span class="folders-help-icon">?<span class="folders-tooltip">One sublevel of folders is supported</span></span></h4>
+                        <h4>Folders <span class="folders-help-icon">${iconHtml('circle-help', 12)}<span class="folders-tooltip">One sublevel of folders is supported</span></span></h4>
                     </div>
                     <div class="folder-list-container">
                         <div class="folder-list" data-el="folderListEl">

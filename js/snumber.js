@@ -1,6 +1,7 @@
 // /snumber.js
 
 import {midiManager} from './midiManager.js'
+import {iconHtml} from './icons.js'
 
 const clamp = (num, min, max) => Math.min(Math.max(num, min), max)
 const getPrecision = (step) => {
@@ -60,9 +61,9 @@ class SNumber extends HTMLElement{
         super()
         this.innerHTML = `
           <div style="position: absolute; left: 19px; right: 19px; height: 100%;"><div class="s-number-slider"></div></div>
-          <button class="s-number-btn s-number-decr" tabindex="-1">-</button>
+          <button class="s-number-btn s-number-decr" tabindex="-1">${iconHtml('minus', 10)}</button>
           <input type="text" class="s-number-input" spellcheck="false" />
-          <button class="s-number-btn s-number-incr" tabindex="-1">+</button>
+          <button class="s-number-btn s-number-incr" tabindex="-1">${iconHtml('plus', 10)}</button>
         `
         this.inputEl = this.querySelector('.s-number-input')
         this.sliderEl = this.querySelector('.s-number-slider')

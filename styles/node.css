@@ -131,21 +131,18 @@ body.s-number-scrubbing .node .input-control s-color {
                 }
 
                 .node-tooltip {
-                    color: var(--text-secondary);
-                    width: 14px;
-                    height: 14px;
+                    color: var(--text-muted);
+                    width: 20px;
+                    height: 20px;
                     right: 2rem;
                     top: 0.25rem;
                     position: absolute;
-                    border-radius: 50%;
                     cursor: help;
-                    font-size: 0.75rem;
-                    font-weight: bold;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    border: 1px solid var(--border-subtle);
-                    margin: 3px;
+                    line-height: 0;
+                    margin: 0;
                 }
 
                 .node-close {

@@ -1,5 +1,6 @@
 import {registerNode} from '../registry.js'
 import {autowire, StringToFragment} from '../utils.js'
+import {setIconLabel} from '../icons.js'
 
 registerNode({
     slug: 'randomfire',
@@ -137,11 +138,11 @@ registerNode({
         }
 
         if(this.values.isRunning){
-            this.elements.statusIndicator.textContent = '🔥 Active'
+            setIconLabel(this.elements.statusIndicator, 'flame', 'Active', 12)
             this.elements.statusIndicator.style.background = 'var(--bg-interactive)'
             this.elements.statusIndicator.style.color = 'var(--text-secondary)'
         } else {
-            this.elements.statusIndicator.textContent = '❄️ Stopped'
+            setIconLabel(this.elements.statusIndicator, 'snowflake', 'Stopped', 12)
             this.elements.statusIndicator.style.background = 'var(--bg-secondary)'
             this.elements.statusIndicator.style.color = 'var(--text-muted)'
         }

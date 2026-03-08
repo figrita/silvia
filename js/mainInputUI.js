@@ -8,6 +8,7 @@
 import {mainInput} from './mainInput.js'
 import {AssetManager} from './assetManager.js'
 import {setupHistogramCanvas, drawHistogram, DEFAULT_BAND_CONFIG} from './audioHistogram.js'
+import {iconHtml, setIcon} from './icons.js'
 
 // Use the global isElectronMode set in index.html, with fallback
 const isElectronMode = typeof window !== 'undefined' && (window.isElectronMode || window.electronAPI)
@@ -57,7 +58,7 @@ export class MainInputUI {
         panel.className = 'main-input-panel'
         panel.innerHTML = `
             <div class="main-input-header">
-                <button class="collapse-btn" id="main-input-collapse-btn" title="Collapse panel">◀</button>
+                <button class="collapse-btn" id="main-input-collapse-btn" title="Collapse panel">${iconHtml('chevron-left', 14)}</button>
                 <h3>Main Input</h3>
                 <div class="header-spacer"></div>
             </div>
@@ -78,7 +79,7 @@ export class MainInputUI {
                     <div id="video-controls" class="source-controls"></div>
                     <div id="video-playback" class="video-playback" style="display: none;">
                         <div class="playback-row">
-                            <button id="video-play-pause" class="btn btn-small playback-btn">⏸</button>
+                            <button id="video-play-pause" class="btn btn-small playback-btn">${iconHtml('pause', 12)}</button>
                             <input type="range" id="video-seek" class="seek-bar" min="0" max="1000" value="0" step="1">
                         </div>
                     </div>
@@ -317,8 +318,8 @@ export class MainInputUI {
             case 'video':
                 html = `
                     <div class="button-row">
-                        <button class="btn btn-small" id="video-upload-btn">📁 Upload</button>
-                        ${isElectronMode ? '<button class="btn btn-small" id="video-assets-btn">📂 Assets</button>' : ''}
+                        <button class="btn btn-small" id="video-upload-btn">${iconHtml('upload', 12)} Upload</button>
+                        ${isElectronMode ? `<button class="btn btn-small" id="video-assets-btn">${iconHtml('folder-open', 12)} Assets</button>` : ''}
                     </div>
                     <input type="file" id="video-file-input" accept="video/*" style="display: none;">
                 `
@@ -412,8 +413,8 @@ export class MainInputUI {
             case 'audio':
                 html = `
                     <div class="button-row">
-                        <button class="btn btn-small" id="audio-upload-btn">📁 Upload</button>
-                        ${isElectronMode ? '<button class="btn btn-small" id="audio-assets-btn">📂 Assets</button>' : ''}
+                        <button class="btn btn-small" id="audio-upload-btn">${iconHtml('upload', 12)} Upload</button>
+                        ${isElectronMode ? `<button class="btn btn-small" id="audio-assets-btn">${iconHtml('folder-open', 12)} Assets</button>` : ''}
                     </div>
                     <input type="file" id="audio-file-input" accept="audio/*" style="display: none;">
                     <audio id="main-input-audio-player" controls class="audio-player"></audio>
@@ -607,7 +608,7 @@ export class MainInputUI {
             // --- Video playback state ---
             if (mainInput.videoSourceType === 'video' && mainInput.videoElement) {
                 const vid = mainInput.videoElement
-                this.elements.videoPlayPause.textContent = vid.paused ? '▶' : '⏸'
+                setIcon(this.elements.videoPlayPause, vid.paused ? 'play' : 'pause', 12)
 
                 // Update seek bar unless user is dragging
                 if (!this._seekingVideo && vid.duration) {
@@ -640,11 +641,11 @@ export class MainInputUI {
 
         if (this.isCollapsed) {
             this.panel.classList.add('collapsed')
-            this.elements.collapseBtn.textContent = '▶'
+            setIcon(this.elements.collapseBtn, 'chevron-right', 14)
             this.elements.collapseBtn.title = 'Expand panel'
         } else {
             this.panel.classList.remove('collapsed')
-            this.elements.collapseBtn.textContent = '◀'
+            setIcon(this.elements.collapseBtn, 'chevron-left', 14)
             this.elements.collapseBtn.title = 'Collapse panel'
         }
 
