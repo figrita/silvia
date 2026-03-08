@@ -1,6 +1,7 @@
 import {registerNode} from '../registry.js'
 import {Connection} from '../connections.js'
 import {AssetManager} from '../assetManager.js'
+import {setIconLabel} from '../icons.js'
 
 registerNode({
     slug: 'imagegif',
@@ -147,7 +148,7 @@ registerNode({
             cursor: pointer;
             font-family: monospace;
         `
-        replaceBtn.textContent = isElectronMode ? '📁 Upload' : '↻ Replace'
+        isElectronMode ? setIconLabel(replaceBtn, 'upload', 'Upload', 11) : setIconLabel(replaceBtn, 'refresh-cw', 'Replace', 11)
         replaceBtn.onclick = (e) => {
             e.stopPropagation()
             this.fileSelectors.input.click()
@@ -175,7 +176,7 @@ registerNode({
             font-family: monospace;
             display: ${isElectronMode ? 'block' : 'none'};
         `
-        assetBrowserBtn.textContent = '📂 Assets'
+        setIconLabel(assetBrowserBtn, 'folder-open', 'Assets', 11)
         assetBrowserBtn.onclick = async (e) => {
             e.stopPropagation()
             AssetManager.showGlobalAssetManager({

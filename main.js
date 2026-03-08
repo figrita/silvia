@@ -33,6 +33,7 @@ import { WorkspaceManager } from './js/workspaceManager.js'
 import { workspaceTabBar } from './js/workspaceTabBar.js'
 import { mainInput } from './js/mainInput.js'
 import { mainInputUI } from './js/mainInputUI.js'
+import { initIcons } from './js/icons.js'
 
 // Global dirty tracking
 window.isDirty = false
@@ -227,6 +228,9 @@ async function saveAllWorkspaces() {
 
 // Initialize after DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
+    // Hydrate data-icon attributes with SVG icons
+    initIcons()
+
     // 0. Initialize WorkspaceManager FIRST (before any nodes can be created)
     WorkspaceManager.init()
 

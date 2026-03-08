@@ -98,6 +98,7 @@
     writing-mode: vertical-lr;
     text-orientation: mixed;
     transform: rotate(180deg);
+    align-items: center;
     justify-content: center;
     flex: 1;
     color: var(--text-muted);

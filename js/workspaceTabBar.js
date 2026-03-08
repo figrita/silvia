@@ -6,6 +6,7 @@ import { WorkspaceManager } from './workspaceManager.js'
 import { SNode } from './snode.js'
 import { Connection } from './connections.js'
 import { mainMixer } from './mainMixer.js'
+import { iconHtml } from './icons.js'
 import { mainMixerUI } from './mainMixerUI.js'
 
 class WorkspaceTabBar {
@@ -45,7 +46,7 @@ class WorkspaceTabBar {
             this.containerEl.innerHTML = `
                 <div class="workspace-tab-bar">
                     <div class="workspace-tabs-container"></div>
-                    <button class="workspace-tab-add" title="New Workspace"><span class="floating-btn-label">Add Tab</span><span class="floating-btn-icon">+</span></button>
+                    <button class="workspace-tab-add" title="New Workspace"><span class="floating-btn-label">Add Tab</span><span class="floating-btn-icon">${iconHtml('plus', 14)}</span></button>
                 </div>
             `
             this.tabBarEl = this.containerEl.firstElementChild
@@ -155,10 +156,10 @@ class WorkspaceTabBar {
 
         const items = workspaceId
             ? [
-                { icon: '⌫', label: 'Rename', action: () => this.startRenaming(this.tabBarEl.querySelector(`[data-workspace-id="${workspaceId}"]`)) },
-                { icon: '✘', label: 'Delete', action: () => this.deleteWorkspace(workspaceId) }
+                { icon: iconHtml('pencil', 14), label: 'Rename', action: () => this.startRenaming(this.tabBarEl.querySelector(`[data-workspace-id="${workspaceId}"]`)) },
+                { icon: iconHtml('x', 14), label: 'Delete', action: () => this.deleteWorkspace(workspaceId) }
             ]
-            : [{ icon: '+', label: 'New Workspace', action: () => this.createNewWorkspace() }]
+            : [{ icon: iconHtml('plus', 14), label: 'New Workspace', action: () => this.createNewWorkspace() }]
 
         items.forEach(({ icon, label, action }) => {
             const item = document.createElement('div')

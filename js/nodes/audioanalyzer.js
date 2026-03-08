@@ -3,6 +3,7 @@ import {AudioAnalyzer} from '../audioAnalyzer.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
 import {AssetManager} from '../assetManager.js'
 import {ensureBandConfig, createBandEQUI, setupHistogramCanvas, drawHistogram, applyBandConfig, DEFAULT_BAND_CONFIG} from '../audioHistogram.js'
+import {setIconLabel} from '../icons.js'
 
 registerNode({
     slug: 'audioanalyzer',
@@ -186,7 +187,7 @@ registerNode({
             cursor: pointer;
             font-family: monospace;
         `
-        uploadBtn.textContent = '📁 Upload'
+        setIconLabel(uploadBtn, 'upload', 'Upload', 11)
         uploadBtn.onclick = () => this.fileSelectors.input.click()
         uploadBtn.addEventListener('mouseenter', () => {
             uploadBtn.style.background = 'var(--bg-hover)'
@@ -210,7 +211,7 @@ registerNode({
             font-family: monospace;
             display: ${isElectronMode ? 'block' : 'none'};
         `
-        assetBrowserBtn.textContent = '📂 Assets'
+        setIconLabel(assetBrowserBtn, 'folder-open', 'Assets', 11)
         assetBrowserBtn.onclick = async (e) => {
             e.stopPropagation()
             AssetManager.showGlobalAssetManager({
@@ -243,7 +244,7 @@ registerNode({
             font-family: monospace;
             display: none;
         `
-        replaceBtn.textContent = '↻ Replace'
+        setIconLabel(replaceBtn, 'refresh-cw', 'Replace', 11)
         replaceBtn.onclick = () => this.fileSelectors.input.click()
         replaceBtn.addEventListener('mouseenter', () => {
             replaceBtn.style.background = 'var(--bg-hover)'

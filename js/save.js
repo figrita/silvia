@@ -1,5 +1,6 @@
 import {getPatchesFromLocalStorage} from './load.js'
 import {addVersionToPatch, PATCH_VERSION} from './version.js'
+import {iconHtml} from './icons.js'
 
 // Import the regular patches function for saving (to avoid duplication)
 function getRegularPatchesFromLocalStorage(){
@@ -51,8 +52,8 @@ function createSaveModal(){
                         <div class="thumbnail-header">
                             <label>Thumbnail</label>
                             <div class="thumbnail-controls">
-                                <button class="thumb-arrow-btn" data-el="thumbPrevBtn">←</button>
-                                <button class="thumb-arrow-btn" data-el="thumbNextBtn">→</button>
+                                <button class="thumb-arrow-btn" data-el="thumbPrevBtn">${iconHtml('arrow-left', 12)}</button>
+                                <button class="thumb-arrow-btn" data-el="thumbNextBtn">${iconHtml('arrow-right', 12)}</button>
                             </div>
                         </div>
                         <img src="" alt="Patch thumbnail preview" style="display:none;" data-el="patchThumbnailPreviewEl">

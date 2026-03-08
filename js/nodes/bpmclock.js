@@ -1,5 +1,6 @@
 import {registerNode} from '../registry.js'
 import {autowire, StringToFragment} from '../utils.js'
+import {iconHtml} from '../icons.js'
 
 registerNode({
     slug: 'bpmclock',
@@ -167,7 +168,7 @@ registerNode({
                                    subdivision === 1 ? '♩' :
                                    subdivision === 0.5 ? '♪' :
                                    subdivision === 0.25 ? '♬' : '♫'
-            this.elements.displayEl.textContent = `${this.values.bpm} BPM ${subdivisionName} Beat: ${beat} ${this.runtimeState.isRunning ? '▶' : '⏸'}`
+            this.elements.displayEl.innerHTML = `${this.values.bpm} BPM ${subdivisionName} Beat: ${beat} ${this.runtimeState.isRunning ? iconHtml('play', 12) : iconHtml('pause', 12)}`
         }
     },
 

@@ -29,11 +29,14 @@ s-number .s-number-btn {
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    font-weight: bold;
     padding: 4px 6px;
     height: 100%;
     z-index: 1;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
 }
 
 .s-number-btn.s-number-decr {

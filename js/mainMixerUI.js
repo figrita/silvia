@@ -2,6 +2,7 @@ import {mainMixer} from './mainMixer.js'
 import {WorkspaceManager} from './workspaceManager.js'
 import {SNode} from './snode.js'
 import {BackgroundRenderer} from './nodes/_background.js'
+import {iconHtml, setIcon} from './icons.js'
 
 export class MainMixerUI {
     constructor() {
@@ -40,7 +41,7 @@ export class MainMixerUI {
             <div class="mixer-header">
                 <div class="header-spacer"></div>
                 <h3>Main Mixer</h3>
-                <button class="collapse-btn" id="mixer-collapse-btn" title="Collapse panel">▶</button>
+                <button class="collapse-btn" id="mixer-collapse-btn" title="Collapse panel">${iconHtml('chevron-right', 14)}</button>
             </div>
             <div class="panel-collapsed-label" id="mixer-collapsed-label">Main Mixer</div>
             <div class="mixer-content">
@@ -80,7 +81,7 @@ export class MainMixerUI {
                 <div class="projection-section">
                     <div class="projection-header">
                         <h4>Projection</h4>
-                        <button class="projection-info-btn" id="projection-info-btn" title="About projection">?</button>
+                        <button class="projection-info-btn" id="projection-info-btn" title="About projection">${iconHtml('circle-help', 14)}</button>
                     </div>
                     <div class="projection-info" id="projection-info" style="display: none;">
                         <p>The projector opens a separate browser window that displays the final mixed output fullscreen. Place it on a second monitor or projector display.</p>
@@ -303,11 +304,11 @@ export class MainMixerUI {
 
         if (this.isCollapsed) {
             this.panel.classList.add('collapsed')
-            collapseBtn.textContent = '◀'
+            setIcon(collapseBtn, 'chevron-left', 14)
             collapseBtn.title = 'Expand panel'
         } else {
             this.panel.classList.remove('collapsed')
-            collapseBtn.textContent = '▶'
+            setIcon(collapseBtn, 'chevron-right', 14)
             collapseBtn.title = 'Collapse panel'
         }
 

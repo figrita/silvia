@@ -5,6 +5,7 @@ import {updateCropButtonState} from './editor.js'
 import {midiManager} from './midiManager.js'
 import {settings} from './settings.js'
 import {WorkspaceManager} from './workspaceManager.js'
+import {iconHtml} from './icons.js'
 
 const editor = document.getElementById('editor')
 
@@ -919,7 +920,7 @@ export class SNode{
         const menuItems = [
             {
                 label: this.collapsed ? 'Expand' : 'Collapse',
-                icon: this.collapsed ? '▼' : '▲',
+                icon: this.collapsed ? iconHtml('chevron-down', 14) : iconHtml('chevron-up', 14),
                 action: () => {
                     this.toggleCollapsed()
                     // menu.remove() is now handled inside toggleCollapsed()
@@ -927,7 +928,7 @@ export class SNode{
             },
             {
                 label: 'Delete Connections',
-                icon: '✂️',
+                icon: iconHtml('scissors', 14),
                 action: () => {
                     this.deleteAllConnections()
                     menu.remove()
@@ -935,7 +936,7 @@ export class SNode{
             },
             {
                 label: 'Duplicate',
-                icon: '📋',
+                icon: iconHtml('copy', 14),
                 action: () => {
                     this.duplicate()
                     menu.remove()
@@ -943,7 +944,7 @@ export class SNode{
             },
             {
                 label: 'Reset Controls',
-                icon: '🔄',
+                icon: iconHtml('rotate-ccw', 14),
                 action: () => {
                     this.resetControls()
                     menu.remove()
@@ -951,7 +952,7 @@ export class SNode{
             },
             {
                 label: 'Clear MIDI Mappings',
-                icon: '🎹',
+                icon: iconHtml('music', 14),
                 action: () => {
                     this.clearMidiMappings()
                     menu.remove()
@@ -959,7 +960,7 @@ export class SNode{
             },
             {
                 label: 'Delete',
-                icon: '🗑️',
+                icon: iconHtml('trash-2', 14),
                 action: () => {
                     this.destroy()
                     menu.remove()
@@ -1053,7 +1054,7 @@ export class SNode{
         <div class="node-header" data-el="header">
             <div class="node-icon">${this.icon}</div>
             <div class="node-label">${this.label}</div>
-            ${this.tooltip ? `<div class="node-tooltip" data-el="tooltipBtn">?</div>` : ''}
+            ${this.tooltip ? `<div class="node-tooltip" data-el="tooltipBtn">${iconHtml('circle-help', 14)}</div>` : ''}
             <div class="node-close" data-el="close"></div>
         </div>
         <div class="node-inputs">

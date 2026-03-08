@@ -1,5 +1,7 @@
 // AssetManager - Electron-only asset management
 
+import {setIcon, setIconLabel} from './icons.js'
+
 /**
  * Asset management for Electron environment
  */
@@ -179,12 +181,12 @@ export const AssetManager = {
 
             // Upload button (available in both modes)
             const uploadBtn = document.createElement('button')
-            uploadBtn.textContent = '➕ Upload'
+            setIconLabel(uploadBtn, 'plus', 'Upload', 12)
             uploadBtn.className = 'asset-upload-btn'
             headerControls.appendChild(uploadBtn)
 
             const closeBtn = document.createElement('button')
-            closeBtn.textContent = '✕ Close'
+            setIconLabel(closeBtn, 'x', 'Close', 12)
             closeBtn.className = 'asset-close-btn'
             closeBtn.onclick = () => overlay.remove()
             headerControls.appendChild(closeBtn)
@@ -373,7 +375,7 @@ export const AssetManager = {
                 textSpan.textContent = tagText
 
                 const removeBtn = document.createElement('button')
-                removeBtn.textContent = '×'
+                setIcon(removeBtn, 'x', 10)
 
                 removeBtn.onclick = () => {
                     activeFilters.delete(tagText)
@@ -507,7 +509,7 @@ export const AssetManager = {
                     textSpan.textContent = tagText
 
                     const removeBtn = document.createElement('button')
-                    removeBtn.textContent = '×'
+                    setIcon(removeBtn, 'x', 10)
 
                     removeBtn.onclick = () => {
                         currentTags.delete(tagText)
@@ -668,7 +670,7 @@ export const AssetManager = {
 
                             // Add upload button
                             const uploadEmptyBtn = document.createElement('button')
-                            uploadEmptyBtn.textContent = `➕ Upload ${type.charAt(0).toUpperCase() + type.slice(1)}s`
+                            setIconLabel(uploadEmptyBtn, 'plus', `Upload ${type.charAt(0).toUpperCase() + type.slice(1)}s`, 12)
                             uploadEmptyBtn.className = 'asset-empty-upload-btn'
                             uploadEmptyBtn.onclick = () => {
                                 fileInput.accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*'
@@ -734,7 +736,7 @@ export const AssetManager = {
 
                         // Delete button (only in global manager)
                         const deleteBtn = document.createElement('button')
-                        deleteBtn.textContent = '🗑️'
+                        setIcon(deleteBtn, 'trash-2', 14)
                         deleteBtn.className = 'asset-card-delete-btn'
 
                         // Delete button functionality
@@ -764,7 +766,7 @@ export const AssetManager = {
 
                                     // Add upload button
                                     const uploadEmptyBtn = document.createElement('button')
-                                    uploadEmptyBtn.textContent = `➕ Upload ${type.charAt(0).toUpperCase() + type.slice(1)}s`
+                                    setIconLabel(uploadEmptyBtn, 'plus', `Upload ${type.charAt(0).toUpperCase() + type.slice(1)}s`, 12)
                                     uploadEmptyBtn.className = 'asset-empty-upload-btn'
                                     uploadEmptyBtn.onclick = () => {
                                         fileInput.accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*'

@@ -83,14 +83,14 @@
             <button id="workspace-toggle-btn" title="Switch Workspace">Workspace 1</button>
         </div>
         <div id="workspace-controls">
-            <button id="workspace-extend-btn" title="Extend Workspace Width"><span class="ws-ctrl-label">Extend</span><span class="ws-ctrl-icon">↦</span></button>
-            <button id="workspace-crop-btn" title="Crop Workspace Width"><span class="ws-ctrl-label">Crop</span><span class="ws-ctrl-icon">⇤</span></button>
-            <button id="auto-layout-btn" title="Auto-Layout Nodes"><span class="ws-ctrl-label">Layout</span><span class="ws-ctrl-icon">⇉</span></button>
+            <button id="workspace-extend-btn" title="Extend Workspace Width"><span class="ws-ctrl-label">Extend</span><span class="ws-ctrl-icon" data-icon="arrow-right-to-line"></span></button>
+            <button id="workspace-crop-btn" title="Crop Workspace Width"><span class="ws-ctrl-label">Crop</span><span class="ws-ctrl-icon" data-icon="arrow-left-to-line"></span></button>
+            <button id="auto-layout-btn" title="Auto-Layout Nodes"><span class="ws-ctrl-label">Layout</span><span class="ws-ctrl-icon" data-icon="columns-3"></span></button>
         </div>
         <div id="node-root"></div>
         <svg id="connection-root"></svg>
         <div id="app-menu-wrapper">
-            <button id="app-menu-toggle" class="floating-btn"><span class="floating-btn-icon">☰</span><span class="floating-btn-label">Menu</span></button>
+            <button id="app-menu-toggle" class="floating-btn"><span class="floating-btn-icon" data-icon="menu"></span><span class="floating-btn-label">Menu</span></button>
             <div id="app-menu" class="app-menu hidden">
                 <button id="save-patch-btn">Save Patch</button>
                 <button id="load-patch-btn">Load Patch</button>
