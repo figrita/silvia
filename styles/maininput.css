@@ -3,6 +3,7 @@
 /* ===== MAIN INPUT PANEL ===== */
 
 .main-input-panel {
+    box-sizing: border-box;
     grid-column: 1;
     grid-row: 1 / -1;
     height: 100%;

@@ -743,7 +743,7 @@ function showQuickMenuCentered(e){
     const editorWidth = editorRect.width
 
     // Position at top center of editor area (Quake console style)
-    const menuX = Math.max(0, (editorWidth - menuWidth) / 2)
+    const menuX = Math.max(0, editorRect.left + (editorWidth - menuWidth) / 2)
     const menuY = 20  // Small offset from top
 
     quickMenu.style.left = `${menuX}px`
@@ -1026,6 +1026,7 @@ function showStartMenu(){
     hideAllMenus()
     startMenu.style.display = 'flex'
     const btn = document.getElementById('nodes-menu-btn')
+    btn.classList.add('menu-open')
     const btnRect = btn.getBoundingClientRect()
 
     // Position the menu above the button
@@ -1054,8 +1055,10 @@ export function hideAllMenus(){
     ignoreNextMouseUp = false
     
     if(quickMenu){ quickMenu.style.display = 'none' }
-    if(startMenu){ 
-        startMenu.style.display = 'none' 
+    if(startMenu){
+        startMenu.style.display = 'none'
+        const nodesBtn = document.getElementById('nodes-menu-btn')
+        if (nodesBtn) nodesBtn.classList.remove('menu-open')
         
         // Deactivate keyboard navigation
         if (startMenu.keyboardNav) {

@@ -125,7 +125,7 @@ registerNode({
                 + (vec2(h1, h2) - 0.5) * lCellSize * ${jitter};
 
             float copyScale = ${scale} * (1.0 - ${scaleVar} + ${scaleVar} * h5 * 2.0);
-            float halfExtent = baseSize * max(copyScale, 0.01) * 0.5;
+            float halfExtent = 0.2 * max(copyScale, 0.01);
 
             ${overlap ? `// Quick bounding box reject
             if (abs(uv.x - copyCenter.x) > halfExtent * 1.5 ||

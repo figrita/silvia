@@ -36,8 +36,14 @@ import { mainInputUI } from './js/mainInputUI.js'
 
 // Global dirty tracking
 window.isDirty = false
-window.markDirty = () => { window.isDirty = true }
-window.markClean = () => { window.isDirty = false }
+window.markDirty = () => {
+    window.isDirty = true
+    document.getElementById('save-workspaces-btn')?.classList.add('dirty')
+}
+window.markClean = () => {
+    window.isDirty = false
+    document.getElementById('save-workspaces-btn')?.classList.remove('dirty')
+}
 
 // --- Centralized Resize Handler ---
 let resizeRequestPending = false
@@ -65,10 +71,15 @@ function onWindowResize() {
             output.renderer?.onResize()
         }
 
-        // 4. Update the state of the workspace UI controls
+        // 4. Update mixer viewport resolution if tracking editor size
+        if (mainMixer.useViewportResolution) {
+            mainMixer._updateViewportSize()
+        }
+
+        // 5. Update the state of the workspace UI controls
         updateCropButtonState()
 
-        // 5. Allow the next resize event to be scheduled
+        // 6. Allow the next resize event to be scheduled
         resizeRequestPending = false
     })
 }
@@ -251,14 +262,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         const appMenu = document.getElementById('app-menu')
         appMenuToggle.addEventListener('click', () => {
             appMenu.classList.toggle('hidden')
+            appMenuToggle.classList.toggle('menu-open', !appMenu.classList.contains('hidden'))
         })
         document.addEventListener('pointerdown', (e) => {
             if (!appMenu.classList.contains('hidden') && !e.target.closest('#app-menu-wrapper')) {
                 appMenu.classList.add('hidden')
+                appMenuToggle.classList.remove('menu-open')
             }
         })
         appMenu.addEventListener('click', (e) => {
-            if (e.target.closest('button')) appMenu.classList.add('hidden')
+            if (e.target.closest('button')) {
+                appMenu.classList.add('hidden')
+                appMenuToggle.classList.remove('menu-open')
+            }
         })
     }
 
