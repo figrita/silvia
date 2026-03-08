@@ -816,7 +816,20 @@ app.whenReady().then(async () => {
         const win = BrowserWindow.getFocusedWindow()
         if (win) win.webContents.send('menu-click', id)
     }
+    const isMac = process.platform === 'darwin'
     const template = [
+        ...(isMac ? [{
+            label: 'Silvia',
+            submenu: [
+                { role: 'about' },
+                { type: 'separator' },
+                { role: 'hide' },
+                { role: 'hideOthers' },
+                { role: 'unhide' },
+                { type: 'separator' },
+                { role: 'quit' }
+            ]
+        }] : []),
         {
             label: 'File',
             submenu: [
