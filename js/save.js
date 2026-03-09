@@ -1,3 +1,7 @@
+// NOTE: Internal variables use "patch" to mean "serialized .svs file data".
+// User-facing strings say "Save" / "workspace". The IPC layer also uses
+// "patch" (e.g., electronAPI.savePatchFile) to mean file operations.
+
 import {getPatchesFromLocalStorage} from './load.js'
 import {addVersionToPatch, PATCH_VERSION} from './version.js'
 import {iconHtml} from './icons.js'
@@ -62,7 +66,7 @@ function createSaveModal(){
 	<div class="modal-overlay" style="display: none;" data-el="saveModal">
 		<div class="save-modal-window">
 			<div class="save-modal-header">
-				<h2>Save Patch</h2>
+				<h2>Save</h2>
 			</div>
 			<div class="save-modal-tab-bar">
 				<button class="save-tab save-tab-active" data-el="saveTabSaveEl">Save</button>
@@ -78,7 +82,7 @@ function createSaveModal(){
 								<button class="thumb-arrow-btn" data-el="thumbNextBtn">${iconHtml('arrow-right', 12)}</button>
 							</div>
 						</div>
-						<img src="" alt="Patch thumbnail preview" style="display:none;" data-el="patchThumbnailPreviewEl">
+						<img src="" alt="Thumbnail preview" style="display:none;" data-el="patchThumbnailPreviewEl">
 						<p class="help-text" data-el="thumbnailHelpEl"></p>
                         <label class="keep-original-toggle save-as-only" style="display:none;" data-el="keepThumbnailCheckbox">
 						    <input type="checkbox" checked>
@@ -110,9 +114,9 @@ function createSaveModal(){
 					</div>
 					<div class="save-tab-content save-tab-content-hidden" data-el="saveTabContentSaveAs">
 						<div class="form-group">
-							<label>Overwrite Existing Patch</label>
+							<label>Overwrite Existing</label>
 							<select class="slct" data-el="existingPatchSelectEl">
-								<option value="">-- Select a patch --</option>
+								<option value="">-- Select --</option>
 							</select>
 						</div>
 						<div class="form-group">
@@ -160,7 +164,7 @@ function createSaveModal(){
 				<p data-el="saveMessageEl"></p>
 				<div class="form-group" data-el="downloadLinkContainerEl"></div>
 				<div class="form-group">
-					<label>Patch JSON</label>
+					<label>File JSON</label>
 					<textarea rows="5" readonly data-el="patchJsonOutputEl"></textarea>
 				</div>
 			</div>
@@ -213,7 +217,7 @@ export function initSave(){
     } = saveElements)
 
     // Get the static trigger buttons from the main document
-    const saveBtn = document.getElementById('save-patch-btn')
+    const saveBtn = document.getElementById('save-btn')
 
     // --- Attach Event Listeners ---
     saveBtn.addEventListener('click', openSaveModal)
@@ -255,7 +259,7 @@ export function initSave(){
             patchThumbnailPreviewEl.src = selectedExistingPatch.meta.thumbnail
             patchThumbnailPreviewEl.dataset.thumbnailData = selectedExistingPatch.meta.thumbnail
             patchThumbnailPreviewEl.style.display = 'block'
-            thumbnailHelpEl.textContent = 'Using original patch thumbnail.'
+            thumbnailHelpEl.textContent = 'Using original thumbnail.'
             thumbPrevBtn.disabled = true
             thumbNextBtn.disabled = true
         } else {
@@ -308,7 +312,7 @@ function switchSaveTab(tabType){
 }
 
 async function populateExistingPatchesDropdown(){
-    existingPatchSelectEl.innerHTML = '<option value="">-- Select a patch --</option>'
+    existingPatchSelectEl.innerHTML = '<option value="">-- Select --</option>'
     existingPatches = []
     selectedExistingPatch = null
     selectedExistingPatchFile = null
@@ -347,7 +351,7 @@ async function populateExistingPatchesDropdown(){
         const patches = getRegularPatchesFromLocalStorage()
         existingPatches = patches
         patches.forEach((patch, idx) => {
-            const name = patch.meta?.name || `Patch ${idx + 1}`
+            const name = patch.meta?.name || `Workspace ${idx + 1}`
             const option = document.createElement('option')
             option.value = idx
             option.textContent = name
@@ -402,7 +406,7 @@ function handleExistingPatchSelected(){
         patchThumbnailPreviewEl.src = meta.thumbnail
         patchThumbnailPreviewEl.dataset.thumbnailData = meta.thumbnail
         patchThumbnailPreviewEl.style.display = 'block'
-        thumbnailHelpEl.textContent = 'Using original patch thumbnail.'
+        thumbnailHelpEl.textContent = 'Using original thumbnail.'
         thumbPrevBtn.disabled = true
         thumbNextBtn.disabled = true
     } else {
@@ -484,7 +488,7 @@ async function populateSubfolderDropdown(){
     if (!subfolderSelectEl || !window.electronAPI) return
 
     try {
-        // Get existing folders from the patches directory
+        // Get existing folders from the saves directory
         const folders = await window.electronAPI.listPatchFolders()
 
         // Clear existing options except Root
@@ -606,7 +610,7 @@ async function handleSave(){
 
 async function handleSaveNew(){
     if(!patchNameEl.value){
-        alert('Patch name is required.')
+        alert('Name is required.')
         return
     }
 
@@ -615,7 +619,7 @@ async function handleSaveNew(){
     // Check if patch name already exists
     const nameExists = await checkPatchNameExists(patchName)
     if(nameExists){
-        alert('A patch with that name already exists. Please choose a different name.')
+        alert('A file with that name already exists. Please choose a different name.')
         return
     }
 
@@ -628,7 +632,7 @@ async function handleSaveNew(){
     }
     addVersionToPatch(patch) // Add version number
 
-    const safeFilename = patchNameEl.value.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'patch'
+    const safeFilename = patchNameEl.value.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'workspace'
     const patchJsonString = JSON.stringify(patch, null, 2)
 
     // Check if running in Electron mode
@@ -637,26 +641,26 @@ async function handleSaveNew(){
             // Get selected subfolder (empty string means Root)
             const selectedFolder = subfolderSelectEl.value || null
 
-            // Save to workspace patches directory in Electron
+            // Save to saves/ directory in Electron
             const savedPath = await window.electronAPI.savePatchFile(patch, safeFilename, selectedFolder)
 
             // Show feedback for Electron
             try {
                 const workspacePath = await window.electronAPI.getWorkspacePath()
-                const relativePath = savedPath.replace(workspacePath, './patches')
-                saveMessageEl.textContent = `Your patch has been saved to: ${relativePath}`
+                const relativePath = savedPath.replace(workspacePath, './saves')
+                saveMessageEl.textContent = `Saved to: ${relativePath}`
             } catch {
-                saveMessageEl.textContent = `Your patch has been saved to: ${savedPath}`
+                saveMessageEl.textContent = `Saved to: ${savedPath}`
             }
             patchJsonOutputEl.value = patchJsonString
             saveFeedbackEl.style.display = 'block'
 
             // No download link needed in Electron mode
-            downloadLinkContainerEl.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">Patch saved to workspace patches directory.</p>'
+            downloadLinkContainerEl.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">Saved to saves directory.</p>'
 
         } catch (error) {
-            console.error('Failed to save patch file:', error)
-            alert('Failed to save patch file. Please try again.')
+            console.error('Failed to save file:', error)
+            alert('Failed to save file. Please try again.')
             return
         }
     } else {
@@ -664,7 +668,7 @@ async function handleSaveNew(){
         savePatchToLocalStorage(patch)
 
         // Show feedback
-        saveMessageEl.textContent = "Your patch has been saved to your browser's local storage."
+        saveMessageEl.textContent = "Saved to your browser's local storage."
         patchJsonOutputEl.value = patchJsonString
         saveFeedbackEl.style.display = 'block'
 
@@ -679,11 +683,20 @@ async function handleSaveNew(){
         downloadLink.classList.add('patch-download-link')
         downloadLinkContainerEl.appendChild(downloadLink)
     }
+
+    // Rename the active tab to match the saved name (single-workspace saves only)
+    if (!allWorkspacesCheckbox.checked) {
+        const activeWs = WorkspaceManager.getActiveWorkspace()
+        if (activeWs) {
+            WorkspaceManager.rename(activeWs.id, patchNameEl.value)
+            window.workspaceTabBar?.render()
+        }
+    }
 }
 
 async function handleSaveAs(){
     if(!selectedExistingPatch){
-        alert('Please select an existing patch to overwrite.')
+        alert('Please select an existing file to overwrite.')
         return
     }
 
@@ -713,27 +726,27 @@ async function handleSaveAs(){
 
             try {
                 const workspacePath = await window.electronAPI.getWorkspacePath()
-                const relativePath = savedPath.replace(workspacePath, './patches')
-                saveMessageEl.textContent = `Patch overwritten: ${relativePath}`
+                const relativePath = savedPath.replace(workspacePath, './saves')
+                saveMessageEl.textContent = `Overwritten: ${relativePath}`
             } catch {
-                saveMessageEl.textContent = `Patch overwritten: ${savedPath}`
+                saveMessageEl.textContent = `Overwritten: ${savedPath}`
             }
             patchJsonOutputEl.value = patchJsonString
             saveFeedbackEl.style.display = 'block'
-            downloadLinkContainerEl.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">Patch overwritten in workspace.</p>'
+            downloadLinkContainerEl.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">File overwritten.</p>'
         } catch(error){
-            console.error('Failed to overwrite patch file:', error)
-            alert('Failed to overwrite patch file. Please try again.')
+            console.error('Failed to overwrite file:', error)
+            alert('Failed to overwrite file. Please try again.')
         }
     } else {
         overwritePatchInLocalStorage(selectedExistingPatch, patch)
 
-        saveMessageEl.textContent = "Patch overwritten in local storage."
+        saveMessageEl.textContent = "Overwritten in local storage."
         patchJsonOutputEl.value = patchJsonString
         saveFeedbackEl.style.display = 'block'
 
         downloadLinkContainerEl.innerHTML = ''
-        const safeFilename = (patch.meta.name || 'patch').replace(/[^a-z0-9]/gi, '_').toLowerCase()
+        const safeFilename = (patch.meta.name || 'workspace').replace(/[^a-z0-9]/gi, '_').toLowerCase()
         const blob = new Blob([patchJsonString], {type: 'application/json'})
         const url = URL.createObjectURL(blob)
         const downloadLink = document.createElement('a')
@@ -742,6 +755,15 @@ async function handleSaveAs(){
         downloadLink.textContent = `Download ${downloadLink.download}`
         downloadLink.classList.add('patch-download-link')
         downloadLinkContainerEl.appendChild(downloadLink)
+    }
+
+    // Rename the active tab to match the saved name (single-workspace saves only)
+    if (!allWorkspacesCheckbox.checked && patch.meta.name) {
+        const activeWs = WorkspaceManager.getActiveWorkspace()
+        if (activeWs) {
+            WorkspaceManager.rename(activeWs.id, patch.meta.name)
+            window.workspaceTabBar?.render()
+        }
     }
 }
 
@@ -759,7 +781,7 @@ function overwritePatchInLocalStorage(originalPatch, newPatch){
     if(idx >= 0){
         patches[idx] = newPatch
     } else {
-        console.warn('Original patch not found for overwrite, appending instead.')
+        console.warn('Original file not found for overwrite, appending instead.')
         patches.push(newPatch)
     }
 
@@ -767,7 +789,7 @@ function overwritePatchInLocalStorage(originalPatch, newPatch){
         localStorage.setItem('silvia_patches', JSON.stringify(patches))
     } catch(e){
         console.error('Could not overwrite patch in local storage:', e)
-        alert('Error saving patch. Local storage might be full.')
+        alert('Error saving. Local storage might be full.')
     }
 }
 
@@ -940,6 +962,6 @@ function savePatchToLocalStorage(patch){
         localStorage.setItem('silvia_patches', JSON.stringify(patches))
     } catch(e){
         console.error('Could not save patch to local storage:', e)
-        alert('Error saving patch. Local storage might be full.')
+        alert('Error saving. Local storage might be full.')
     }
 }

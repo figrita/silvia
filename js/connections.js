@@ -132,7 +132,6 @@ export class CursorWire{
                 } else {
                     new Connection(this.port, newPort, this.color)
                 }
-                window.markDirty()
                 Connection.redrawAllConnections()
             }
             // Check for convertible types - show menu immediately on release
@@ -498,7 +497,6 @@ export class Connection{
 
                 conn.destination.connection = null
                 Connection.connections.delete(conn)
-                window.markDirty()
             })
 
             this.destination.connection = this.source
@@ -511,9 +509,6 @@ export class Connection{
 
         // Update port border colors to match connection
         this.updatePortColors()
-
-        // Mark workspace as dirty for new connections
-        window.markDirty()
 
         // Only trigger shader recompiles for data connections
         if(this.type !== 'action'){

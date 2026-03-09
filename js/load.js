@@ -1,3 +1,7 @@
+// NOTE: "patch" in this file refers to .svs file data being loaded.
+// User-facing UI says "Open" and "workspace". CSS classes like .patch-card
+// are the file browser card styles. IPC methods use "patch" for file I/O.
+
 import {autowire, StringToFragment} from './utils.js'
 import {SNode} from './snode.js'
 import {Connection} from './connections.js'
@@ -106,11 +110,11 @@ function createLoadModal(){
 		<div class="load-modal-window">
 			<!-- Header -->
 			<div class="load-modal-header">
-				<h2>Load Patch</h2>
+				<h2>Open</h2>
 				<div class="load-modal-header-controls">
 					<label class="load-upload-checkbox">
 						<input type="checkbox" data-el="copyUploadToPatchesCheckbox" checked>
-						Save uploaded patches
+						Save uploaded files
 					</label>
 					<button class="load-upload-btn" data-el="uploadSvsBtn">+ Upload .svs</button>
 				</div>
@@ -121,8 +125,8 @@ function createLoadModal(){
 
 			<!-- Tab Bar -->
 			<div class="load-modal-tab-bar">
-				<button class="load-tab load-tab-active" data-tab="default">Default Patches</button>
-				<button class="load-tab" data-tab="filesystem" data-el="filesystemTab">Your Patches</button>
+				<button class="load-tab load-tab-active" data-tab="default">Examples</button>
+				<button class="load-tab" data-tab="filesystem" data-el="filesystemTab">Your Files</button>
 			</div>
 
 			<!-- Content Area -->
@@ -131,7 +135,7 @@ function createLoadModal(){
 					<!-- Tab content will be populated here -->
 					<div class="load-tab-content" id="default-tab-content">
 						<div class="patch-grid" data-el="defaultsPatchListEl">
-							<p>Loading default patches...</p>
+							<p>Loading examples...</p>
 						</div>
 					</div>
 					<div class="load-tab-content load-tab-content-hidden" id="filesystem-tab-content">
@@ -149,7 +153,7 @@ function createLoadModal(){
 					<span data-el="clearCheckboxLabelEl">Clear this workspace on load</span>
 				</label>
 				<div class="load-modal-actions">
-					<button disabled data-el="loadConfirmBtn" class="load-btn-primary">Load Patch</button>
+					<button disabled data-el="loadConfirmBtn" class="load-btn-primary">Open</button>
 					<button class="load-btn-secondary" data-el="loadCancelBtnFooter">Cancel</button>
 				</div>
 			</div>
@@ -188,7 +192,7 @@ export function initLoad(){
     } = loadElements)
 
 
-    const loadBtn = document.getElementById('load-patch-btn')
+    const loadBtn = document.getElementById('open-btn')
     loadBtn.addEventListener('click', openLoadModal)
     loadCancelBtnFooter.addEventListener('click', () => (loadModal.style.display = 'none'))
 
@@ -284,7 +288,7 @@ function setupFilesystemTab() {
 
     if (typeof window !== 'undefined' && window.electronAPI) {
         // Electron mode: Use filesystem layout with sidebar
-        filesystemTab.innerHTML = 'Filesystem Patches'
+        filesystemTab.innerHTML = 'Filesystem'
 
         filesystemContentContainer.innerHTML = `
             <div class="filesystem-layout">
@@ -300,7 +304,7 @@ function setupFilesystemTab() {
                 </div>
                 <div class="filesystem-content">
                     <div class="patch-grid" data-el="localPatchListEl">
-                        <p>Loading your patches...</p>
+                        <p>Loading your files...</p>
                     </div>
                 </div>
             </div>
@@ -311,7 +315,7 @@ function setupFilesystemTab() {
 
         filesystemContentContainer.innerHTML = `
             <div class="patch-grid" data-el="localPatchListEl">
-                <p>Loading your patches...</p>
+                <p>Loading your workspaces...</p>
             </div>
         `
     }
@@ -367,7 +371,7 @@ function handleFileUpload(event){
 
             loadModal.style.display = 'none'
         } catch(error){
-            alert('Failed to parse file. Is it a valid .svs patch file?')
+            alert('Failed to parse file. Is it a valid .svs file?')
             console.error('File parsing error:', error)
         }
     }
@@ -385,7 +389,7 @@ async function populateLoadModal(){
         localPatchListEl.innerHTML = ''
     }
     if(defaultsPatchListEl) {
-        defaultsPatchListEl.innerHTML = '<p>Loading default patches...</p>'
+        defaultsPatchListEl.innerHTML = '<p>Loading examples...</p>'
     }
 
     // Check if running in Electron mode
@@ -401,7 +405,7 @@ async function populateLoadModal(){
             if(folderListEl) {
                 folderListEl.innerHTML = '<p>Failed to load folders.</p>'
             }
-            localPatchListEl.innerHTML = '<p>Failed to load patches from workspace.</p>'
+            localPatchListEl.innerHTML = '<p>Failed to load files.</p>'
         }
     } else {
         // Web mode: Load all patches from localStorage in simple grid
@@ -409,7 +413,7 @@ async function populateLoadModal(){
             const allPatches = getPatchesFromLocalStorage()
 
             if(allPatches.length === 0){
-                localPatchListEl.innerHTML = '<p>No patches saved in local storage.</p>'
+                localPatchListEl.innerHTML = '<p>No saved workspaces in local storage.</p>'
             } else {
                 localPatchListEl.innerHTML = ''
                 // Add all patches (workspace restores and regular patches)
@@ -420,7 +424,7 @@ async function populateLoadModal(){
             }
         } catch (error) {
             console.error('Failed to load patches from local storage:', error)
-            localPatchListEl.innerHTML = '<p>Failed to load patches from local storage.</p>'
+            localPatchListEl.innerHTML = '<p>Failed to load workspaces from local storage.</p>'
         }
     }
 
@@ -448,7 +452,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
     if (meta.thumbnail && meta.thumbnail.trim() !== '') {
         const img = document.createElement('img')
         img.src = meta.thumbnail
-        img.alt = 'Patch thumbnail'
+        img.alt = 'Thumbnail'
         img.onerror = () => {
             previewDiv.innerHTML = '<div class="no-thumbnail">No preview</div>'
         }
@@ -470,10 +474,10 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
         <div class="patch-card-description">${patchDescription}</div>
         ${patchFile ? `<div class="patch-card-meta">${modifiedDate} · ${fileSize}</div>` : ''}
         <div class="patch-card-actions">
-            <button class="patch-load-btn" title="Load patch">Load</button>
-            <button class="patch-new-ws-btn" title="Load as new workspace">+New</button>
+            <button class="patch-load-btn" title="Open">Open</button>
+            <button class="patch-new-ws-btn" title="Open as new workspace">+New</button>
             <button class="patch-download-btn" title="Download .svs file">↓</button>
-            ${isDefaultPatch ? '' : `<button class="patch-delete-btn" title="Delete patch">×</button>`}
+            ${isDefaultPatch ? '' : `<button class="patch-delete-btn" title="Delete">×</button>`}
         </div>
     `
 
@@ -539,11 +543,11 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
                         if (success) {
                             populateLoadModal() // Refresh the list
                         } else {
-                            alert('Failed to delete patch file.')
+                            alert('Failed to delete file.')
                         }
                     } catch (error) {
                         console.error('Failed to delete patch file:', error)
-                        alert('Failed to delete patch file.')
+                        alert('Failed to delete file.')
                     }
                 } else {
                     // Web mode: delete from localStorage
@@ -637,7 +641,6 @@ function loadPatchAsNewWorkspace(patchData) {
             alert(`Imported with ${errors.length} errors. Check console.`)
         }
 
-        window.markDirty?.()
         window.workspaceTabBar?.render()
 
     } catch (error) {
@@ -730,10 +733,8 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
         SNode.nodes.forEach(node => node.updatePortPoints())
         Connection.redrawAllConnections()
 
-        if (isCompound) {
-            window.markDirty?.()
-            window.workspaceTabBar?.render()
-        }
+        // Re-render tab bar to reflect name changes and new workspaces
+        window.workspaceTabBar?.render()
 
         // Report results
         if (errors.length > 0) {
@@ -786,6 +787,10 @@ function buildWorkspaceIdMap(patchData, shouldClearWorkspace) {
         // Legacy patch with no workspace data - use active workspace
         if (activeWs) {
             idMap.set(1, activeWs.id)
+            // Rename active tab to the loaded file's name
+            if (shouldClearWorkspace && patchData.meta?.name) {
+                WorkspaceManager.rename(activeWs.id, patchData.meta.name)
+            }
         }
     }
 
@@ -900,7 +905,7 @@ async function loadDefaultPatches(){
         populateDefaultPatches(patches)
     } catch(error){
         console.warn('Could not load default patches:', error)
-        defaultsPatchListEl.innerHTML = '<p>Could not load default patches.</p>'
+        defaultsPatchListEl.innerHTML = '<p>Could not load examples.</p>'
     }
 }
 
@@ -910,7 +915,7 @@ function populateDefaultPatches(patches){
     }
 
     if(!patches || patches.length === 0){
-        defaultsPatchListEl.innerHTML = '<p>No default patches available.</p>'
+        defaultsPatchListEl.innerHTML = '<p>No examples available.</p>'
         return
     }
 
@@ -951,7 +956,7 @@ async function loadPatchFolders(){
         allFolders.push(...subfolderData)
 
         if (allFolders.length === 0) {
-            folderListEl.innerHTML = '<p style="padding: 8px; color: var(--text-muted); font-size: 11px;">No patch folders found.</p>'
+            folderListEl.innerHTML = '<p style="padding: 8px; color: var(--text-muted); font-size: 11px;">No folders found.</p>'
             return
         }
 
@@ -1006,7 +1011,7 @@ async function loadPatchesForFolder(folderName) {
 
         if (patchFiles.length === 0) {
             const folderDisplayName = folderName === null ? 'Root' : folderName
-            localPatchListEl.innerHTML = `<p>No patches found in ${folderDisplayName}.</p>`
+            localPatchListEl.innerHTML = `<p>No files found in ${folderDisplayName}.</p>`
             return
         }
 
@@ -1017,6 +1022,6 @@ async function loadPatchesForFolder(folderName) {
         })
     } catch (error) {
         console.error('Failed to load patches for folder:', error)
-        localPatchListEl.innerHTML = '<p>Failed to load patches.</p>'
+        localPatchListEl.innerHTML = '<p>Failed to load files.</p>'
     }
 }

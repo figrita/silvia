@@ -1,4 +1,6 @@
-/* styles/patches.css - Patch browser and management UI */
+/* styles/patches.css - File browser UI for load/save modals.
+   "patch" in class names = .svs file cards/buttons, not the workspace concept.
+   See workspaceManager.js for the terminology guide. */
 
 /* ===== LOAD MODAL SPECIFIC STYLES ===== */
 .load-modal-content {

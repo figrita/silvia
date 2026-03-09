@@ -4,7 +4,7 @@ registerNode({
     slug: 'note',
     icon: '📝',
     label: 'Note',
-    tooltip: 'Just a way to add comments to a patch :^)',
+    tooltip: 'Just a way to add comments to a workspace :^)',
     input: {},
     output: {},
     

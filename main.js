@@ -35,16 +35,6 @@ import { mainInput } from './js/mainInput.js'
 import { mainInputUI } from './js/mainInputUI.js'
 import { initIcons } from './js/icons.js'
 
-// Global dirty tracking
-window.isDirty = false
-window.markDirty = () => {
-    window.isDirty = true
-    document.getElementById('save-workspaces-btn')?.classList.add('dirty')
-}
-window.markClean = () => {
-    window.isDirty = false
-    document.getElementById('save-workspaces-btn')?.classList.remove('dirty')
-}
 
 // --- Centralized Resize Handler ---
 let resizeRequestPending = false
@@ -137,7 +127,6 @@ async function saveSession() {
             localStorage.setItem(SESSION_STORAGE_KEY, sessionJson)
         }
 
-        window.markClean()
         return true
     } catch (e) {
         console.error('Could not save session:', e)
@@ -200,7 +189,6 @@ async function loadSession() {
             }
 
             SNode.updateVisibility()
-            window.markClean()
             return true
         }
     } catch (e) {
@@ -287,29 +275,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.workspaceTabBar = workspaceTabBar // Expose for load.js
 
     // Setup save workspaces button
-    const saveWorkspacesBtn = document.getElementById('save-workspaces-btn')
-    if (saveWorkspacesBtn) {
+    const saveSessionBtn = document.getElementById('save-session-btn')
+    if (saveSessionBtn) {
 
-        saveWorkspacesBtn.addEventListener('click', async () => {
+        saveSessionBtn.addEventListener('click', async () => {
             // Add saving state with smooth visual feedback
-            saveWorkspacesBtn.disabled = true
-            saveWorkspacesBtn.classList.add('saving')
+            saveSessionBtn.disabled = true
+            saveSessionBtn.classList.add('saving')
 
             const success = await saveAllWorkspaces()
 
             // Remove saving state and show result
-            saveWorkspacesBtn.classList.remove('saving')
+            saveSessionBtn.classList.remove('saving')
             if (success) {
-                saveWorkspacesBtn.classList.add('saved')
+                saveSessionBtn.classList.add('saved')
                 setTimeout(() => {
-                    saveWorkspacesBtn.classList.remove('saved')
-                    saveWorkspacesBtn.disabled = false
+                    saveSessionBtn.classList.remove('saved')
+                    saveSessionBtn.disabled = false
                 }, 1500)
             } else {
-                saveWorkspacesBtn.classList.add('failed')
+                saveSessionBtn.classList.add('failed')
                 setTimeout(() => {
-                    saveWorkspacesBtn.classList.remove('failed')
-                    saveWorkspacesBtn.disabled = false
+                    saveSessionBtn.classList.remove('failed')
+                    saveSessionBtn.disabled = false
                 }, 1500)
             }
         })
@@ -424,15 +412,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             ],
             "editorWidth": 1653,
             "meta": {
-                "name": "Example Patch",
+                "name": "Example",
                 "author": "Silvia",
-                "description": "A simple patch to get you started!"
+                "description": "A simple workspace to get you started!"
             },
             "version": getCurrentVersion()
         }
 
         deserializeWorkspace(patch)
-        window.markClean()
     }
 
     // Ensure initial workspace/layer visibility is correct
@@ -520,22 +507,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     })
 
-    // 12. Add global dirty tracking for control changes
-    document.addEventListener('input', (e) => {
-        // Only track changes to node controls, not interface elements
-        if (e.target.closest('.node-input') || e.target.closest('.node-options')) {
-            window.markDirty()
-        }
-    })
-
-    document.addEventListener('change', (e) => {
-        // Only track changes to node controls, not interface elements
-        if (e.target.closest('.node-input') || e.target.closest('.node-options')) {
-            window.markDirty()
-        }
-    })
-
-    // 13. Initialize asset manager (Electron only)
+    // 12. Initialize asset manager (Electron only)
     if (isElectronMode) {
 
         const assetManagerBtn = document.getElementById('asset-manager-btn')
@@ -550,124 +522,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (window.electronAPI && window.electronAPI.onOpenPatchFile) {
             window.electronAPI.onOpenPatchFile(async (filePath) => {
                 try {
-                    console.log(`Opening patch file from: ${filePath}`)
+                    console.log(`Opening file: ${filePath}`)
                     const patchData = await window.electronAPI.loadPatchFromPath(filePath)
                     deserializeWorkspace(patchData)
-                    console.log(`Successfully loaded patch: ${filePath}`)
+                    console.log(`Successfully loaded: ${filePath}`)
                 } catch (error) {
-                    console.error('Failed to open patch file:', error)
-                    alert(`Failed to open patch file: ${error.message}`)
+                    console.error('Failed to open file:', error)
+                    alert(`Failed to open file: ${error.message}`)
                 }
             })
         }
     }
 
 
-    function createCloseConfirmationModal() {
-        const html = `
-        <div class="modal-overlay" id="close-confirmation-modal" style="display: none;">
-            <div class="modal-content close-confirmation-content">
-                <h2>⚠️ Unsaved Changes</h2>
-                <div class="close-warning-content">
-                    <p>You have unsaved changes that will be lost if you close now.</p>
-                    <div class="close-warning-details">
-                        <p><strong>Current Workspace:</strong> <span id="close-current-workspace"></span></p>
-                    </div>
-                    <p class="close-warning-advice">The save button will save all workspaces. You can also use <kbd>Ctrl+Shift+S</kbd></p>
-                </div>
-                <div class="modal-actions">
-                    <button id="close-confirm-save-btn" class="save-and-close-btn">💾 Save & Close</button>
-                    <button id="close-confirm-leave-btn" class="leave-anyway-btn">Leave Anyway</button>
-                    <button id="close-confirm-stay-btn" class="cancel-btn">Stay & Continue Working</button>
-                </div>
-            </div>
-        </div>`
-
-        document.getElementById('modal-container').insertAdjacentHTML('beforeend', html)
-
-        const modal = document.getElementById('close-confirmation-modal')
-        const saveBtn = document.getElementById('close-confirm-save-btn')
-        const leaveBtn = document.getElementById('close-confirm-leave-btn')
-        const stayBtn = document.getElementById('close-confirm-stay-btn')
-
-        return { modal, saveBtn, leaveBtn, stayBtn }
-    }
-
-    // Make this function globally available for Electron
-    window.showCloseConfirmation = async function showCloseConfirmation() {
-        if (!window.isDirty) {
-            return true // No warning needed, allow close
-        }
-
-        const { modal, saveBtn, leaveBtn, stayBtn } = createCloseConfirmationModal()
-
-        // Populate modal content
-        const workspaceEl = document.getElementById('close-current-workspace')
-        const ws = WorkspaceManager.getActiveWorkspace()
-        workspaceEl.textContent = ws?.name || 'Workspace'
-
-        modal.style.display = 'flex'
-
-        return new Promise((resolve) => {
-            const cleanup = () => {
-                modal.remove()
-            }
-
-            saveBtn.onclick = async () => {
-                cleanup()
-                // Save and then close
-                const saved = await saveAllWorkspaces()
-                if (saved) {
-                    resolve(true) // Allow close after successful save
-                } else {
-                    // If save failed, ask again
-                    const retryClose = await showCloseConfirmation()
-                    resolve(retryClose)
-                }
-            }
-
-            leaveBtn.onclick = () => {
-                cleanup()
-                resolve(true) // Allow close without saving
-            }
-
-            stayBtn.onclick = () => {
-                cleanup()
-                resolve(false) // Stay open
-            }
-
-            // Close on escape
-            const escapeHandler = (e) => {
-                if (e.key === 'Escape') {
-                    stayBtn.click()
-                    document.removeEventListener('keydown', escapeHandler)
-                }
-            }
-            document.addEventListener('keydown', escapeHandler)
-        })
-    }
-
-    // For web browsers, still use beforeunload for page navigation
-    function handleBeforeUnload(e) {
-        if (window.isDirty && !window.electronAPI) {
-            // Only show generic browser warning for web
-            e.preventDefault()
-            e.returnValue = 'You have unsaved changes.'
-            return 'You have unsaved changes.'
-        }
-    }
-
-    if (!window.electronAPI) {
-        // Web mode: use standard beforeunload
-        window.addEventListener('beforeunload', handleBeforeUnload)
-        window.onbeforeunload = handleBeforeUnload
-    }
 
     // Add keyboard shortcut for saving all workspaces (Ctrl/Cmd + Shift + S)
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
             e.preventDefault()
-            saveWorkspacesBtn?.click() // Trigger the save workspaces button
+            saveSessionBtn?.click() // Trigger the save session button
         }
     })
 })

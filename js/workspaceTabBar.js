@@ -46,7 +46,7 @@ class WorkspaceTabBar {
             this.containerEl.innerHTML = `
                 <div class="workspace-tab-bar">
                     <div class="workspace-tabs-container"></div>
-                    <button class="workspace-tab-add" title="New Workspace"><span class="floating-btn-label">Add Tab</span><span class="floating-btn-icon">${iconHtml('plus', 14)}</span></button>
+                    <button class="workspace-tab-add" title="New Workspace"><span class="floating-btn-label">New Workspace</span><span class="floating-btn-icon">${iconHtml('plus', 14)}</span></button>
                 </div>
             `
             this.tabBarEl = this.containerEl.firstElementChild
@@ -59,7 +59,7 @@ class WorkspaceTabBar {
         WorkspaceManager.getAll().forEach(ws => {
             const isActive = WorkspaceManager.activeWorkspaceId === ws.id
             this.tabsContainer.insertAdjacentHTML('beforeend',
-                `<div class="workspace-tab ${isActive ? 'active' : ''}" data-workspace-id="${ws.id}">
+                `<div class="workspace-tab${isActive ? ' active' : ''}" data-workspace-id="${ws.id}">
                     <span class="workspace-tab-name">${ws.name}</span>
                 </div>`
             )
@@ -102,14 +102,12 @@ class WorkspaceTabBar {
         WorkspaceManager.setActive(workspaceId)
         SNode.updateVisibility()
         this.render()
-        window.markDirty()
     }
 
     createNewWorkspace() {
         const workspace = WorkspaceManager.create()
         SNode.updateVisibility()
         this.render()
-        window.markDirty()
         const tab = this.tabBarEl.querySelector(`[data-workspace-id="${workspace.id}"]`)
         if (tab) this.startRenaming(tab)
     }
@@ -133,7 +131,6 @@ class WorkspaceTabBar {
                 mainMixerUI.updateChannelStatus('A', mainMixer.channelA)
                 mainMixerUI.updateChannelStatus('B', mainMixer.channelB)
                 Connection.redrawAllConnections()
-                window.markDirty()
             } else {
                 nameEl.textContent = workspace.name
             }
@@ -232,7 +229,6 @@ class WorkspaceTabBar {
         mainMixerUI.updateChannelStatus('A', mainMixer.channelA)
         mainMixerUI.updateChannelStatus('B', mainMixer.channelB)
         this.render()
-        window.markDirty()
     }
 }
 

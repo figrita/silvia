@@ -1,8 +1,9 @@
 /**
- * Centralized version tracking for Silvia patch format
+ * Centralized version tracking for the Silvia .svs file format.
  *
- * This module provides a single source of truth for the patch format version
- * used in serialization and deserialization across the application.
+ * PATCH_VERSION = the .svs file format version.
+ * "Patch" here means the serialized file format, not a UI concept.
+ * The user-facing term is "workspace".
  */
 
 /**

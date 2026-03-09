@@ -251,7 +251,6 @@ export class MainMixerUI {
                 WorkspaceManager.setActive(wsId)
                 SNode.updateVisibility()
                 document.dispatchEvent(new CustomEvent('workspace-switched'))
-                window.markDirty()
             }
         } else {
             statusElement.classList.remove('clickable')
