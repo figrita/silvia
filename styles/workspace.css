@@ -65,7 +65,7 @@
 /* ===== WORKSPACE CONTROLS ===== */
 #workspace-controls {
     position: fixed;
-    bottom: 8px;
+    bottom: 12px;
     right: calc(var(--panel-right-width, 0px) + 8px);
     z-index: 1001;
     display: flex;
