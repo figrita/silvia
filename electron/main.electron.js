@@ -38,7 +38,9 @@ async function ensureDirectories() {
         await fs.mkdir(path.join(wsPath, 'assets', 'images'), { recursive: true })
         await fs.mkdir(path.join(wsPath, 'assets', 'videos'), { recursive: true })
         await fs.mkdir(path.join(wsPath, 'assets', 'audio'), { recursive: true })
-        await fs.mkdir(path.join(wsPath, 'patches'), { recursive: true })
+
+        await fs.mkdir(path.join(wsPath, 'saves'), { recursive: true })
+
         return true
     } catch (error) {
         console.error('Error creating directories:', error)
@@ -186,34 +188,6 @@ function createWindow() {
     win.once('ready-to-show', () => {
         win.maximize()
         win.show()
-    })
-
-    // Handle window close with custom confirmation modal
-    win.on('close', async (event) => {
-        // Prevent close initially to check for unsaved changes
-        event.preventDefault()
-
-        try {
-            // Ask renderer to show custom modal and wait for user decision
-            const shouldClose = await win.webContents.executeJavaScript(`
-                (async () => {
-                    if (typeof showCloseConfirmation === 'function') {
-                        return await showCloseConfirmation();
-                    }
-                    return true; // Fallback: allow close if function not available
-                })()
-            `)
-
-            if (shouldClose) {
-                // Remove this listener to prevent infinite loop and close
-                win.removeAllListeners('close')
-                win.close()
-            }
-            // If shouldClose is false, do nothing - window stays open
-        } catch (error) {
-            console.warn('Error checking close confirmation:', error)
-            // On error, don't close to be safe
-        }
     })
 
     // Optional: Open the DevTools for debugging.
@@ -484,7 +458,7 @@ ipcMain.handle('save-patch-file', async (event, patchData, filename, folderName 
         const wsPath = getWorkspacePath()
         await ensureDirectories()
 
-        let patchesDir = path.join(wsPath, 'patches')
+        let patchesDir = path.join(wsPath, 'saves')
 
         // If a folder is specified, create subdirectory path
         if (folderName && folderName.trim() !== '') {
@@ -514,7 +488,7 @@ ipcMain.handle('save-patch-file', async (event, patchData, filename, folderName 
 ipcMain.handle('list-patch-files', async (event, folderName = null) => {
     try {
         const wsPath = getWorkspacePath()
-        const patchesDir = path.join(wsPath, 'patches')
+        const patchesDir = path.join(wsPath, 'saves')
 
         try {
             if (folderName === null) {
@@ -652,7 +626,7 @@ ipcMain.handle('list-patch-files', async (event, folderName = null) => {
 ipcMain.handle('list-patch-folders', async (event) => {
     try {
         const wsPath = getWorkspacePath()
-        const patchesDir = path.join(wsPath, 'patches')
+        const patchesDir = path.join(wsPath, 'saves')
 
         try {
             const items = await fs.readdir(patchesDir, { withFileTypes: true })
@@ -715,7 +689,7 @@ ipcMain.handle('load-patch-file', async (event, filename) => {
     try {
         const wsPath = getWorkspacePath()
         
-        const patchPath = path.join(wsPath, 'patches', filename)
+        const patchPath = path.join(wsPath, 'saves', filename)
         const content = await fs.readFile(patchPath, 'utf8')
         const patchData = JSON.parse(content)
         
@@ -731,7 +705,7 @@ ipcMain.handle('delete-patch-file', async (event, filename) => {
     try {
         const wsPath = getWorkspacePath()
         
-        const patchPath = path.join(wsPath, 'patches', filename)
+        const patchPath = path.join(wsPath, 'saves', filename)
         await fs.unlink(patchPath)
         console.log(`Patch deleted: ${patchPath}`)
         return true
@@ -833,9 +807,9 @@ app.whenReady().then(async () => {
         {
             label: 'File',
             submenu: [
-                { label: 'Save Patch', click: () => sendMenuClick('save-patch-btn') },
-                { label: 'Load Patch', click: () => sendMenuClick('load-patch-btn') },
-                { label: 'Save Workspaces', click: () => sendMenuClick('save-workspaces-btn') },
+                { label: 'Save...', click: () => sendMenuClick('save-btn') },
+                { label: 'Open...', click: () => sendMenuClick('open-btn') },
+                { label: 'Save', click: () => sendMenuClick('save-session-btn') },
                 { type: 'separator' },
                 { label: 'Assets', click: () => sendMenuClick('asset-manager-btn') },
                 { label: 'Settings', click: () => sendMenuClick('settings-btn') },

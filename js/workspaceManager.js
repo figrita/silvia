@@ -5,6 +5,14 @@
  * - Workspaces are independent (no hierarchy)
  * - A node can be visible on multiple workspaces simultaneously
  * - activeWorkspaceId tracks the currently selected workspace
+ *
+ * TERMINOLOGY GUIDE:
+ * - "Workspace" = a tab in the UI; the container users work in (user-facing term)
+ * - "Patch" in code = a saved .svs file (legacy term from before the tab refactor).
+ *   In the save/load code, "patch" variables refer to serialized file data.
+ * - "Session" = the full app state across all workspaces (auto-saved on Ctrl+Shift+S)
+ * - IPC methods like savePatchFile/listPatchFiles deal with .svs file I/O
+ *   ("patch" in IPC = file on disk, not a UI concept)
  */
 
 import { PATCH_VERSION } from './version.js'

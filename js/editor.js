@@ -131,11 +131,6 @@ export function clearWorkspace(){
     Connection.redrawAllConnections()
 
     updateCropButtonState()
-
-    // Mark workspace as dirty since clearing is a significant change
-    if (window.markDirty) {
-        window.markDirty()
-    }
 }
 
 // Initialize everything on DOM load

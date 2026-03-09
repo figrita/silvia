@@ -31,7 +31,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
     showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
     
-    // Patch file management APIs
+    // .svs file management APIs
+    // NOTE: Methods use "Patch" to mean .svs file operations (legacy naming).
+    // "Workspace" in getWorkspacePath/createWorkspace = Electron app data directory.
     savePatchFile: (patchData, filename, folderName) => ipcRenderer.invoke('save-patch-file', patchData, filename, folderName),
     listPatchFiles: (folderName) => ipcRenderer.invoke('list-patch-files', folderName),
     listPatchFolders: () => ipcRenderer.invoke('list-patch-folders'),

@@ -324,9 +324,9 @@ export function initSettings(){
     
     if(clearMidiBtn){
         clearMidiBtn.addEventListener('click', () => {
-            if(confirm('Clear all MIDI mappings from current patch? This cannot be undone.')){
+            if(confirm('Clear all MIDI mappings? This cannot be undone.')){
                 midiManager.clearAllMappings()
-                alert('All MIDI mappings have been cleared from the current patch.')
+                alert('All MIDI mappings have been cleared.')
             }
         })
     }

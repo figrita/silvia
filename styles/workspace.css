@@ -29,23 +29,18 @@
     background: var(--bg-active);
 }
 
-/* ===== SAVE WORKSPACES BUTTON STATES ===== */
+/* ===== SAVE SESSION BUTTON STATES ===== */
 
-#save-workspaces-btn.dirty {
-  border-left: 2px dotted var(--bg-interactive);
-  margin-left: -2px;
-}
-
-#save-workspaces-btn.saving {
+#save-session-btn.saving {
     background: var(--primary-color);
     animation: pulse-bright 1.5s ease-in-out infinite;
 }
 
-#save-workspaces-btn.saved {
+#save-session-btn.saved {
     background: var(--primary-light);
 }
 
-#save-workspaces-btn.failed {
+#save-session-btn.failed {
     background: var(--error-color);
     color: var(--text-primary);
 }
@@ -234,6 +229,8 @@
     background: hsl(var(--theme-hue), var(--theme-sat-high), 25%);
     color: white;
 }
+
+
 
 /* Add workspace/layer button */
 .workspace-tab-add {

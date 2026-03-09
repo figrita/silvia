@@ -14,7 +14,7 @@ function createHowtoModal(){
                 <h3>Core Concepts</h3>
                 <ul>
                     <li><span><strong>Nodes:</strong> Each box is a "node" that performs a specific task, like generating a pattern, applying a filter, or getting input from a webcam.</span></li>
-                    <li><span><strong>Ports:</strong> The dots on the sides of nodes are ports. Outputs are on the right, inputs are on the left. You connect them to build your visual "patch".</span></li>
+                    <li><span><strong>Ports:</strong> The dots on the sides of nodes are ports. Outputs are on the right, inputs are on the left. You connect them to build your visual scene.</span></li>
                     <li><span><strong>Connections:</strong> Click and drag from a port to another compatible port to create a connection.</span></li>
                     <li><span><strong>The Output Node:</strong> This is the most important node! It takes a color connection and runs everything on your GPU! Happy hacking :^)</span></li>
                     <li><span><strong>Coordinate System:</strong> Silvia uses a square coordinate system centered at (0,0). The edges extend from -1 to +1 in both X and Y directions. Think of it like a graph where the center is the origin, left edge is X=-1, right edge is X=+1, bottom is Y=-1, and top is Y=+1. This consistent coordinate system ensures patterns look the same regardless of your screen size.</span></li>
@@ -54,13 +54,13 @@ function createHowtoModal(){
                 <h3>Workspace Management</h3>
                 <div class="howto-controls-grid">
                     <div><strong>Ctrl+T</strong></div>
-                    <div>Create a new workspace tab.</div>
+                    <div>Create a new workspace.</div>
 
                     <div><strong>Ctrl+1-9</strong></div>
                     <div>Switch to workspace 1 through 9.</div>
 
                     <div><strong>Ctrl+Shift+S</strong></div>
-                    <div>Save all workspaces to file.</div>
+                    <div>Save session.</div>
 
                     <div><strong>Double-click Tab</strong></div>
                     <div>Rename the workspace.</div>
@@ -210,7 +210,7 @@ function createHowtoModal(){
                     <li><span><strong>CC Mapping:</strong> Number controls can be mapped to MIDI CC (continuous controller) messages from knobs and faders.</span></li>
                     <li><span><strong>Note Mapping:</strong> Action buttons can be mapped to MIDI notes from keys or pads.</span></li>
                     <li><span><strong>Visual Feedback:</strong> Mapped controls show a dot indicator. Controls flash when triggered via MIDI.</span></li>
-                    <li><span><strong>Persistence:</strong> MIDI mappings are saved automatically and restore when you reload patches.</span></li>
+                    <li><span><strong>Persistence:</strong> MIDI mappings are saved automatically and restore when you reload workspaces.</span></li>
                     <li><span><strong>Settings:</strong> View connected MIDI devices and clear mappings in the Settings panel.</span></li>
                 </ul>
             </div>
@@ -227,7 +227,7 @@ function createHowtoModal(){
                 <ul>
                     <li><span><strong>Background Rendering:</strong> On an <strong>Output</strong> node, click the <code class="howto-code">show</code> button in its header to make its result the live background for the whole application.</span></li>
                     <li><span><strong>Projector Window:</strong> After showing an output on the background, click the <strong>Projector</strong> button in the bottom-left to open a clean, fullscreen version of your output on a second monitor (if you have one). Great for VJing!</span></li>
-                    <li><span><strong>Saving & Loading:</strong> Use the <strong>Save</strong> and <strong>Load</strong> buttons to manage your patches. You can save to your browser's local storage or download a <code>.svs</code> file to share.</span></li>
+                    <li><span><strong>Saving & Loading:</strong> Use the <strong>Save</strong> and <strong>Open</strong> buttons to manage your workspaces. You can save to your browser's local storage or download a <code>.svs</code> file to share.</span></li>
                     <li><span><strong>Workspace Organization:</strong> Use workspaces to organize different scenes or effect chains. Each tab can hold a separate arrangement of nodes, making it easy to switch between setups during a performance.</span></li>
                     <li><span><strong>Rasterize Before Multi-Sample Nodes:</strong> Place an <strong>Output</strong> node before multi-sample nodes (blur, bloom, etc.) to rasterize to a framebuffer. This avoids multiplying the upstream shader graph and can dramatically improve performance.</span></li>
                 </ul>

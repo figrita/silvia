@@ -236,17 +236,17 @@ export class SNode{
             })
         }
 
-        // Preserve original defaults before patch merge
+        // Preserve original defaults before merging saved file data
         if(this.values){
             this.defaults = {...this.values}
         }
 
-        // Merge patch data values over defaults (required before createElement/onCreate)
+        // Merge saved values from .svs file over defaults (required before createElement/onCreate)
         if(nodeData?.values && this.values){
             Object.assign(this.values, nodeData.values)
         }
         
-        // Restore collapsed state from patch data
+        // Restore collapsed state from saved file data
         if(nodeData?.collapsed){
             this.collapsed = nodeData.collapsed
         }
@@ -254,7 +254,7 @@ export class SNode{
         // Create the node's DOM elements
         this.createElement(X, Y, nodeData)
         SNode.nodes.add(this)
-        window.markDirty()
+
         
         // Cache port DOM elements for performance
         mapJoin(this.output, (output, key) => {
@@ -603,7 +603,7 @@ export class SNode{
         this.destroyAllConnections()
         this.nodeEl.remove()
         SNode.nodes.delete(this)
-        window.markDirty()
+
 
         // After removing a node, the min width might have changed
         updateCropButtonState()
@@ -808,14 +808,14 @@ export class SNode{
             // Don't allow removing from all workspaces
             if (this.workspaceVisibility.size > 1) {
                 this.workspaceVisibility.delete(workspaceId)
-                window.markDirty()
+        
                 document.dispatchEvent(new CustomEvent('workspace-visibility-changed'))
                 return true
             }
             return false
         } else {
             this.workspaceVisibility.add(workspaceId)
-            window.markDirty()
+    
             document.dispatchEvent(new CustomEvent('workspace-visibility-changed'))
             return true
         }
@@ -827,7 +827,7 @@ export class SNode{
      */
     addToWorkspace(workspaceId) {
         this.workspaceVisibility.add(workspaceId)
-        window.markDirty()
+
         document.dispatchEvent(new CustomEvent('workspace-visibility-changed'))
     }
 
@@ -840,7 +840,7 @@ export class SNode{
     removeFromWorkspace(workspaceId) {
         if (this.workspaceVisibility.size > 1) {
             this.workspaceVisibility.delete(workspaceId)
-            window.markDirty()
+    
             document.dispatchEvent(new CustomEvent('workspace-visibility-changed'))
             return true
         }
@@ -1226,7 +1226,7 @@ export class SNode{
                     document.removeEventListener('p-key-pressed', putDown)
                     // When movement stops, update the crop button state
                     updateCropButtonState()
-                    window.markDirty()
+            
                 }
                 
                 const cancelMove = () => {

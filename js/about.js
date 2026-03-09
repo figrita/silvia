@@ -22,14 +22,14 @@ function createAboutModal(){
 
             <div class="about-section">
                 <p>Silvia is a free modular video synthesizer. It is meant to be accessible so that anyone can experiment with visual effects. Silvia is built for live performance or just vibing.</p>
-                <p><strong>No Warranty. I'll try not to break your patches. Sorry for bugs.</strong></p>
+                <p><strong>No Warranty. I'll try not to break your workspaces. Sorry for bugs.</strong></p>
             </div>
             
             <div class="about-section">
                 <p>Created by figrita <a href="https://buymeacoffee.com/figrita" data-external-link><strong>☕ Buy me a coffee</strong></a></p>
                 <p><a href="https://github.com/figrita/silvia" data-external-link><strong>💻 Github Repository</strong></a></p>
                 <p>Join the<a href="https://discord.gg/cZYa2bDjs9" data-external-link><strong>🎮 Silvia Discord</strong></a>to nerd out.</p>
-                <p><a href="https://silviahub.net/" data-external-link><strong>🌐 Silvia Hub</strong></a>is the premier place to see and share patches.</p>
+                <p><a href="https://silviahub.net/" data-external-link><strong>🌐 Silvia Hub</strong></a>is the premier place to see and share workspaces.</p>
 
             </div>
 
