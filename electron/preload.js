@@ -51,6 +51,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Note: Window close handling now uses standard beforeunload events
 
+    // Menu control
+    setSaveVisible: (visible) => ipcRenderer.send('set-save-visible', visible),
+
     // Environment info
     isElectron: true,
 

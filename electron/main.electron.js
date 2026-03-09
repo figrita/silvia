@@ -196,6 +196,13 @@ function createWindow() {
     return win
 }
 
+// IPC: toggle Save menu item visibility
+ipcMain.on('set-save-visible', (event, visible) => {
+    const menu = Menu.getApplicationMenu()
+    const item = menu?.getMenuItemById('quick-save')
+    if (item) item.visible = !!visible
+})
+
 // IPC Handlers for asset management
 ipcMain.handle('copy-asset-from-path', async (event, filePath, type, thumbnailData) => {
     try {
@@ -807,11 +814,11 @@ app.whenReady().then(async () => {
         {
             label: 'File',
             submenu: [
-                { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => sendMenuClick('quick-save-btn') },
+                { id: 'quick-save', label: 'Save', accelerator: 'CmdOrCtrl+S', visible: false, click: () => sendMenuClick('quick-save-btn') },
                 { label: 'Save As...', accelerator: 'CmdOrCtrl+Shift+S', click: () => sendMenuClick('save-btn') },
                 { label: 'Open...', click: () => sendMenuClick('open-btn') },
                 { type: 'separator' },
-                { label: 'Save Session', click: () => sendMenuClick('save-session-btn') },
+                { label: 'Save Quickload', click: () => sendMenuClick('save-session-btn') },
                 { type: 'separator' },
                 { label: 'Assets', click: () => sendMenuClick('asset-manager-btn') },
                 { label: 'Settings', click: () => sendMenuClick('settings-btn') },

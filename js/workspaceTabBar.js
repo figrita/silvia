@@ -156,7 +156,7 @@ class WorkspaceTabBar {
             ? [
                 { icon: iconHtml('pencil', 14), label: 'Rename', action: () => this.startRenaming(this.tabBarEl.querySelector(`[data-workspace-id="${workspaceId}"]`)) },
                 { icon: iconHtml('info', 14), label: 'Properties...', action: () => this.showPropertiesModal(workspaceId) },
-                { icon: iconHtml('x', 14), label: 'Delete', action: () => this.deleteWorkspace(workspaceId) }
+                { icon: iconHtml('x', 14), label: 'Close', action: () => this.deleteWorkspace(workspaceId) }
             ]
             : [{ icon: iconHtml('plus', 14), label: 'New Workspace', action: () => this.createNewWorkspace() }]
 
@@ -277,10 +277,10 @@ class WorkspaceTabBar {
         modal.className = 'workspace-delete-modal'
         modal.innerHTML = `
             <div class="workspace-delete-modal-content">
-                <h3>Delete "${workspace.name}"?</h3>
+                <h3>Close "${workspace.name}"?</h3>
                 <p><strong>${orphanedNodes.length}</strong> node${orphanedNodes.length > 1 ? 's' : ''} will be deleted.</p>
                 <div class="workspace-delete-modal-buttons">
-                    <button class="modal-btn delete-btn"><strong>Delete workspace and nodes</strong></button>
+                    <button class="modal-btn delete-btn">Close</button>
                     <button class="modal-btn cancel-btn">Cancel</button>
                 </div>
             </div>
