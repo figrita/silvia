@@ -3,6 +3,7 @@ import {WorkspaceManager} from './workspaceManager.js'
 import {SNode} from './snode.js'
 import {BackgroundRenderer} from './nodes/_background.js'
 import {iconHtml, setIcon} from './icons.js'
+import {expandWorkspaceToViewport} from './editor.js'
 
 export class MainMixerUI {
     constructor() {
@@ -313,6 +314,8 @@ export class MainMixerUI {
         }
 
         this._adjustBodyLayout()
+        expandWorkspaceToViewport()
+        window.dispatchEvent(new Event('resize'))
     }
 
     _startVideoPreview(previewVideo, sourceCanvas) {

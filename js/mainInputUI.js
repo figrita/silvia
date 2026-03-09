@@ -9,6 +9,7 @@ import {mainInput} from './mainInput.js'
 import {AssetManager} from './assetManager.js'
 import {setupHistogramCanvas, drawHistogram, DEFAULT_BAND_CONFIG} from './audioHistogram.js'
 import {iconHtml, setIcon} from './icons.js'
+import {expandWorkspaceToViewport} from './editor.js'
 
 // Use the global isElectronMode set in index.html, with fallback
 const isElectronMode = typeof window !== 'undefined' && (window.isElectronMode || window.electronAPI)
@@ -650,6 +651,8 @@ export class MainInputUI {
         }
 
         this._adjustBodyLayout()
+        expandWorkspaceToViewport()
+        window.dispatchEvent(new Event('resize'))
     }
 
     destroy() {

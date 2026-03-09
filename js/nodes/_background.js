@@ -21,14 +21,12 @@ export const BackgroundRenderer = {
         bgVideo.style.background = 'black'
         document.body.appendChild(bgVideo)
         bgVideoRef = bgVideo
-        const editorRect = editor.getBoundingClientRect()
-        bgVideo.width = editorRect.width
-        bgVideo.height = Math.floor(editorRect.width * (9 / 16))
+        bgVideo.width = window.innerWidth
+        bgVideo.height = Math.floor(window.innerWidth * (9 / 16))
 
         window.addEventListener('resize', () => {
-            const editorRect = editor.getBoundingClientRect()
-            bgVideo.width = editorRect.width
-            bgVideo.height = Math.floor(editorRect.width * (9 / 16))
+            bgVideo.width = window.innerWidth
+            bgVideo.height = Math.floor(window.innerWidth * (9 / 16))
         })
 
         window.addEventListener('beforeunload', () => {

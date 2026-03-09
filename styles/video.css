@@ -3,11 +3,9 @@
 /* ===== BACKGROUND VIDEO ===== */
 #background-video {
     position: fixed;
-    /* Fill the area between the two side panels using CSS custom properties */
-    /* These are set by mainInputUI.js and mainMixerUI.js */
-    left: var(--panel-left-width, 0px);
+    left: 0;
     top: 0;
-    right: var(--panel-right-width, 0px);
+    right: 0;
     height: 100vh;
     object-fit: cover;
     z-index: -1;
