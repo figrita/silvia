@@ -20,7 +20,7 @@ function buildSourceInfo(patch, patchFile, isDefaultPatch) {
     const isCompound = (patch.workspaceTree?.workspaces?.length || 0) > 1
     if (isCompound) return null
 
-    if (window.electronAPI && patchFile) {
+    if (patchFile) {
         return {
             type: 'electron',
             filename: patchFile.filename.replace(/\.svs$/, ''),
@@ -29,14 +29,11 @@ function buildSourceInfo(patch, patchFile, isDefaultPatch) {
             description: patch.meta?.description || ''
         }
     }
-    if (!window.electronAPI) {
-        return {
-            type: 'localStorage',
-            author: patch.meta?.author || '',
-            description: patch.meta?.description || ''
-        }
+    return {
+        type: 'localStorage',
+        author: patch.meta?.author || '',
+        description: patch.meta?.description || ''
     }
-    return null
 }
 
 /**
