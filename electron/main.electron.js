@@ -807,9 +807,11 @@ app.whenReady().then(async () => {
         {
             label: 'File',
             submenu: [
-                { label: 'Save...', click: () => sendMenuClick('save-btn') },
+                { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => sendMenuClick('quick-save-btn') },
+                { label: 'Save As...', accelerator: 'CmdOrCtrl+Shift+S', click: () => sendMenuClick('save-btn') },
                 { label: 'Open...', click: () => sendMenuClick('open-btn') },
-                { label: 'Save', click: () => sendMenuClick('save-session-btn') },
+                { type: 'separator' },
+                { label: 'Save Session', click: () => sendMenuClick('save-session-btn') },
                 { type: 'separator' },
                 { label: 'Assets', click: () => sendMenuClick('asset-manager-btn') },
                 { label: 'Settings', click: () => sendMenuClick('settings-btn') },

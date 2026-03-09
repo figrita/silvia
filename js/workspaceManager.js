@@ -10,7 +10,9 @@
  * - "Workspace" = a tab in the UI; the container users work in (user-facing term)
  * - "Patch" in code = a saved .svs file (legacy term from before the tab refactor).
  *   In the save/load code, "patch" variables refer to serialized file data.
- * - "Session" = the full app state across all workspaces (auto-saved on Ctrl+Shift+S)
+ * - "Session" = the full app state across all workspaces (Ctrl+Shift+S = Save As)
+ * - "Source" = where a workspace was last saved/loaded from (file path or localStorage).
+ *   Enables Ctrl+S quick-save back to the original location.
  * - IPC methods like savePatchFile/listPatchFiles deal with .svs file I/O
  *   ("patch" in IPC = file on disk, not a UI concept)
  */
@@ -42,7 +44,8 @@ export class WorkspaceManager {
         const id = this.nextId++
         const workspace = {
             id,
-            name: name || `Workspace ${id}`
+            name: name || `Workspace ${id}`,
+            source: null
         }
         this.workspaces.set(id, workspace)
 
@@ -122,6 +125,18 @@ export class WorkspaceManager {
     }
 
     /**
+     * Set the save/load source for a workspace.
+     * @param {number} workspaceId
+     * @param {object|null} source - { type, filename, folder, author, description } or null
+     */
+    static setSource(workspaceId, source) {
+        const ws = this.workspaces.get(workspaceId)
+        if (!ws) return false
+        ws.source = source || null
+        return true
+    }
+
+    /**
      * Serialize the entire session.
      * @returns {object} Session data for saving
      */
@@ -132,7 +147,8 @@ export class WorkspaceManager {
             nextId: this.nextId,
             workspaces: [...this.workspaces.values()].map(ws => ({
                 id: ws.id,
-                name: ws.name
+                name: ws.name,
+                source: ws.source || null
             }))
         }
     }
@@ -149,7 +165,8 @@ export class WorkspaceManager {
             sessionData.workspaces.forEach(wsData => {
                 this.workspaces.set(wsData.id, {
                     id: wsData.id,
-                    name: wsData.name
+                    name: wsData.name,
+                    source: wsData.source || null
                 })
             })
         }

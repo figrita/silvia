@@ -18,7 +18,7 @@ import { SNode } from './js/snode.js'
 import { createMenu } from './js/menu.js'
 import { BackgroundRenderer } from './js/nodes/_background.js'
 import { initSettings, settings } from './js/settings.js'
-import { initSave, serializeWorkspace } from './js/save.js'
+import { initSave, serializeWorkspace, quickSave, openSaveModal } from './js/save.js'
 import { initLoad, deserializeWorkspace, createNodesAndConnections } from './js/load.js'
 import { addVersionToPatch, getCurrentVersion } from './js/version.js'
 import { initHowto } from './js/howto.js'
@@ -246,6 +246,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.isElectronMode) {
         appMenuWrapper.style.display = 'none'
         window.electronAPI.onMenuClick((buttonId) => {
+            if (buttonId === 'quick-save-btn') {
+                quickSave()
+                return
+            }
             const btn = document.getElementById(buttonId)
             if (btn) btn.click()
         })
@@ -536,11 +540,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 
-    // Add keyboard shortcut for saving all workspaces (Ctrl/Cmd + Shift + S)
+    // Ctrl+S = Quick save, Ctrl+Shift+S = Save As (open modal)
     document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
             e.preventDefault()
-            saveSessionBtn?.click() // Trigger the save session button
+            if (e.shiftKey) {
+                openSaveModal()
+            } else {
+                quickSave()
+            }
         }
     })
 })

@@ -59,8 +59,11 @@ function createHowtoModal(){
                     <div><strong>Ctrl+1-9</strong></div>
                     <div>Switch to workspace 1 through 9.</div>
 
+                    <div><strong>Ctrl+S</strong></div>
+                    <div>Save workspace. Overwrites the source file if one exists; otherwise opens the Save dialog.</div>
+
                     <div><strong>Ctrl+Shift+S</strong></div>
-                    <div>Save session.</div>
+                    <div>Save As. Always opens the Save dialog.</div>
 
                     <div><strong>Double-click Tab</strong></div>
                     <div>Rename the workspace.</div>

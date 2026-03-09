@@ -12,6 +12,34 @@ import {WorkspaceManager} from './workspaceManager.js'
 import {iconHtml} from './icons.js'
 
 /**
+ * Build a source info object from a patch and its file metadata.
+ * Returns null for compound patches or default patches (no file ownership).
+ */
+function buildSourceInfo(patch, patchFile, isDefaultPatch) {
+    if (isDefaultPatch) return null
+    const isCompound = (patch.workspaceTree?.workspaces?.length || 0) > 1
+    if (isCompound) return null
+
+    if (window.electronAPI && patchFile) {
+        return {
+            type: 'electron',
+            filename: patchFile.filename.replace(/\.svs$/, ''),
+            folder: patchFile._sourceFolder || null,
+            author: patch.meta?.author || '',
+            description: patch.meta?.description || ''
+        }
+    }
+    if (!window.electronAPI) {
+        return {
+            type: 'localStorage',
+            author: patch.meta?.author || '',
+            description: patch.meta?.description || ''
+        }
+    }
+    return null
+}
+
+/**
  * Create nodes and connections from patch data.
  * Shared helper for all patch loading functions.
  * @param {Array} nodes - Array of node data from patch
@@ -83,6 +111,7 @@ export function createNodesAndConnections(nodes, connections) {
 
 // --- Module-level state ---
 let selectedPatchData = null
+let selectedPatchSourceInfo = null
 let defaultPatchesCache = null
 
 // --- DOM Elements (will be populated by autowire) ---
@@ -343,7 +372,7 @@ function openLoadModal(){
 
 function handleLoad(){
     if(selectedPatchData){
-        deserializeWorkspace(selectedPatchData, clearWorkspaceCheckbox.checked)
+        deserializeWorkspace(selectedPatchData, clearWorkspaceCheckbox.checked, selectedPatchSourceInfo)
         loadModal.style.display = 'none'
     }
 }
@@ -358,10 +387,19 @@ function handleFileUpload(event){
             const patchData = JSON.parse(e.target.result)
             deserializeWorkspace(patchData, clearWorkspaceCheckbox.checked)
 
-            // Copy to patches if checkbox is checked
+            // Copy to saves and set source on the new workspace
             if(copyUploadToPatchesCheckbox.checked){
-                const success = await copyPatchToStorage(patchData)
-                if(success){
+                const sourceInfo = await copyPatchToStorage(patchData)
+                if(sourceInfo){
+                    // Set source so Ctrl+S can quick-save back to this file
+                    const isCompound = (patchData.workspaceTree?.workspaces?.length || 0) > 1
+                    if (!isCompound) {
+                        const activeWs = WorkspaceManager.getActiveWorkspace()
+                        if (activeWs) {
+                            WorkspaceManager.setSource(activeWs.id, sourceInfo)
+                            window.workspaceTabBar?.render()
+                        }
+                    }
                     // Refresh the patches list if we're on the filesystem tab
                     if(activeTab === 'filesystem') {
                         populateLoadModal()
@@ -382,6 +420,7 @@ function handleFileUpload(event){
 async function populateLoadModal(){
     // Clear previous state
     selectedPatchData = null
+    selectedPatchSourceInfo = null
     loadConfirmBtn.disabled = true
 
     // Clear and set loading states
@@ -489,7 +528,8 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
     loadBtn.addEventListener('click', (e) => {
         e.stopPropagation()
         selectedPatchData = patch
-        deserializeWorkspace(patch, clearWorkspaceCheckbox.checked)
+        const sourceInfo = buildSourceInfo(patch, patchFile, isDefaultPatch)
+        deserializeWorkspace(patch, clearWorkspaceCheckbox.checked, sourceInfo)
         loadModal.style.display = 'none'
     })
 
@@ -509,6 +549,7 @@ function createPatchListItem(patch, patchIndex, patchFile = null, isAutosave = f
         }
         item.classList.add('selected')
         selectedPatchData = patch
+        selectedPatchSourceInfo = buildSourceInfo(patch, patchFile, isDefaultPatch)
         loadConfirmBtn.disabled = false
         updateLoadModalText()
     })
@@ -674,7 +715,7 @@ function clearAllWorkspaces() {
     WorkspaceManager.reset()
 }
 
-export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
+export function deserializeWorkspace(patchData, shouldClearWorkspace = true, sourceInfo = null){
     try {
         // Validate and sanitize
         const validation = PatchValidator.validate(patchData)
@@ -699,6 +740,10 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
             } else {
                 clearWorkspace()
             }
+            // Clear stale source so loading a new patch doesn't overwrite
+            // the previous file on Ctrl+S. Re-set later if sourceInfo is provided.
+            const activeWs = WorkspaceManager.getActiveWorkspace()
+            if (activeWs) WorkspaceManager.setSource(activeWs.id, null)
         }
 
         // Build workspace ID mapping (old IDs → new IDs)
@@ -735,6 +780,15 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true){
 
         // Re-render tab bar to reflect name changes and new workspaces
         window.workspaceTabBar?.render()
+
+        // Set source on the active workspace (single-workspace loads only)
+        if (sourceInfo && !isCompound) {
+            const activeWs = WorkspaceManager.getActiveWorkspace()
+            if (activeWs) {
+                WorkspaceManager.setSource(activeWs.id, sourceInfo)
+                window.workspaceTabBar?.render()
+            }
+        }
 
         // Report results
         if (errors.length > 0) {
@@ -807,7 +861,7 @@ function getRegularPatchesFromLocalStorage(){
     }
 }
 
-export function getPatchesFromLocalStorage(){
+function getPatchesFromLocalStorage(){
     try {
         const regularPatches = getRegularPatchesFromLocalStorage()
 
@@ -824,21 +878,21 @@ export function getPatchesFromLocalStorage(){
 }
 
 async function copyPatchToStorage(patchData){
+    const meta = patchData.meta || {}
     try {
         // Check if running in Electron mode
         if (typeof window !== 'undefined' && window.electronAPI) {
-            // Electron mode: save to patches/ folder (Root)
-            const meta = patchData.meta || {}
+            // Electron mode: save to saves/ folder (Root)
             const patchName = meta.name || 'Untitled'
             const safeFilename = patchName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'patch'
             const filename = `${safeFilename}_${Date.now()}`
 
             const success = await window.electronAPI.savePatchFile(patchData, filename, null)
             if (success) {
-                return true
+                return { type: 'electron', filename, folder: null, author: meta.author || '', description: meta.description || '' }
             } else {
                 console.error('Failed to copy patch to workspace')
-                return false
+                return null
             }
         } else {
             // Web mode: save to localStorage
@@ -855,11 +909,11 @@ async function copyPatchToStorage(patchData){
 
             regularPatches.push(patchCopy)
             localStorage.setItem('silvia_patches', JSON.stringify(regularPatches))
-            return true
+            return { type: 'localStorage', author: meta.author || '', description: meta.description || '' }
         }
     } catch(e) {
         console.error('Could not copy patch to storage:', e)
-        return false
+        return null
     }
 }
 
