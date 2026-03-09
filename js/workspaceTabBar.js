@@ -58,8 +58,9 @@ class WorkspaceTabBar {
         this.tabsContainer.innerHTML = ''
         WorkspaceManager.getAll().forEach(ws => {
             const isActive = WorkspaceManager.activeWorkspaceId === ws.id
+            const hasSource = ws.source?.type != null
             this.tabsContainer.insertAdjacentHTML('beforeend',
-                `<div class="workspace-tab${isActive ? ' active' : ''}" data-workspace-id="${ws.id}">
+                `<div class="workspace-tab${isActive ? ' active' : ''}${hasSource ? ' has-source' : ''}" data-workspace-id="${ws.id}">
                     <span class="workspace-tab-name">${ws.name}</span>
                 </div>`
             )
@@ -154,6 +155,7 @@ class WorkspaceTabBar {
         const items = workspaceId
             ? [
                 { icon: iconHtml('pencil', 14), label: 'Rename', action: () => this.startRenaming(this.tabBarEl.querySelector(`[data-workspace-id="${workspaceId}"]`)) },
+                { icon: iconHtml('info', 14), label: 'Properties...', action: () => this.showPropertiesModal(workspaceId) },
                 { icon: iconHtml('x', 14), label: 'Delete', action: () => this.deleteWorkspace(workspaceId) }
             ]
             : [{ icon: iconHtml('plus', 14), label: 'New Workspace', action: () => this.createNewWorkspace() }]
@@ -171,6 +173,85 @@ class WorkspaceTabBar {
             const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('pointerdown', close) } }
             document.addEventListener('pointerdown', close)
         }, 0)
+    }
+
+    showPropertiesModal(workspaceId) {
+        const workspace = WorkspaceManager.workspaces.get(workspaceId)
+        if (!workspace) return
+
+        document.getElementById('workspace-properties-modal')?.remove()
+
+        const modal = document.createElement('div')
+        modal.id = 'workspace-properties-modal'
+        modal.className = 'modal-overlay'
+        modal.innerHTML = `
+            <div class="modal-content workspace-properties-content">
+                <h2>Workspace Properties</h2>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="ws-prop-name" value="" />
+                </div>
+                <div class="form-group">
+                    <label>Author</label>
+                    <input type="text" id="ws-prop-author" value="" />
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="ws-prop-description" rows="3"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button class="modal-btn cancel-btn">Cancel</button>
+                    <button class="modal-btn confirm-btn">OK</button>
+                </div>
+            </div>
+        `
+        document.body.appendChild(modal)
+
+        // Pre-fill fields
+        const nameInput = modal.querySelector('#ws-prop-name')
+        const authorInput = modal.querySelector('#ws-prop-author')
+        const descInput = modal.querySelector('#ws-prop-description')
+
+        nameInput.value = workspace.name
+        authorInput.value = workspace.source?.author || ''
+        descInput.value = workspace.source?.description || ''
+
+        const close = () => { modal.remove(); document.removeEventListener('keydown', onKey) }
+        const confirm = () => {
+            const newName = nameInput.value.trim()
+            if (!newName) { nameInput.focus(); return }
+
+            if (newName !== workspace.name) {
+                WorkspaceManager.rename(workspaceId, newName)
+                mainMixerUI.updateChannelStatus('A', mainMixer.channelA)
+                mainMixerUI.updateChannelStatus('B', mainMixer.channelB)
+                Connection.redrawAllConnections()
+            }
+
+            // Update or create source metadata
+            const author = authorInput.value
+            const description = descInput.value
+            if (workspace.source) {
+                WorkspaceManager.setSource(workspaceId, { ...workspace.source, author, description })
+            } else if (author || description) {
+                WorkspaceManager.setSource(workspaceId, { type: null, author, description })
+            }
+
+            this.render()
+            close()
+        }
+
+        const onKey = (e) => {
+            if (e.key === 'Escape') close()
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirm() }
+        }
+
+        modal.querySelector('.confirm-btn').addEventListener('click', confirm)
+        modal.querySelector('.cancel-btn').addEventListener('click', close)
+        modal.addEventListener('click', (e) => { if (e.target === modal) close() })
+        document.addEventListener('keydown', onKey)
+        nameInput.focus()
+        nameInput.select()
     }
 
     deleteWorkspace(workspaceId) {

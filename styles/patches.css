@@ -797,39 +797,6 @@
     padding: 0;
 }
 
-.save-modal-tab-bar {
-    display: flex;
-    border-bottom: 1px solid var(--border-subtle);
-    background: var(--bg-secondary);
-}
-
-.save-tab {
-    padding: 8px 16px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 14px;
-    font-family: monospace;
-    border-bottom: 2px solid transparent;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-
-.save-tab:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-}
-
-.save-tab-active {
-    background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%) !important;
-    color: var(--text-primary) !important;
-    border-bottom-color: var(--primary-color) !important;
-}
-
-.save-tab-content-hidden {
-    display: none !important;
-}
-
 .save-modal-body {
     padding: 16px;
     display: flex;
@@ -848,13 +815,6 @@
     flex-direction: column;
     flex-grow: 1;
     min-width: 0;
-}
-
-.save-fields-column .save-tab-content {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex-grow: 1;
 }
 
 .save-field-grow {
@@ -885,23 +845,3 @@
     gap: 8px;
 }
 
-/* Save As field headers with keep-original toggle */
-.save-as-field-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.keep-original-toggle {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-weight: normal;
-}
-
-.keep-original-toggle.save-as-only {
-    margin-right: 4px;
-}

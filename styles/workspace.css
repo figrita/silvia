@@ -230,7 +230,28 @@
     color: white;
 }
 
+/* Provenance indicator — dot on tabs linked to a saved file */
+.workspace-tab.has-source .workspace-tab-name::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    margin-right: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
 
+/* Quick-save flash */
+.workspace-tab.just-saved {
+    animation: tab-save-flash 1.2s ease-out;
+}
+
+@keyframes tab-save-flash {
+    0% { background: var(--primary-light); }
+    100% { background: inherit; }
+}
 
 /* Add workspace/layer button */
 .workspace-tab-add {
@@ -282,6 +303,13 @@
 .workspace-tab-add:active {
     background: var(--bg-hover);
     border-color: var(--primary-muted);
+}
+
+/* ===== WORKSPACE PROPERTIES MODAL ===== */
+.workspace-properties-content {
+    min-width: auto;
+    max-width: 400px;
+    width: 400px;
 }
 
 /* ===== WORKSPACE DELETE MODAL ===== */
