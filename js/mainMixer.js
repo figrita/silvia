@@ -5,7 +5,7 @@ export class MainMixer {
     constructor() {
         this.channelA = null  // Output node reference
         this.channelB = null  // Output node reference
-        this.mixValue = 0.0   // 0=A, 1=B
+        this.mixValue = -1.0  // -1=A, 0=center, 1=B
         this.canvas = null    // Hidden mixing canvas
         this.renderer = null  // WebGL renderer instance
         this.textureMap = new Map()

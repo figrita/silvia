@@ -60,7 +60,7 @@ export class MainMixerUI {
                     <label>Mix</label>
                     <div class="mix-slider-container">
                         <span>A</span>
-                        <s-number value="0" min="0" max="1" step="0.01" id="mix-slider"></s-number>
+                        <s-number value="-1" min="-1" max="1" step="0.01" id="mix-slider"></s-number>
                         <span>B</span>
                     </div>
                 </div>
