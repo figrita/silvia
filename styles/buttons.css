@@ -3,7 +3,7 @@
 /* ===== FLOATING BUTTONS ===== */
 .floating-btn-container {
     position: fixed;
-    bottom: 8px;
+    bottom: 12px;
     left: calc(var(--panel-left-width, 0px) + 8px);
     z-index: 1000;
     display: flex;
