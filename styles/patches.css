@@ -759,3 +759,147 @@
     background: var(--bg-hover);
     border-color: var(--primary-muted);
 }
+
+/* ===== SAVE MODAL ===== */
+.save-modal-window {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 2px;
+    width: 70vw;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px var(--shadow-primary);
+    color: var(--text-primary);
+    font-family: monospace;
+}
+
+.save-modal-header {
+    box-sizing: border-box;
+    height: 30px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+.save-modal-header h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: bold;
+    border: none;
+    padding: 0;
+}
+
+.save-modal-tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+}
+
+.save-tab {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    font-family: monospace;
+    border-bottom: 2px solid transparent;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.save-tab:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.save-tab-active {
+    background: hsl(var(--theme-hue), var(--theme-sat-norm), 10%) !important;
+    color: var(--text-primary) !important;
+    border-bottom-color: var(--primary-color) !important;
+}
+
+.save-tab-content-hidden {
+    display: none !important;
+}
+
+.save-modal-body {
+    padding: 16px;
+    display: flex;
+    gap: 2rem;
+}
+
+.save-thumbnail-column {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    justify-content: end;
+}
+
+.save-fields-column {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.save-fields-column .save-tab-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-grow: 1;
+}
+
+.save-field-grow {
+    flex-grow: 1;
+}
+
+.save-subtitle {
+    margin: 0 0 8px 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.save-modal-footer {
+    padding: 8px 16px;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+}
+
+.save-feedback {
+    padding: 16px;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Save As field headers with keep-original toggle */
+.save-as-field-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.keep-original-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.keep-original-toggle.save-as-only {
+    margin-right: 4px;
+}

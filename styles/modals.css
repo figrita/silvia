@@ -63,6 +63,13 @@
     flex-grow: 1;
 }
 
+.form-group input[type="text"]:not(.s-number-input):disabled,
+.form-group textarea:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-primary);
+}
+
 .form-group input[type="text"]:not(.s-number-input):focus,
 .form-group textarea:focus {
     outline: none;
