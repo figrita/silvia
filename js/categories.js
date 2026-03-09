@@ -50,7 +50,7 @@ const categoryStructure = [
     {
         name: 'Mix',
         icon: '🎭',
-        nodes: ['layerblend', 'mixer', 'minimixer', 'muxevent', 'muxnumber']
+        nodes: ['layerblend', 'mixer', 'muxevent', 'muxnumber']
     },
     {
         name: 'Math',

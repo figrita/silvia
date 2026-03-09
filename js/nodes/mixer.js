@@ -11,8 +11,8 @@ registerNode({
         'fade': {
             label: 'Fade',
             type: 'float',
-            range: '[0, 1]',
-            control: {default: 0.0, min: 0.0, max: 1.0, step: 0.01}
+            range: '[-1, 1]',
+            control: {default: 0.0, min: -1.0, max: 1.0, step: 0.01}
         }
     },
     output: {
@@ -34,43 +34,38 @@ registerNode({
                         body = `return (uv.y < f) ? b : a;`
                         break
                     case 'radial':
-                        body = `vec2 off = uv - 0.5;
-    float dist = length(off) / 0.7071;
+                        body = `float dist = length(uv);
     return (dist < f) ? b : a;`
                         break
                     case 'dark_fade':
-                        body = `if (f <= 0.0) return a;
-    if (f >= 1.0) return b;
-    float lumA = dot(a.rgb, vec3(0.299, 0.587, 0.114));
+                        body = `float lumA = dot(a.rgb, vec3(0.299, 0.587, 0.114));
     return (lumA < f) ? b : a;`
                         break
                     case 'light_fade':
-                        body = `if (f <= 0.0) return a;
-    if (f >= 1.0) return b;
-    float lumA = dot(a.rgb, vec3(0.299, 0.587, 0.114));
+                        body = `float lumA = dot(a.rgb, vec3(0.299, 0.587, 0.114));
     return (lumA > 1.0 - f) ? b : a;`
                         break
                     case 'checker':
                         body = `vec2 cell = floor(uv * 8.0);
     bool odd = mod(cell.x + cell.y, 2.0) > 0.5;
-    bool showB = odd ? (uv.y < f) : ((1.0 - uv.y) < f);
+    bool showB = odd ? (uv.y < f) : (-uv.y < f);
     return showB ? b : a;`
                         break
                     case 'h_lines':
                         body = `vec2 cell = floor(uv * vec2(16.0, 8.0));
     bool odd = mod(cell.y, 2.0) > 0.5;
-    bool showB = odd ? (uv.x < f) : ((1.0 - uv.x) < f);
+    bool showB = odd ? (uv.x < f) : (-uv.x < f);
     return showB ? b : a;`
                         break
                     default: // 'blend'
-                        body = `return mix(a, b, f);`
+                        body = `return mix(a, b, clamp(f, 0.0, 1.0));`
                         break
                 }
 
                 return `vec4 ${funcName}(vec2 uv) {
     vec4 a = ${deckA};
     vec4 b = ${deckB};
-    float f = ${fade};
+    float f = 0.5 + 0.5 * tan((${fade}) * 1.5707963);
     ${body}
 }`
             }
