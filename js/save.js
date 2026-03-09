@@ -140,9 +140,11 @@ export function initSave(){
 
     // Get the static trigger buttons from the main document
     const saveBtn = document.getElementById('save-btn')
+    const quickSaveBtn = document.getElementById('quick-save-btn')
 
     // --- Attach Event Listeners ---
     saveBtn.addEventListener('click', openSaveModal)
+    quickSaveBtn?.addEventListener('click', quickSave)
 
     saveCancelBtn.addEventListener('click', () => (saveModal.style.display = 'none'))
 
