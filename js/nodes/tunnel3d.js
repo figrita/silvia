@@ -68,6 +68,16 @@ registerNode({
                 {value: 'helix', name: 'Helix'},
                 {value: 'lissajous', name: 'Lissajous'}
             ]
+        },
+        'shading': {
+            label: 'Shading',
+            type: 'select',
+            default: 'none',
+            choices: [
+                {value: 'none', name: 'None'},
+                {value: 'light', name: 'Light'},
+                {value: 'heavy', name: 'Heavy'}
+            ]
         }
     },
 
@@ -80,6 +90,7 @@ registerNode({
                 const radius = this.getInput('radius', cc)
                 const zoom = this.getInput('zoom', cc)
                 const path = this.getOption('path')
+                const shading = this.getOption('shading')
 
                 const phaseUniform = `${uniformName}_phase`
                 cc.uniforms.set(phaseUniform, {
@@ -130,7 +141,11 @@ registerNode({
     vec2 t3d_tc = vec2(t3d_a / 3.14159265 * 2.0, t3d_hit.z * 0.5);
     t3d_tc = abs(mod(t3d_tc + 1.0, 4.0) - 2.0) - 1.0;
 
-    return ${this.getInput('texture', cc, 't3d_tc')};
+    vec4 t3d_col = ${this.getInput('texture', cc, 't3d_tc')};
+    ${shading === 'light' ? `t3d_col.rgb *= exp(-t3d_t * 0.08);`
+    : shading === 'heavy' ? `t3d_col.rgb *= exp(-t3d_t * 0.2);`
+    : ``}
+    return t3d_col;
 }`
             },
             floatUniformUpdate(uniformName, gl, program){

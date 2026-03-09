@@ -231,16 +231,8 @@
 }
 
 /* Provenance indicator — dot on tabs linked to a saved file */
-.workspace-tab.has-source .workspace-tab-name::before {
-    content: '';
-    display: inline-block;
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--text-muted);
-    margin-right: 6px;
-    vertical-align: middle;
-    flex-shrink: 0;
+.workspace-tab.has-source .workspace-tab-name {
+    text-decoration: underline 1px var(--border-strong);
 }
 
 /* Quick-save flash */
@@ -361,7 +353,7 @@
 .workspace-delete-modal .delete-btn {
     background: var(--bg-interactive);
     color: var(--text-primary);
-    border: 1px solid var(--error-color);
+    border: 1px solid var(--border-normal);
 }
 
 .workspace-delete-modal .cancel-btn {

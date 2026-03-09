@@ -169,6 +169,19 @@ export function initSave(){
             saveModal.style.display = 'none'
         }
     })
+
+    // Hide quick-save button until a source exists
+    document.addEventListener('source-changed', updateQuickSaveVisibility)
+    updateQuickSaveVisibility()
+}
+
+function updateQuickSaveVisibility() {
+    const hasSource = !!WorkspaceManager.getActiveWorkspace()?.source?.type
+    const btn = document.getElementById('quick-save-btn')
+    if (btn) btn.style.display = hasSource ? '' : 'none'
+    if (window.electronAPI?.setSaveVisible) {
+        window.electronAPI.setSaveVisible(hasSource)
+    }
 }
 
 function cycleThumbnail(direction){

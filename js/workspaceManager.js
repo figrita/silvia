@@ -80,6 +80,7 @@ export class WorkspaceManager {
     static setActive(workspaceId) {
         if (!this.workspaces.has(workspaceId)) return false
         this.activeWorkspaceId = workspaceId
+        document.dispatchEvent(new CustomEvent('source-changed'))
         return true
     }
 
@@ -99,13 +100,13 @@ export class WorkspaceManager {
         // If deleted the last workspace, create a new empty one
         if (this.workspaces.size === 0) {
             const newWs = this.create('Workspace 1')
-            this.activeWorkspaceId = newWs.id
+            this.setActive(newWs.id)
             return true
         }
 
         // If deleted the active workspace, switch to another
         if (this.activeWorkspaceId === workspaceId) {
-            this.activeWorkspaceId = this.workspaces.keys().next().value
+            this.setActive(this.workspaces.keys().next().value)
         }
 
         return true
@@ -133,6 +134,7 @@ export class WorkspaceManager {
         const ws = this.workspaces.get(workspaceId)
         if (!ws) return false
         ws.source = source || null
+        document.dispatchEvent(new CustomEvent('source-changed'))
         return true
     }
 
@@ -176,8 +178,6 @@ export class WorkspaceManager {
             if (id >= this.nextId) this.nextId = id + 1
         }
 
-        this.activeWorkspaceId = sessionData.activeWorkspaceId
-
         // Ensure we have at least one workspace
         if (this.workspaces.size === 0) {
             this.init()
@@ -185,9 +185,10 @@ export class WorkspaceManager {
         }
 
         // Ensure activeWorkspaceId is valid
-        if (!this.workspaces.has(this.activeWorkspaceId)) {
-            this.activeWorkspaceId = this.workspaces.keys().next().value
-        }
+        const targetId = this.workspaces.has(sessionData.activeWorkspaceId)
+            ? sessionData.activeWorkspaceId
+            : this.workspaces.keys().next().value
+        this.setActive(targetId)
     }
 
     /**
