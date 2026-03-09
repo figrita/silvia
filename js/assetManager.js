@@ -1,6 +1,9 @@
 // AssetManager - Electron-only asset management
 
-import {setIcon, setIconLabel} from './icons.js'
+import {setIcon, setIconLabel, iconHtml} from './icons.js'
+
+const TYPE_ICONS = { image: 'image', video: 'film', audio: 'volume-2' }
+const TYPE_PLURAL = { image: 'images', video: 'videos', audio: 'audio' }
 
 /**
  * Asset management for Electron environment
@@ -173,7 +176,7 @@ export const AssetManager = {
             header.className = 'asset-manager-header'
 
             const title = document.createElement('h2')
-            title.textContent = nodeType ? `📂 Select ${nodeType.charAt(0).toUpperCase() + nodeType.slice(1)} Asset` : '📂 Asset Manager'
+            title.innerHTML = `${iconHtml('folder-open', 16)} ${nodeType ? `Select ${nodeType.charAt(0).toUpperCase() + nodeType.slice(1)} Asset` : 'Asset Manager'}`
 
             // Create header controls container
             const headerControls = document.createElement('div')
@@ -181,12 +184,12 @@ export const AssetManager = {
 
             // Upload button (available in both modes)
             const uploadBtn = document.createElement('button')
-            setIconLabel(uploadBtn, 'plus', 'Upload', 12)
+            setIconLabel(uploadBtn, 'plus', 'Upload', 14)
             uploadBtn.className = 'asset-upload-btn'
             headerControls.appendChild(uploadBtn)
 
             const closeBtn = document.createElement('button')
-            setIconLabel(closeBtn, 'x', 'Close', 12)
+            setIconLabel(closeBtn, 'x', 'Close', 14)
             closeBtn.className = 'asset-close-btn'
             closeBtn.onclick = () => overlay.remove()
             headerControls.appendChild(closeBtn)
@@ -290,9 +293,9 @@ export const AssetManager = {
             tabBar.className = 'asset-tab-bar'
 
             const tabs = [
-                { name: 'Images', type: 'image', icon: '🖼️' },
-                { name: 'Videos', type: 'video', icon: '📼' },
-                { name: 'Audio', type: 'audio', icon: '🔊' }
+                { name: 'Images', type: 'image', icon: 'image' },
+                { name: 'Videos', type: 'video', icon: 'film' },
+                { name: 'Audio',  type: 'audio', icon: 'volume-2' }
             ]
 
             let activeTab = nodeType || 'image'
@@ -323,7 +326,7 @@ export const AssetManager = {
                 if (isActiveTab) tabElement.classList.add('asset-tab-active')
                 if (isDisabled) tabElement.classList.add('asset-tab-disabled')
 
-                tabElement.textContent = `${tab.icon} ${tab.name}`
+                setIconLabel(tabElement, tab.icon, tab.name, 14)
 
                 tabElement.addEventListener('click', async () => {
                     if (isDisabled) return // Don't allow clicking disabled tabs
@@ -434,7 +437,7 @@ export const AssetManager = {
                     <div class="asset-edit-panel-content">
                         <div class="asset-edit-panel-header">
                             <h3>Edit Asset</h3>
-                            <button id="close-edit-panel" class="asset-edit-panel-close">✕</button>
+                            <button id="close-edit-panel" class="asset-edit-panel-close"></button>
                         </div>
 
                         <div class="asset-edit-preview-container">
@@ -466,33 +469,28 @@ export const AssetManager = {
                     </div>
                 `
 
+                // Set close button icon
+                setIcon(editPanel.querySelector('#close-edit-panel'), 'x', 14)
+
                 // Set up preview
                 const editPreview = editPanel.querySelector('#edit-preview')
+                const fallbackIcon = iconHtml(TYPE_ICONS[asset.type] || 'image', 32)
                 if (asset.type === 'image') {
                     this.getLoadableUrl(asset.path).then(loadableUrl => {
                         const img = document.createElement('img')
                         img.src = loadableUrl
-                        img.onerror = () => {
-                            editPreview.innerHTML = '<span style="font-size: 32px;">🖼️</span>'
-                        }
+                        img.onerror = () => { editPreview.innerHTML = fallbackIcon }
                         editPreview.appendChild(img)
-                    }).catch(() => {
-                        editPreview.innerHTML = '<span style="font-size: 32px;">🖼️</span>'
-                    })
+                    }).catch(() => { editPreview.innerHTML = fallbackIcon })
                 } else if (asset.type === 'video' && asset.thumbnailPath) {
-                    // Use video thumbnail if available
                     this.getLoadableUrl(asset.thumbnailPath).then(thumbnailUrl => {
                         const img = document.createElement('img')
                         img.src = thumbnailUrl
-                        img.onerror = () => {
-                            editPreview.innerHTML = '<span style="font-size: 32px;">📼</span>'
-                        }
+                        img.onerror = () => { editPreview.innerHTML = fallbackIcon }
                         editPreview.appendChild(img)
-                    }).catch(() => {
-                        editPreview.innerHTML = '<span style="font-size: 32px;">📼</span>'
-                    })
+                    }).catch(() => { editPreview.innerHTML = fallbackIcon })
                 } else {
-                    editPreview.innerHTML = `<span style="font-size: 32px;">${asset.type === 'video' ? '📼' : '🔊'}</span>`
+                    editPreview.innerHTML = fallbackIcon
                 }
 
                 // Initialize tags functionality
@@ -631,7 +629,7 @@ export const AssetManager = {
 
             // Load tab content function
             const loadTabContent = async (type) => {
-                contentArea.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Loading assets...</div>'
+                contentArea.innerHTML = '<div class="asset-loading-state">Loading assets...</div>'
                 
                 try {
                     const allAssets = await this.listAssets(type)
@@ -651,10 +649,10 @@ export const AssetManager = {
                             const filterList = Array.from(activeFilters).join(', ')
                             contentArea.innerHTML = `
                                 <div class="asset-empty-state">
-                                    <div class="asset-empty-state-icon">🔍</div>
-                                    <h3>No ${type}s match filters</h3>
-                                    <p>No ${type}s found with tags: <strong style="color: var(--success-color);">${filterList}</strong></p>
-                                    <p style="color: var(--text-muted); margin: 8px 0 0 0; font-size: 12px;">Try removing some filters to see more results.</p>
+                                    <div class="asset-empty-state-icon">${iconHtml('search', 32)}</div>
+                                    <h3>No ${TYPE_PLURAL[type]} match filters</h3>
+                                    <p>No ${TYPE_PLURAL[type]} found with tags: <strong>${filterList}</strong></p>
+                                    <p class="asset-filter-hint">Try removing some filters to see more results.</p>
                                 </div>
                             `
                         } else {
@@ -663,14 +661,14 @@ export const AssetManager = {
                             emptyStateContainer.className = 'asset-empty-state'
 
                             emptyStateContainer.innerHTML = `
-                                <div class="asset-empty-state-icon">${type === 'image' ? '🖼️' : type === 'video' ? '📼' : '🔊'}</div>
-                                <h3>No ${type}s found</h3>
-                                <p>Import some ${type}s using the media nodes to see them here.</p>
+                                <div class="asset-empty-state-icon">${iconHtml(TYPE_ICONS[type], 32)}</div>
+                                <h3>No ${TYPE_PLURAL[type]} found</h3>
+                                <p>Import some ${TYPE_PLURAL[type]} using the media nodes to see them here.</p>
                             `
 
                             // Add upload button
                             const uploadEmptyBtn = document.createElement('button')
-                            setIconLabel(uploadEmptyBtn, 'plus', `Upload ${type.charAt(0).toUpperCase() + type.slice(1)}s`, 12)
+                            setIconLabel(uploadEmptyBtn, 'plus', `Upload ${TYPE_PLURAL[type].charAt(0).toUpperCase() + TYPE_PLURAL[type].slice(1)}`, 14)
                             uploadEmptyBtn.className = 'asset-empty-upload-btn'
                             uploadEmptyBtn.onclick = () => {
                                 fileInput.accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*'
@@ -684,7 +682,6 @@ export const AssetManager = {
                         return
                     }
 
-
                     // Create asset grid (matching asset browser layout)
                     const grid = document.createElement('div')
                     grid.className = 'asset-grid'
@@ -697,33 +694,29 @@ export const AssetManager = {
                         const preview = document.createElement('div')
                         preview.className = 'asset-card-preview'
 
+                        const cardFallback = iconHtml(TYPE_ICONS[type] || 'image', 24)
                         if (type === 'image') {
                             const img = document.createElement('img')
                             try {
                                 const loadableUrl = await this.getLoadableUrl(asset.path)
                                 img.src = loadableUrl
-                                img.onerror = () => {
-                                    preview.innerHTML = `<span style="font-size: 24px;">🖼️</span>`
-                                }
+                                img.onerror = () => { preview.innerHTML = cardFallback }
                                 preview.appendChild(img)
                             } catch (error) {
-                                preview.innerHTML = `<span style="font-size: 32px;">🖼️</span>`
+                                preview.innerHTML = cardFallback
                             }
                         } else if (type === 'video' && asset.thumbnailPath) {
-                            // Use video thumbnail if available
                             const img = document.createElement('img')
                             try {
                                 const thumbnailUrl = await this.getLoadableUrl(asset.thumbnailPath)
                                 img.src = thumbnailUrl
-                                img.onerror = () => {
-                                    preview.innerHTML = `<span style="font-size: 24px;">📼</span>`
-                                }
+                                img.onerror = () => { preview.innerHTML = cardFallback }
                                 preview.appendChild(img)
                             } catch (error) {
-                                preview.innerHTML = `<span style="font-size: 24px;">📼</span>`
+                                preview.innerHTML = cardFallback
                             }
                         } else {
-                            preview.innerHTML = `<span style="font-size: 24px;">${type === 'video' ? '📼' : '🔊'}</span>`
+                            preview.innerHTML = cardFallback
                         }
 
                         // Filename (styled like asset browser)
@@ -759,14 +752,14 @@ export const AssetManager = {
                                     emptyStateContainer.className = 'asset-empty-state'
 
                                     emptyStateContainer.innerHTML = `
-                                        <div class="asset-empty-state-icon">${type === 'image' ? '🖼️' : type === 'video' ? '📼' : '🔊'}</div>
-                                        <h3>No ${type}s found</h3>
-                                        <p>Import some ${type}s using the media nodes to see them here.</p>
+                                        <div class="asset-empty-state-icon">${iconHtml(TYPE_ICONS[type], 32)}</div>
+                                        <h3>No ${TYPE_PLURAL[type]} found</h3>
+                                        <p>Import some ${TYPE_PLURAL[type]} using the media nodes to see them here.</p>
                                     `
 
                                     // Add upload button
                                     const uploadEmptyBtn = document.createElement('button')
-                                    setIconLabel(uploadEmptyBtn, 'plus', `Upload ${type.charAt(0).toUpperCase() + type.slice(1)}s`, 12)
+                                    setIconLabel(uploadEmptyBtn, 'plus', `Upload ${TYPE_PLURAL[type].charAt(0).toUpperCase() + TYPE_PLURAL[type].slice(1)}`, 14)
                                     uploadEmptyBtn.className = 'asset-empty-upload-btn'
                                     uploadEmptyBtn.onclick = () => {
                                         fileInput.accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : 'audio/*'
@@ -808,7 +801,7 @@ export const AssetManager = {
                     console.error('Failed to load assets:', error)
                     contentArea.innerHTML = `
                         <div class="asset-empty-state">
-                            <div class="asset-empty-state-icon">❌</div>
+                            <div class="asset-empty-state-icon">${iconHtml('alert-triangle', 32)}</div>
                             <h3>Failed to load assets</h3>
                             <p>Check the console for more details.</p>
                         </div>
