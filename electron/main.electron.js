@@ -95,7 +95,7 @@ function createWindow() {
             experimentalFeatures: false,
             nativeWindowOpen: true,
         },
-        icon: path.join(__dirname, 'favicon-32x32.png') // Set the window icon
+        icon: path.join(__dirname, '..', 'assets', 'icons', 'android-chrome-512x512.png') // Set the window icon
     })
 
     // Basic background throttling disable
@@ -115,7 +115,7 @@ function createWindow() {
             action: 'allow',
             overrideBrowserWindowOptions: {
                 title: 'Silvia - Projector Window',
-                icon: path.join(__dirname, 'favicon-32x32.png'),
+                icon: path.join(__dirname, '..', 'assets', 'icons', 'android-chrome-512x512.png'),
                 frame: true,           // Keep window frame but hide menu
                 webPreferences: {
                     backgroundThrottling: false,
