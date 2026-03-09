@@ -147,7 +147,7 @@ export class MainMixer {
     }
     
     setMixValue(value) {
-        this.mixValue = Math.max(0, Math.min(1, value))
+        this.mixValue = Math.max(-1, Math.min(1, value))
     }
     
     setBackgroundVisible(visible) {
@@ -308,12 +308,12 @@ void main() {
     vec4 colorA = texture(u_channelA, vec2(uvA.x, 1.0 - uvA.y));
     vec4 colorB = texture(u_channelB, vec2(uvB.x, 1.0 - uvB.y));
     
-    float mixAmount = u_mix;
+    float mixAmount = 0.5 + 0.5 * tan(u_mix * 1.5707963);
     int method = int(u_crossfadeMethod);
     
     if (method == 0) {
         // Simple blend/mix
-        fragColor = mix(colorA, colorB, mixAmount);
+        fragColor = mix(colorA, colorB, clamp(mixAmount, 0.0, 1.0));
     } else if (method == 1) {
         // Horizontal Wipe (left to right)
         float wipePosition = mixAmount;
@@ -332,39 +332,13 @@ void main() {
         float normalizedDist = dist / maxDist;
         fragColor = (normalizedDist < mixAmount) ? colorB : colorA;
     } else if (method == 4) {
-        // Dark fade first - luminance mask offset with forced boundaries
-        if (mixAmount <= 0.0) {
-            fragColor = colorA;
-        } else if (mixAmount >= 1.0) {
-            fragColor = colorB;
-        } else {
-            float lumA = dot(colorA.rgb, vec3(0.299, 0.587, 0.114));
-            float threshold = mixAmount;
-
-            // Use luminance to determine which color to show
-            if (lumA < threshold) {
-                fragColor = colorB;
-            } else {
-                fragColor = colorA;
-            }
-        }
+        // Dark fade first - luminance mask
+        float lumA = dot(colorA.rgb, vec3(0.299, 0.587, 0.114));
+        fragColor = (lumA < mixAmount) ? colorB : colorA;
     } else if (method == 5) {
-        // Light fade first - luminance mask offset (inverted) with forced boundaries
-        if (mixAmount <= 0.0) {
-            fragColor = colorA;
-        } else if (mixAmount >= 1.0) {
-            fragColor = colorB;
-        } else {
-            float lumA = dot(colorA.rgb, vec3(0.299, 0.587, 0.114));
-            float threshold = 1.0 - mixAmount;
-
-            // Use luminance to determine which color to show (inverted logic)
-            if (lumA > threshold) {
-                fragColor = colorB;
-            } else {
-                fragColor = colorA;
-            }
-        }
+        // Light fade first - luminance mask (inverted)
+        float lumA = dot(colorA.rgb, vec3(0.299, 0.587, 0.114));
+        fragColor = (lumA > 1.0 - mixAmount) ? colorB : colorA;
     } else if (method == 6) {
         // Checkerboard - odds wipe bottom-to-top, evens wipe top-to-bottom
         vec2 checker = floor(uv * 8.0); // 8x8 checkerboard
@@ -401,7 +375,7 @@ void main() {
         fragColor = showB ? colorB : colorA;
     } else {
         // Fallback to simple mix
-        fragColor = mix(colorA, colorB, mixAmount);
+        fragColor = mix(colorA, colorB, clamp(mixAmount, 0.0, 1.0));
     }
 }`
 
