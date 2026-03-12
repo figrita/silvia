@@ -24,17 +24,12 @@ export const defaultPatches = [
                 "y": 418,
                 "controls": {
                     "strength": 0.3,
-                    "sampleDistance": 0.002,
+                    "sampleDistance": 4,
                     "invert": 0
                 },
                 "optionValues": {
-                    "mode": "sobel"
-                },
-                "controlRanges": {
-                    "sampleDistance": {
-                        "min": 0.001,
-                        "max": 5
-                    }
+                    "mode": "sobel",
+                    "kernel_space": "pixel"
                 }
             },
             {

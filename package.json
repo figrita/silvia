@@ -11,9 +11,16 @@
     "web": "python -m http.server 8080",
     "build": "electron-builder --win --mac --linux",
     "build-win": "electron-builder --win",
-    "build-mac": "electron-builder --mac", 
+    "build-mac": "electron-builder --mac",
     "build-linux": "electron-builder --linux",
-    "build-all": "electron-builder --win --mac --linux"
+    "build-all": "electron-builder --win --mac --linux",
+    "package": "node scripts/package.js all",
+    "package-linux": "node scripts/package.js linux",
+    "package-win": "node scripts/package.js win",
+    "package-mac": "node scripts/package.js mac",
+    "dist-linux": "electron-builder --linux && node scripts/package.js linux",
+    "dist-win": "electron-builder --win && node scripts/package.js win",
+    "dist-mac": "electron-builder --mac && node scripts/package.js mac"
   },
   "keywords": [
     "video",

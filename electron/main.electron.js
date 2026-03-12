@@ -28,8 +28,17 @@ protocol.registerSchemesAsPrivileged([
 
 // Get workspace path (always relative to app directory)
 function getWorkspacePath() {
+    if (process.env.SILVIA_WORKSPACE) {
+        return process.env.SILVIA_WORKSPACE
+    }
     if (app.isPackaged) {
-        // Production: use directory containing the executable
+        if (process.platform === 'darwin') {
+            // macOS: go up from Foo.app/Contents/MacOS/ to the folder containing the .app
+            const execDir = path.dirname(process.execPath)
+            const match = execDir.match(/^(.+)\/[^/]+\.app\/Contents\/MacOS$/)
+            if (match) return match[1]
+        }
+        // Windows/Linux: use directory containing the executable
         return path.dirname(process.execPath)
     } else {
         // Development: use the project directory
