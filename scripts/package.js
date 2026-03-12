@@ -46,12 +46,18 @@ function copyDocs(destDir) {
     }
 }
 
-function zipDir(dirPath, zipPath) {
+function zipDir(dirPath, zipPath, { preserveMacOS = false } = {}) {
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath)
     const dirName = path.basename(dirPath)
     const parentDir = path.dirname(dirPath)
-    // -X strips extra file attributes (uid/gid), touch normalizes timestamps
-    execSync(`find "${dirPath}" -exec touch -t 202501010000.00 {} + && cd "${parentDir}" && zip -Xr "${zipPath}" "${dirName}"`, { stdio: 'inherit' })
+
+    if (preserveMacOS && process.platform === 'darwin') {
+        // ditto preserves macOS resource forks, extended attributes, and code signatures
+        execSync(`ditto -c -k --sequesterRsrc "${dirPath}" "${zipPath}"`, { stdio: 'inherit' })
+    } else {
+        // -X strips extra file attributes (uid/gid), touch normalizes timestamps
+        execSync(`find "${dirPath}" -exec touch -t 202501010000.00 {} + && cd "${parentDir}" && zip -Xr "${zipPath}" "${dirName}"`, { stdio: 'inherit' })
+    }
     console.log(`  -> ${path.relative(ROOT, zipPath)}`)
 }
 
@@ -174,8 +180,8 @@ function packageMac() {
         // Clean up empty source dir
         removeRecursive(src)
 
-        // Zip
-        zipDir(dest, path.join(DIST, `${destName}.zip`))
+        // Zip (preserve macOS code signatures and resource forks)
+        zipDir(dest, path.join(DIST, `${destName}.zip`), { preserveMacOS: true })
 
         console.log(`  macOS (${suffix}) done.`)
     }
