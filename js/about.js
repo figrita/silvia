@@ -1,9 +1,11 @@
 // about.js
 import {autowire, StringToFragment} from './utils.js'
 import {getCurrentVersion} from './version.js'
+import {showHowto} from './howto.js'
 
 let aboutModal
 let closeBtn
+let howtoBtn
 
 function getPlatform() {
     return (typeof window !== 'undefined' && window.electronAPI) ? 'electron' : 'web'
@@ -21,28 +23,28 @@ function createAboutModal(){
             <p style="margin: 0.5rem 0 1rem 0; font-style: italic; color: var(--text-secondary);">${getVersionString()}</p>
 
             <div class="about-section">
-                <p>Silvia is a free modular video synthesizer. It is meant to be accessible so that anyone can experiment with visual effects. Silvia is built for live performance or just vibing.</p>
-                <p><strong>No Warranty. I'll try not to break your workspaces. Sorry for bugs.</strong></p>
-            </div>
-            
-            <div class="about-section">
-                <p>Created by figrita <a href="https://buymeacoffee.com/figrita" data-external-link><strong>☕ Buy me a coffee</strong></a></p>
-                <p><a href="https://github.com/figrita/silvia" data-external-link><strong>💻 Github Repository</strong></a></p>
-                <p>Join the<a href="https://discord.gg/cZYa2bDjs9" data-external-link><strong>🎮 Silvia Discord</strong></a>to nerd out.</p>
-                <p><a href="https://silviahub.net/" data-external-link><strong>🌐 Silvia Hub</strong></a>is the premier place to see and share workspaces.</p>
-
+                <p>Free modular video synthesizer for live performance and creative coding.</p>
+                <p><strong>No warranty. Sorry for bugs.</strong></p>
             </div>
 
             <div class="about-section">
-                <p>Licensed under AGPL-3.0. Uses gifler.js (Apache-2.0), modern-normalize (MIT), Creative Commons shader algorithms, and WTFPL code.</p>
+                <p>Created by figrita -- <a href="https://buymeacoffee.com/figrita" data-external-link><strong>Buy me a coffee</strong></a></p>
+                <p><a href="https://github.com/figrita/silvia" data-external-link><strong>Source on Github</strong></a></p>
+                <p><a href="https://discord.gg/cZYa2bDjs9" data-external-link><strong>Silvia Discord</strong></a></p>
+                <p><a href="https://silviahub.net/" data-external-link><strong>Silvia Hub</strong></a> -- browse and share workspaces</p>
             </div>
-            
+
             <div class="about-section">
-                <p>⚧️ Trans rights are human rights</p>
+                <p>AGPL-3.0. Third-party: Lucide icons (ISC), gifler.js (Apache-2.0), modern-normalize (MIT), Shadertoy code (WTFPL/CC0).</p>
+            </div>
+
+            <div class="about-section">
+                <p>Trans rights are human rights</p>
             </div>
             
             <div class="modal-actions">
-                <button class="cancel-btn" data-el="closeBtn">✔ Got it</button>
+                <button class="cancel-btn" data-el="howtoBtn">How To Use Silvia</button>
+                <button class="cancel-btn" data-el="closeBtn">Got it</button>
             </div>
         </div>
     </div>
@@ -67,7 +69,7 @@ export function showAbout(){
  * Initializes the "About" guide system.
  */
 export function initAbout(){
-    ({aboutModal, closeBtn} = createAboutModal())
+    ({aboutModal, closeBtn, howtoBtn} = createAboutModal())
 
     const openBtn = document.getElementById('about-btn')
     if(!openBtn){
@@ -81,6 +83,11 @@ export function initAbout(){
 
     closeBtn.addEventListener('click', () => {
         aboutModal.style.display = 'none'
+    })
+
+    howtoBtn.addEventListener('click', () => {
+        aboutModal.style.display = 'none'
+        showHowto()
     })
 
     // Handle external links

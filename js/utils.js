@@ -240,3 +240,26 @@ export function hexToRgba(hex){
 
     return {r, g, b, a}
 }
+
+let toastEl = null
+let toastTimer = null
+
+export function showToast(message, duration = 2000){
+    if(!toastEl){
+        toastEl = document.createElement('div')
+        toastEl.className = 'toast'
+        document.body.appendChild(toastEl)
+    }
+    clearTimeout(toastTimer)
+    toastEl.textContent = message
+    toastEl.classList.remove('toast-fade')
+    // Force reflow so removing the class takes effect before re-adding
+    toastEl.offsetHeight
+    toastEl.classList.add('toast-visible')
+    toastTimer = setTimeout(() => {
+        toastEl.classList.add('toast-fade')
+        toastEl.addEventListener('transitionend', () => {
+            toastEl.classList.remove('toast-visible', 'toast-fade')
+        }, {once: true})
+    }, duration)
+}

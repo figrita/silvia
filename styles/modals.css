@@ -133,3 +133,31 @@
     cursor: pointer;
 }
 
+/* ===== TOAST NOTIFICATIONS ===== */
+.toast {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-family: monospace;
+    font-size: 13px;
+    z-index: 3000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    white-space: nowrap;
+}
+
+.toast.toast-visible {
+    opacity: 1;
+}
+
+.toast.toast-fade {
+    opacity: 0;
+}
+

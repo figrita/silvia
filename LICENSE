@@ -18,16 +18,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 THIRD-PARTY COMPONENTS:
 
-This project includes the following third-party components:
+See licenses/ directory for full third-party license texts:
 
-nodes/debug.js - WTFPL licensed code from Shadertoy:
-- Nikos Papadopoulos (4rknova) - 2015 WTFPL   
-- FlyGuy's shader
-
-nodes/prideflag.js - CC0 licensed code:
-- From Godot Shaders community (author: jtad)
-
-modern-normalize - MIT licensed CSS normalization:
-- Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
-
-See individual files for specific license attributions.
+- Lucide icons (ISC) -- licenses/lucide.txt
+- gifler.js (Apache 2.0) -- licenses/gifler.txt
+- modern-normalize (MIT) -- licenses/modern-normalize.txt
+- Shadertoy shader code (WTFPL / CC0) -- licenses/shadertoy.txt

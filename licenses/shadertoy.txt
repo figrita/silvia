@@ -1,0 +1,13 @@
+Shadertoy shader code
+
+Used in js/shaderUtils.js and js/nodes/debug.js:
+
+- Nikos Papadopoulos (4rknova) - 2015 WTFPL
+  https://www.shadertoy.com/view/XtBSWz
+
+- FlyGuy
+  https://www.shadertoy.com/view/llSGRm
+
+Used in js/nodes/prideflag.js:
+
+- jtad (Godot Shaders community) - CC0

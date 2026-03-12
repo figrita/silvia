@@ -2,6 +2,7 @@ import {SNode} from './snode.js'
 import {Connection} from './connections.js'
 import {settings} from './settings.js'
 import {autoLayoutNodes} from './autoLayout.js'
+import {showToast} from './utils.js'
 
 const editor = document.getElementById('editor')
 
@@ -34,6 +35,7 @@ document.addEventListener('keydown', (e) => {
         const hidden = editor.style.visibility === 'hidden'
         editor.style.visibility = hidden ? '' : 'hidden'
         editor.style.pointerEvents = hidden ? '' : 'none'
+        showToast(hidden ? 'Editor visible -- press H to hide' : 'Editor hidden -- press H to show')
     }
     if(e.key.toLowerCase() === 'f'){
         if(window.electronAPI?.toggleFullscreen){
