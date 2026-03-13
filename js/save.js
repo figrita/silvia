@@ -75,6 +75,10 @@ function createSaveModal(){
 					</div>
 				</div>
 			</div>
+			<div class="save-feedback" style="display: none;" data-el="saveFeedbackEl">
+				<p data-el="saveMessageEl"></p>
+				<div data-el="downloadLinkContainerEl"></div>
+			</div>
 			<div class="save-modal-footer">
 				<label class="save-modal-checkbox">
 					<input type="checkbox" data-el="allWorkspacesCheckbox">
@@ -82,10 +86,6 @@ function createSaveModal(){
 				</label>
 				<button data-el="saveConfirmBtn">Save</button>
 				<button class="cancel-btn" data-el="saveCancelBtn">Cancel</button>
-			</div>
-			<div class="save-feedback" style="display: none;" data-el="saveFeedbackEl">
-				<p data-el="saveMessageEl"></p>
-				<div data-el="downloadLinkContainerEl"></div>
 			</div>
 		</div>
 	</div>`
@@ -263,6 +263,7 @@ async function populateSubfolderDropdown(){
 function updateThumbnailPreview(){
     if(outputNodesForThumb.length === 0){
         patchThumbnailPreviewEl.style.display = 'none'
+        patchThumbnailPreviewEl.dataset.thumbnailData = ''
         thumbnailHelpEl.textContent = 'No active Output node found to generate a thumbnail.'
         thumbPrevBtn.disabled = true
         thumbNextBtn.disabled = true
@@ -284,6 +285,7 @@ function updateThumbnailPreview(){
         thumbnailHelpEl.textContent = helpText
     } else {
         patchThumbnailPreviewEl.style.display = 'none'
+        patchThumbnailPreviewEl.dataset.thumbnailData = ''
         thumbnailHelpEl.textContent = 'Failed to generate thumbnail for this output.'
     }
 }

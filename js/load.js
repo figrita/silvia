@@ -510,6 +510,7 @@ function createPatchListItem(patch, patchFile = null, isDefaultPatch = false){
                     try {
                         const success = await window.electronAPI.deletePatchFile(patchFile.filename)
                         if (success) {
+                            clearSourceForDeletedPatch(patchFile)
                             populateLoadModal() // Refresh the list
                         } else {
                             alert('Failed to delete file.')
@@ -521,6 +522,7 @@ function createPatchListItem(patch, patchFile = null, isDefaultPatch = false){
                 } else {
                     // Web mode: delete from localStorage
                     deletePatchFromLocalStorage(patch)
+                    clearSourceForDeletedPatch(null, patch)
                     populateLoadModal() // Refresh the list
                 }
             }
@@ -737,6 +739,26 @@ async function copyPatchToStorage(patchData){
         console.error('Could not copy patch to storage:', e)
         return null
     }
+}
+
+/**
+ * Clear the source from any open workspace that was loaded from a deleted patch.
+ * This removes quicksave ability and has-source styling for affected tabs.
+ */
+function clearSourceForDeletedPatch(patchFile, localStoragePatch) {
+    const deletedFilename = patchFile?.filename?.replace(/\.svs$/, '') || null
+    const deletedName = localStoragePatch?.meta?.name || null
+
+    for (const ws of WorkspaceManager.getAll()) {
+        if (!ws.source?.type) continue
+
+        if (ws.source.type === 'electron' && deletedFilename && ws.source.filename === deletedFilename) {
+            WorkspaceManager.setSource(ws.id, null)
+        } else if (ws.source.type === 'localStorage' && deletedName && ws.name === deletedName) {
+            WorkspaceManager.setSource(ws.id, null)
+        }
+    }
+    window.workspaceTabBar?.render()
 }
 
 function deletePatchFromLocalStorage(patchToDelete){
