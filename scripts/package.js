@@ -46,6 +46,15 @@ function copyDocs(destDir) {
     }
 }
 
+function normalizeTimestamps(dir) {
+    const epoch = new Date('2025-01-01T00:00:00Z')
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) normalizeTimestamps(full)
+        try { fs.utimesSync(full, epoch, epoch) } catch {}
+    }
+}
+
 function zipDir(dirPath, zipPath, { preserveMacOS = false } = {}) {
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath)
     const dirName = path.basename(dirPath)
@@ -54,9 +63,14 @@ function zipDir(dirPath, zipPath, { preserveMacOS = false } = {}) {
     if (preserveMacOS && process.platform === 'darwin') {
         // ditto preserves macOS resource forks, extended attributes, and code signatures
         execSync(`ditto -c -k --sequesterRsrc "${dirPath}" "${zipPath}"`, { stdio: 'inherit' })
+    } else if (process.platform === 'win32') {
+        normalizeTimestamps(dirPath)
+        // PowerShell Compress-Archive is available on all modern Windows
+        execSync(`powershell -NoProfile -Command "Compress-Archive -Path '${dirPath}' -DestinationPath '${zipPath}'"`, { stdio: 'inherit' })
     } else {
-        // -X strips extra file attributes (uid/gid), touch normalizes timestamps
-        execSync(`find "${dirPath}" -exec touch -t 202501010000.00 {} + && cd "${parentDir}" && zip -Xr "${zipPath}" "${dirName}"`, { stdio: 'inherit' })
+        // -X strips extra file attributes (uid/gid)
+        normalizeTimestamps(dirPath)
+        execSync(`cd "${parentDir}" && zip -Xr "${zipPath}" "${dirName}"`, { stdio: 'inherit' })
     }
     console.log(`  -> ${path.relative(ROOT, zipPath)}`)
 }
