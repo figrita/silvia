@@ -276,6 +276,11 @@ export class WebGLRenderer{
             gl.COLOR_BUFFER_BIT, gl.NEAREST
         )
         this.currentIndex = (this.currentIndex + 1) % this.frameBufferSize
+
+        // Force GPU to process all commands immediately.
+        // Prevents Chromium from deferring WebGL work on off-screen canvases
+        // (critical on AMD Mesa where scrolled-out canvases stall the pipeline).
+        gl.flush()
     }
 
     onResize(){

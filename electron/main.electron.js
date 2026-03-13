@@ -6,6 +6,13 @@ const fs = require('fs').promises
 const crypto = require('crypto')
 console.log('Electron modules loaded successfully')
 
+// Prevent Chromium from throttling timers/rendering for off-screen content.
+// Critical for live video: all WebGL canvases must render every frame even when
+// scrolled out of view, because their output feeds into other canvases.
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+
 // Register the custom protocol as a standard scheme before app ready
 protocol.registerSchemesAsPrivileged([
     {
