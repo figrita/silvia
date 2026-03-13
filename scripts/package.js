@@ -131,14 +131,23 @@ function packageWin() {
 
     const destName = `${NAME}-${VERSION}-win`
     const dest = path.join(DIST, destName)
+    const libDir = path.join(dest, 'lib')
 
     console.log(`Packaging Windows -> ${destName}/`)
 
     // Clean previous
     removeRecursive(dest)
+    fs.mkdirSync(libDir, { recursive: true })
 
-    // Rename the folder
-    fs.renameSync(src, dest)
+    // Move all files from win-unpacked into lib/
+    for (const entry of fs.readdirSync(src)) {
+        fs.renameSync(path.join(src, entry), path.join(libDir, entry))
+    }
+    fs.rmdirSync(src)
+
+    // Create launcher .cmd (start /b avoids lingering console window)
+    const launcher = `@echo off\r\nstart "" /b "%~dp0lib\\${NAME}.exe" %*\r\n`
+    fs.writeFileSync(path.join(dest, `${NAME}.cmd`), launcher)
 
     // Copy icon
     if (fs.existsSync(ICON_ICO)) {
