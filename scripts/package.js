@@ -145,8 +145,8 @@ function packageWin() {
     }
     fs.rmdirSync(src)
 
-    // Create launcher .cmd (start /b avoids lingering console window)
-    const launcher = `@echo off\r\nstart "" /b "%~dp0lib\\${NAME}.exe" %*\r\n`
+    // Create launcher .cmd (set workspace to this folder, start /b hides console)
+    const launcher = `@echo off\r\nset SILVIA_WORKSPACE=%~dp0\r\nstart "" /b "%~dp0lib\\${NAME}.exe" %*\r\n`
     fs.writeFileSync(path.join(dest, `${NAME}.cmd`), launcher)
 
     // Copy icon
