@@ -1,4 +1,4 @@
-# 0.7-beta Code Concerns
+# 0.7 Code Concerns
 
 Tracked issues from pre-ship code review. Ordered by priority within each section.
 

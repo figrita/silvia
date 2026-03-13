@@ -13,9 +13,9 @@
  * - 0.1: Initial patch format
  * - 0.2: Added control ranges and asset references
  * - 0.6.0: Flat workspace system (development)
- * - 0.7-beta: Flat workspace system with multi-workspace node visibility
+ * - 0.7: Flat workspace system with multi-workspace node visibility
  */
-export const PATCH_VERSION = '0.7-beta'
+export const PATCH_VERSION = '0.7'
 
 /**
  * Get the current patch format version
