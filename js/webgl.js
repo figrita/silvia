@@ -22,11 +22,36 @@ export class WebGLRenderer{
         this.tempFBO = null
         this.currentIndex = 0
         this.frameBufferSize = initialFrameBufferSize // Store the dynamic size
+        this.contextLost = false
+
+        // GPU backpressure: fence from previous frame
+        this.pendingFence = null
+        this.droppedFrames = 0
 
         // Async shader compilation support
         this.parallelShaderCompileExt = this.gl.getExtension('KHR_parallel_shader_compile')
         this.pendingProgram = null
         this.compilationStartTime = null
+
+        // Context loss handling
+        this._onContextLost = (e) => {
+            e.preventDefault() // Allow restore
+            this.contextLost = true
+            console.warn('WebGL context lost on', canvas.id || 'canvas')
+        }
+        this._onContextRestored = () => {
+            console.info('WebGL context restored on', canvas.id || 'canvas')
+            this.contextLost = false
+            this.pendingFence = null
+            this._initGL()
+            this._initFramebuffers()
+            // Re-compile active program if source was cached
+            if(this._lastFragmentSource){
+                this.updateProgram(this._lastFragmentSource)
+            }
+        }
+        canvas.addEventListener('webglcontextlost', this._onContextLost)
+        canvas.addEventListener('webglcontextrestored', this._onContextRestored)
 
         this._initGL()
         this.onResize()
@@ -84,6 +109,8 @@ export class WebGLRenderer{
     }
 
     updateProgram(fragmentShaderSource, onComplete = null){
+        if(this.contextLost){return}
+        this._lastFragmentSource = fragmentShaderSource
         const {gl} = this
         const vs = `#version 300 es\nin vec4 a_position; void main() { gl_Position = a_position; }`
 
@@ -170,8 +197,21 @@ export class WebGLRenderer{
     }
 
     render(time, shaderInfo, textureMap, customOptions = {}){
-        if(!this.program || !shaderInfo || this.historyFBOs.length === 0){return}
+        if(this.contextLost || !this.program || !shaderInfo || this.historyFBOs.length === 0){return}
         const {gl} = this
+
+        // GPU backpressure: if previous frame's fence hasn't signaled, skip this frame
+        if(this.pendingFence){
+            const status = gl.clientWaitSync(this.pendingFence, 0, 0)
+            if(status === gl.TIMEOUT_EXPIRED){
+                // GPU still working on previous frame — drop this one gracefully
+                this.droppedFrames++
+                return
+            }
+            // Fence signaled or error — clean up
+            gl.deleteSync(this.pendingFence)
+            this.pendingFence = null
+        }
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.tempFBO)
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
@@ -277,6 +317,9 @@ export class WebGLRenderer{
         )
         this.currentIndex = (this.currentIndex + 1) % this.frameBufferSize
 
+        // Place fence so next frame can detect if GPU is still working on this one
+        this.pendingFence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
+
         // Force GPU to process all commands immediately.
         // Prevents Chromium from deferring WebGL work on off-screen canvases
         // (critical on AMD Mesa where scrolled-out canvases stall the pipeline).
@@ -284,7 +327,13 @@ export class WebGLRenderer{
     }
 
     onResize(){
+        if(this.contextLost){return}
         const {gl} = this
+        // Clean up pending fence — framebuffers are about to be rebuilt
+        if(this.pendingFence){
+            gl.deleteSync(this.pendingFence)
+            this.pendingFence = null
+        }
         this._initFramebuffers()
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
     }

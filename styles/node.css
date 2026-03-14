@@ -33,7 +33,7 @@ body.s-number-scrubbing .node .input-control s-color {
     grid-row: 2;
     min-height: 0;
     min-width: 0;
-    contain: strict;
+    contain: size layout style;
 
     #node-root {
         position: absolute;
