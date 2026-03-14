@@ -219,10 +219,12 @@ export class MainMixerUI {
                 const wsId = node.workspaceVisibility?.values().next().value ?? null
                 this._updateStatusLabel(statusElement, wsId)
 
-                // Only rebuild preview if the node actually changed
-                if (previewElement._currentNode !== node) {
+                // Rebuild preview if the node changed or its active state changed
+                const isActive = !!node.runtimeState?.isActive
+                if (previewElement._currentNode !== node || previewElement._currentNodeActive !== isActive) {
                     this._updateChannelPreview(previewElement, node)
                     previewElement._currentNode = node
+                    previewElement._currentNodeActive = isActive
                 }
             } else {
                 // Clear assignment
@@ -233,6 +235,7 @@ export class MainMixerUI {
 
                 this._clearChannelPreview(previewElement)
                 previewElement._currentNode = null
+                previewElement._currentNodeActive = false
             }
         }
     }
