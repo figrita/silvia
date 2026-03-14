@@ -115,6 +115,12 @@ exec "$DIR/lib/silvia" "$@"
     // Copy docs + licenses
     copyDocs(dest)
 
+    // Copy loopback scripts (Linux only)
+    const loopbackDir = path.join(ROOT, 'loopback')
+    if (fs.existsSync(loopbackDir)) {
+        copyRecursive(loopbackDir, path.join(dest, 'loopback'))
+    }
+
     // Zip
     zipDir(dest, path.join(DIST, `${destName}.zip`))
 
