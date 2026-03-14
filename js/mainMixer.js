@@ -124,6 +124,14 @@ export class MainMixer {
                 this.renderer.onResize()
             }
 
+            // Invalidate projector stream — canvas resize destroys the GPU
+            // texture backing, so the old captureStream holds a stale mailbox
+            // handle that crashes Chromium's SharedImageManager
+            if (this.projectorStream) {
+                this.projectorStream.getTracks().forEach(track => track.stop())
+                this.projectorStream = null
+            }
+
             // Update projector window size to match
             BackgroundRenderer.updateProjectorSize()
         }
