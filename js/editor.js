@@ -33,8 +33,15 @@ document.addEventListener('keydown', (e) => {
     if(activeEl.contentEditable === 'true'){return}
     if(e.key.toLowerCase() === 'h'){
         const hidden = editor.style.visibility === 'hidden'
-        editor.style.visibility = hidden ? '' : 'hidden'
-        editor.style.pointerEvents = hidden ? '' : 'none'
+        const vis = hidden ? '' : 'hidden'
+        const pe = hidden ? '' : 'none'
+        editor.style.visibility = vis
+        editor.style.pointerEvents = pe
+        // These live outside #editor (to avoid contain:strict trapping them)
+        for(const el of document.querySelectorAll('#workspace-controls, #app-menu-wrapper, .floating-btn-container')){
+            el.style.visibility = vis
+            el.style.pointerEvents = pe
+        }
         showToast(hidden ? 'Editor visible -- press H to hide' : 'Editor hidden -- press H to show')
     }
     if(e.key.toLowerCase() === 'f'){
