@@ -300,6 +300,17 @@ export class MainMixerUI {
         previewElement.innerHTML = ''
     }
 
+    // Recreate preview stream for a node whose canvas was resized
+    refreshPreviewForNode(node) {
+        if (!this.panel) return
+        for (const ch of ['a', 'b']) {
+            const previewElement = this.panel.querySelector(`#preview-${ch}`)
+            if (previewElement && previewElement._currentNode === node) {
+                this._updateChannelPreview(previewElement, node)
+            }
+        }
+    }
+
     _toggleCollapse() {
         this.isCollapsed = !this.isCollapsed
 

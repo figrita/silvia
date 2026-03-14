@@ -149,6 +149,9 @@ registerNode({
             this.elements.canvas.height = height
             this.elements.canvas.style.aspectRatio = `${width} / ${height}`
             this.runtimeState.renderer.onResize()
+            // Refresh mixer preview streams — canvas resize invalidates
+            // GPU texture backing, so old captureStreams hold stale mailbox handles
+            mainMixerUI.refreshPreviewForNode(this)
         }
         this._updateVramDisplay() // Update VRAM when resolution changes
     },
@@ -499,6 +502,13 @@ registerNode({
         mainMixer.clearChannel(this)
         mainMixerUI.updateChannelStatus('A', mainMixer.channelA)
         mainMixerUI.updateChannelStatus('B', mainMixer.channelB)
+
+        // Clean up GPU textures to avoid stale mailbox handles
+        if(this.runtimeState.textureMap && this.runtimeState.renderer?.gl){
+            const gl = this.runtimeState.renderer.gl
+            this.runtimeState.textureMap.forEach(tex => gl.deleteTexture(tex))
+            this.runtimeState.textureMap.clear()
+        }
 
         SNode.outputs.delete(this)
         if(BackgroundRenderer.outputNode == this){
