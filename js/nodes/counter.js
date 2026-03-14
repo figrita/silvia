@@ -103,11 +103,10 @@ registerNode({
         const mode = this.getOption('mode')
         
         if(mode === 'wrap'){
-            const range = this.values.max - this.values.min + this.values.step
             if(newValue > this.values.max){
-                this.values.current = this.values.min + ((newValue - this.values.max - this.values.step) % range)
+                this.values.current = this.values.min
             } else if(newValue < this.values.min){
-                this.values.current = this.values.max - ((this.values.min - newValue - this.values.step) % range)
+                this.values.current = this.values.max
             } else {
                 this.values.current = newValue
             }
@@ -148,7 +147,7 @@ registerNode({
                 </div>
                 <div style="display:flex; justify-content: space-between; align-items: center;">
                     <label style="font-size:0.9rem; color:#ccc;">Step</label>
-                    <s-number midi-disabled value="${this.values.step}" default="${this.defaults.step}" min="0.0001" max="1000" step="1" data-el="stepControl"></s-number>
+                    <s-number midi-disabled value="${this.values.step}" default="${this.defaults.step}" min="0.01" max="100" step="0.01" data-el="stepControl"></s-number>
                 </div>
                 <div style="text-align:center; font-size:1.2rem; color:#fff; padding:0.5rem; background:#333; border-radius:4px;" data-el="displayEl">
                     ${this.values.current}
