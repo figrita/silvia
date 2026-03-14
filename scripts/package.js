@@ -107,6 +107,16 @@ exec "$DIR/lib/silvia" "$@"
 `
     fs.writeFileSync(path.join(dest, NAME), launcher, { mode: 0o755 })
 
+    // Create install script to fix chrome-sandbox permissions (required for Electron sandboxing)
+    const installScript = `#!/bin/bash
+echo "Setting up Silvia sandbox permissions (requires sudo)..."
+DIR="$(cd "$(dirname "$0")" && pwd)"
+sudo chown root:root "$DIR/lib/chrome-sandbox"
+sudo chmod 4755 "$DIR/lib/chrome-sandbox"
+echo "Done. You can now run ./Silvia"
+`
+    fs.writeFileSync(path.join(dest, 'install.sh'), installScript, { mode: 0o755 })
+
     // Copy icon
     if (fs.existsSync(ICON_PNG)) {
         fs.copyFileSync(ICON_PNG, path.join(dest, 'silvia.png'))
