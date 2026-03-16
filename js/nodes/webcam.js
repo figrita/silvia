@@ -61,11 +61,16 @@ registerNode({
                 gl.bindTexture(gl.TEXTURE_2D, texture)
 
                 if(video && video.readyState >= video.HAVE_CURRENT_DATA){
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video)
+                    if(this._texW === video.videoWidth && this._texH === video.videoHeight){
+                        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, video)
+                    } else {
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video)
+                        this._texW = video.videoWidth; this._texH = video.videoHeight
+                    }
                 } else {
-                    // Upload black 1x1 pixel as fallback when no video data yet
                     const blackPixel = new Uint8Array([0, 0, 0, 255])
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, blackPixel)
+                    this._texW = 0; this._texH = 0
                 }
 
                 const location = gl.getUniformLocation(program, uniformName)

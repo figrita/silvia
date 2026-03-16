@@ -109,12 +109,16 @@ registerNode({
                 // Security: Only upload canvas if it has been drawn to at least once
                 // This prevents reading uninitialized canvas memory which causes security errors
                 if(canvas && canvas.width > 0 && canvas.height > 0 && this.runtimeState.canvasHasData){
-                    // Use the actual canvas with verified video data
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
+                    if(this._texW === canvas.width && this._texH === canvas.height){
+                        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
+                    } else {
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
+                        this._texW = canvas.width; this._texH = canvas.height
+                    }
                 } else {
-                    // Create a 1x1 black texture as fallback
-                    const blackPixel = new Uint8Array([0, 0, 0, 255]) // Black with full alpha
+                    const blackPixel = new Uint8Array([0, 0, 0, 255])
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, blackPixel)
+                    this._texW = 0; this._texH = 0
                 }
 
                 const location = gl.getUniformLocation(program, uniformName)
@@ -216,7 +220,12 @@ registerNode({
 
                 // Upload waveform data as a 1D texture (1024x1)
                 const waveformData = this.runtimeState.analyzer.waveformData
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1024, 1, 0, gl.RED, gl.UNSIGNED_BYTE, waveformData)
+                if(this._wavTexInit){
+                    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 1024, 1, gl.RED, gl.UNSIGNED_BYTE, waveformData)
+                } else {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1024, 1, 0, gl.RED, gl.UNSIGNED_BYTE, waveformData)
+                    this._wavTexInit = true
+                }
 
                 const location = gl.getUniformLocation(program, uniformName)
                 gl.uniform1i(location, textureUnit)

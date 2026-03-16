@@ -84,10 +84,16 @@ registerNode({
                 
                 // Use the game canvas as texture source
                 if (this.runtimeState.gameCanvas) {
+                    const gc = this.runtimeState.gameCanvas
                     gl.activeTexture(gl.TEXTURE0 + textureUnit)
                     gl.bindTexture(gl.TEXTURE_2D, texture)
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.runtimeState.gameCanvas)
-                    
+                    if(this._texW === gc.width && this._texH === gc.height){
+                        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, gc)
+                    } else {
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, gc)
+                        this._texW = gc.width; this._texH = gc.height
+                    }
+
                     const location = gl.getUniformLocation(program, uniformName)
                     gl.uniform1i(location, textureUnit)
                 }
