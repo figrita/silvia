@@ -102,6 +102,30 @@ function packageLinux() {
     // Create launcher script
     const launcher = `#!/bin/bash
 DIR="$(cd "$(dirname "$0")" && pwd)"
+SANDBOX="$DIR/lib/chrome-sandbox"
+
+# Check chrome-sandbox has correct SUID permissions for Electron sandboxing
+if [ -f "$SANDBOX" ]; then
+    OWNER=$(stat -c '%u' "$SANDBOX" 2>/dev/null)
+    PERMS=$(stat -c '%a' "$SANDBOX" 2>/dev/null)
+    if [ "$OWNER" != "0" ] || [ "$PERMS" != "4755" ]; then
+        echo "Silvia needs to set up sandbox permissions (one-time setup)."
+        echo "This requires sudo to set ownership on lib/chrome-sandbox."
+        read -p "Fix now? [Y/n] " answer
+        case "$answer" in
+            [nN]*) echo "Aborted. You can run ./install.sh later to fix this."; exit 1 ;;
+            *)
+                sudo chown root:root "$SANDBOX" && sudo chmod 4755 "$SANDBOX"
+                if [ $? -ne 0 ]; then
+                    echo "Failed to set permissions. Try running: ./install.sh"
+                    exit 1
+                fi
+                echo "Sandbox permissions set."
+                ;;
+        esac
+    fi
+fi
+
 export SILVIA_WORKSPACE="$DIR"
 exec "$DIR/lib/silvia" "$@"
 `
@@ -124,6 +148,35 @@ echo "Done. You can now run ./Silvia"
 
     // Copy docs + licenses
     copyDocs(dest)
+
+    // Write quickstart
+    const quickstart = `QUICKSTART -- Linux
+
+Run ./Silvia from a terminal.
+
+If it fails with a sandbox error, run ./install.sh first (one-time, needs
+sudo). This sets ownership and SUID permissions on lib/chrome-sandbox, which
+Chromium's security sandbox requires on some Linux configurations. It isolates
+the renderer process from the rest of your system. Not every distro needs this
+-- it depends on your kernel's user namespace settings.
+
+This folder is your workspace. Patches save to saves/, imported media goes
+in assets/. Both are created automatically on first run.
+
+Audio Loopback (PipeWire)
+
+  The loopback/ folder has scripts for virtual audio routing:
+    ./loopback/create_loopback.sh    Create virtual sink + source
+    ./loopback/remove_loopback.sh    Remove them
+
+Troubleshooting
+
+  "The SUID sandbox helper binary was found, but is not configured correctly"
+    Run ./install.sh, or manually:
+      sudo chown root:root lib/chrome-sandbox
+      sudo chmod 4755 lib/chrome-sandbox
+`
+    fs.writeFileSync(path.join(dest, 'QUICKSTART.txt'), quickstart)
 
     // Copy loopback scripts (Linux only)
     const loopbackDir = path.join(ROOT, 'loopback')
@@ -174,6 +227,10 @@ function packageWin() {
     const desktopIni = `[.ShellClassInfo]\r\nIconResource=silvia.ico,0\r\n`
     fs.writeFileSync(path.join(dest, 'desktop.ini'), desktopIni)
 
+    // Write quickstart
+    const quickstart = `QUICKSTART -- Windows\r\n\r\nDouble-click Silvia.cmd to launch.\r\n\r\nWindows SmartScreen may warn on first run. Click "More info" then\r\n"Run anyway" -- the app is unsigned, not malicious.\r\n\r\nThis folder is your workspace. Patches save to saves\\, imported media\r\ngoes in assets\\. Both are created automatically on first run.\r\n`
+    fs.writeFileSync(path.join(dest, 'QUICKSTART.txt'), quickstart)
+
     // Copy docs + licenses
     copyDocs(dest)
 
@@ -212,6 +269,21 @@ function packageMac() {
         if (fs.existsSync(appSrc)) {
             fs.renameSync(appSrc, path.join(dest, appName))
         }
+
+        // Write quickstart
+        const quickstart = `QUICKSTART -- macOS
+
+Right-click Silvia.app and choose Open. macOS Gatekeeper blocks unsigned
+apps on double-click, but right-click > Open lets you bypass it once.
+
+If you get "Silvia.app is damaged and can't be opened", run this in Terminal:
+  xattr -cr Silvia.app
+Then right-click > Open again.
+
+This folder is your workspace. Patches save to saves/, imported media goes
+in assets/. Both are created automatically on first run.
+`
+        fs.writeFileSync(path.join(dest, 'QUICKSTART.txt'), quickstart)
 
         // Copy docs + licenses
         copyDocs(dest)
