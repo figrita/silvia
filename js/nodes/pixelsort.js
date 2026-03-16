@@ -3,7 +3,7 @@ import {shaderUtils} from '../shaderUtils.js'
 
 registerNode({
     slug: 'pixelsort',
-    icon: '📊',
+    icon: '🧮',
     label: 'Pixel Sort',
     tooltip: 'Sorts pixels by brightness in variable-length chunks with hash-randomized boundaries. Classic glitch art.',
 

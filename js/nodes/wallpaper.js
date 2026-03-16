@@ -63,7 +63,7 @@ registerNode({
 
     input: {
         'input': {label: 'Input', type: 'color', control: null},
-        'scale': {label: 'Frequency', type: 'float', control: {default: 5.0, min: 0.1, max: 20.0, step: 0.01, unit: '/⬓'}},
+        'scale': {label: 'Frequency', type: 'float', control: {default: 1.0, min: 0.1, max: 5.0, step: 0.01, unit: '/⬓'}},
         'texScale': {label: 'Texture Scale', type: 'float', control: {default: 0.5, min: 0.01, max: 5.0, step: 0.01}},
         'latticeParam': {label: 'Lattice Param', type: 'float', control: {default: 1.0, min: 0.1, max: 5.0, step: 0.01}},
         'coeff1': {label: 'Coeff 1', type: 'float', control: {default: 1.0, min: -2.0, max: 2.0, step: 0.01}},

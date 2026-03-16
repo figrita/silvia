@@ -468,7 +468,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 10. Listen for theme changes to update connection colors
     document.addEventListener('themeChanged', () => {
         Connection.redrawAllConnections()
-        console.log(`🎨 Theme updated:`, themeManager.getAllColors())
     })
 
     // 11. Global key handlers for system functions
