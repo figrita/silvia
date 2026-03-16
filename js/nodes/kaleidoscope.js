@@ -35,6 +35,16 @@ registerNode({
             label: 'Source Segment',
             type: 'float',
             control: {default: 1, min: 1, max: 6, step: 1}
+        },
+        'centerX': {
+            label: 'Center X',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
+        },
+        'centerY': {
+            label: 'Center Y',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
         }
     },
     output: {
@@ -130,12 +140,17 @@ registerNode({
                     }
                 })()
 
+                const centerX = this.getInput('centerX', cc)
+                const centerY = this.getInput('centerY', cc)
+
                 return `vec4 ${funcName}(vec2 uv) {
-    vec2 p_in = uv;
+    vec2 center = vec2(${centerX}, ${centerY});
+    vec2 p_in = uv - center;
     vec2 sampleUV;
 
     ${modeLogic}
-    
+
+    sampleUV += center;
     return ${this.getInput('input', cc, 'sampleUV')};
 }`
             }

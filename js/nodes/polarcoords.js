@@ -16,6 +16,16 @@ registerNode({
             label: 'Scale',
             type: 'float',
             control: {default: 1.0, min: 0.1, max: 5.0, step: 0.01}
+        },
+        'centerX': {
+            label: 'Center X',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
+        },
+        'centerY': {
+            label: 'Center Y',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
         }
     },
     output: {
@@ -26,39 +36,37 @@ registerNode({
                 const mode = this.getOption('mode')
                 const scale = this.getInput('scale', cc)
                 
+                const centerX = this.getInput('centerX', cc)
+                const centerY = this.getInput('centerY', cc)
+
                 let transformCode = ''
                 if(mode === 'to_polar'){
-                    // Cartesian to Polar
-                    // Map angle to X axis (-1 to 1)
-                    // Map radius to Y axis (scaled to fit viewport)
                     transformCode = `
-        float r = length(uv) / ${scale};
-        float theta = atan(uv.y, uv.x) / PI; // Maps to [-1, 1]
-        sampleUV = vec2(theta, r * 2.0 - 1.0); // Scale radius to [-1, 1] range`
+        vec2 cuv = uv - center;
+        float r = length(cuv) / ${scale};
+        float theta = atan(cuv.y, cuv.x) / PI;
+        sampleUV = vec2(theta, r * 2.0 - 1.0);`
                 } else if(mode === 'from_polar'){
-                    // Polar to Cartesian
-                    // X is angle (-1 to 1 represents -PI to PI)
-                    // Y is radius (-1 to 1 represents 0 to scale)
                     transformCode = `
         float theta = uv.x * PI;
-        float r = (uv.y + 1.0) * 0.5 * ${scale}; // Map from [-1,1] to [0, scale]
-        sampleUV = vec2(cos(theta) * r, sin(theta) * r);`
+        float r = (uv.y + 1.0) * 0.5 * ${scale};
+        sampleUV = vec2(cos(theta) * r, sin(theta) * r) + center;`
                 } else if(mode === 'to_log_polar'){
-                    // Logarithmic polar (useful for rotation/scale invariant effects)
                     transformCode = `
-        float r = length(uv);
-        float logR = log(max(r, 0.001)) / ${scale}; // Logarithmic radius
-        float theta = atan(uv.y, uv.x) / PI;
+        vec2 cuv = uv - center;
+        float r = length(cuv);
+        float logR = log(max(r, 0.001)) / ${scale};
+        float theta = atan(cuv.y, cuv.x) / PI;
         sampleUV = vec2(theta, logR);`
                 } else if(mode === 'from_log_polar'){
-                    // Inverse logarithmic polar
                     transformCode = `
         float theta = uv.x * PI;
         float r = exp(uv.y * ${scale});
-        sampleUV = vec2(cos(theta) * r, sin(theta) * r);`
+        sampleUV = vec2(cos(theta) * r, sin(theta) * r) + center;`
                 }
                 
                 return `vec4 ${funcName}(vec2 uv) {
+    vec2 center = vec2(${centerX}, ${centerY});
     vec2 sampleUV;
     ${transformCode}
     

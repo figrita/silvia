@@ -15,6 +15,16 @@ registerNode({
             label: 'Input',
             type: 'color',
             control: null
+        },
+        'centerX': {
+            label: 'Center X',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
+        },
+        'centerY': {
+            label: 'Center Y',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
         }
     },
     output: {
@@ -24,10 +34,11 @@ registerNode({
             genCode(cc, funcName){
                 return `vec4 ${funcName}(vec2 uv) {
     float angleRad = ${this.getInput('angle', cc)} * PI;
+    vec2 center = vec2(${this.getInput('centerX', cc)}, ${this.getInput('centerY', cc)});
     float s = sin(angleRad);
     float c = cos(angleRad);
     mat2 rotMat = mat2(c, -s, s, c);
-    vec2 rotatedUV = rotMat * (uv);
+    vec2 rotatedUV = rotMat * (uv - center) + center;
     return ${this.getInput('input', cc, 'rotatedUV')};
 }`
             }

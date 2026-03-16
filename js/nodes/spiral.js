@@ -41,6 +41,16 @@ registerNode({
             label: 'Rotation',
             type: 'float',
             control: {default: 0, min: -4, max: 4, step: 0.001, unit: 'π'}
+        },
+        'centerX': {
+            label: 'Center X',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
+        },
+        'centerY': {
+            label: 'Center Y',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
         }
     },
     
@@ -71,13 +81,14 @@ registerNode({
     float innerRadius = ${this.getInput('innerRadius', cc)};
     float outerRadius = ${this.getInput('outerRadius', cc)};
     float rotation = ${this.getInput('rotation', cc)} * PI;
-    
+    vec2 cuv = uv - vec2(${this.getInput('centerX', cc)}, ${this.getInput('centerY', cc)});
+
     // Rotate UV
     float cs = cos(rotation);
     float sn = sin(rotation);
     vec2 p = vec2(
-        uv.x * cs - uv.y * sn,
-        uv.x * sn + uv.y * cs
+        cuv.x * cs - cuv.y * sn,
+        cuv.x * sn + cuv.y * cs
     );
     
     // Convert to polar coordinates
@@ -153,13 +164,14 @@ registerNode({
     float innerRadius = ${this.getInput('innerRadius', cc)};
     float outerRadius = ${this.getInput('outerRadius', cc)};
     float rotation = ${this.getInput('rotation', cc)} * PI;
-    
+    vec2 cuv = uv - vec2(${this.getInput('centerX', cc)}, ${this.getInput('centerY', cc)});
+
     // Rotate UV
     float cs = cos(rotation);
     float sn = sin(rotation);
     vec2 p = vec2(
-        uv.x * cs - uv.y * sn,
-        uv.x * sn + uv.y * cs
+        cuv.x * cs - cuv.y * sn,
+        cuv.x * sn + cuv.y * cs
     );
     
     // Convert to polar coordinates
