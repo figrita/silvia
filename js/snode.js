@@ -1128,8 +1128,7 @@ export class SNode{
                 </div>`
     })}
         </div>` : ''}
-        <div class="node-custom" data-el="customArea">
-        </div>
+        <div class="node-custom" data-el="customArea"></div>
     </div>
     `
         const content = StringToFragment(html)
