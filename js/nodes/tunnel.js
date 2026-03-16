@@ -48,6 +48,16 @@ registerNode({
             downCallback(){
                 this._restartTunnel()
             }
+        },
+        'centerX': {
+            label: 'Center X',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
+        },
+        'centerY': {
+            label: 'Center Y',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
         }
     },
     
@@ -71,9 +81,12 @@ registerNode({
                     sourcePort: this.output.output
                 })
                 
+                const centerX = this.getInput('centerX', cc)
+                const centerY = this.getInput('centerY', cc)
+
                 return `vec4 ${funcName}(vec2 uv) {
     // Center position
-    vec2 position = uv;
+    vec2 position = uv - vec2(${centerX}, ${centerY});
     
     // Compute angle normalized to 0-1 range to avoid seams
     float angle = atan(position.y, position.x);

@@ -35,6 +35,16 @@ registerNode({
             label: 'Base Zoom',
             type: 'float',
             control: {default: 1.0, min: 0.1, max: 3.0, step: 0.01}
+        },
+        'centerX': {
+            label: 'Center X',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
+        },
+        'centerY': {
+            label: 'Center Y',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
         }
     },
     output: {
@@ -68,8 +78,10 @@ registerNode({
     mat2 rot = mat2(c, -s, s, c);
     
     // Transform UV coordinates
-    vec2 transformedUV = rot * uv;
+    vec2 center = vec2(${this.getInput('centerX', cc)}, ${this.getInput('centerY', cc)});
+    vec2 transformedUV = rot * (uv - center);
     transformedUV *= zoom;
+    transformedUV += center;
     
     return ${this.getInput('input', cc, 'transformedUV')};
 }`

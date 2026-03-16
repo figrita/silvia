@@ -5,7 +5,7 @@ import {PhaseAccumulator} from '../phaseAccumulator.js'
 registerNode({
     slug: 'tunnel3d',
     icon: '🚇',
-    label: 'Tunnel 3D',
+    label: 'Tunnel',
     tooltip: 'Raymarched demoscene tunnel with twists and turns. Camera flies through a curved tube textured with the input.',
 
     elements: {
@@ -55,6 +55,16 @@ registerNode({
             downCallback(){
                 this._restartTunnel()
             }
+        },
+        'centerX': {
+            label: 'Center X',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
+        },
+        'centerY': {
+            label: 'Center Y',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
         }
     },
 
@@ -78,6 +88,16 @@ registerNode({
                 {value: 'light', name: 'Light'},
                 {value: 'heavy', name: 'Heavy'}
             ]
+        },
+        'wrap': {
+            label: 'Wrap',
+            type: 'select',
+            default: 'mirror',
+            choices: [
+                {value: 'mirror', name: 'Mirror'},
+                {value: 'repeat', name: 'Repeat'},
+                {value: 'none', name: 'None'}
+            ]
         }
     },
 
@@ -89,8 +109,11 @@ registerNode({
                 const twist = this.getInput('twist', cc)
                 const radius = this.getInput('radius', cc)
                 const zoom = this.getInput('zoom', cc)
+                const centerX = this.getInput('centerX', cc)
+                const centerY = this.getInput('centerY', cc)
                 const path = this.getOption('path')
                 const shading = this.getOption('shading')
+                const wrap = this.getOption('wrap')
 
                 const phaseUniform = `${uniformName}_phase`
                 cc.uniforms.set(phaseUniform, {
@@ -109,7 +132,14 @@ registerNode({
                     }
                 }
 
+                const wrapCode = wrap === 'mirror'
+                    ? `t3d_tc = abs(mod(t3d_tc + 1.0, 4.0) - 2.0) - 1.0;`
+                    : wrap === 'repeat'
+                    ? `t3d_tc = fract(t3d_tc * 0.5 + 0.5) * 2.0 - 1.0;`
+                    : ``
+
                 return `vec4 ${funcName}(vec2 uv) {
+    vec2 t3d_uv = uv - vec2(${centerX}, ${centerY});
     float t3d_tw = ${twist};
     float t3d_r = ${radius};
     float t3d_camZ = ${phaseUniform};
@@ -123,7 +153,7 @@ registerNode({
     vec3 t3d_fwd = normalize(t3d_tgt - t3d_ro);
     vec3 t3d_right = normalize(cross(vec3(0.0, 1.0, 0.0), t3d_fwd));
     vec3 t3d_up = cross(t3d_fwd, t3d_right);
-    vec3 t3d_rd = normalize(uv.x * t3d_right + uv.y * t3d_up + ${zoom} * t3d_fwd);
+    vec3 t3d_rd = normalize(t3d_uv.x * t3d_right + t3d_uv.y * t3d_up + ${zoom} * t3d_fwd);
 
     float t3d_t = 0.0;
     for (int i = 0; i < 32; i++) {
@@ -139,7 +169,7 @@ registerNode({
     float t3d_a = atan(t3d_hit.y - t3d_hp.y, t3d_hit.x - t3d_hp.x);
 
     vec2 t3d_tc = vec2(t3d_a / 3.14159265 * 2.0, t3d_hit.z * 0.5);
-    t3d_tc = abs(mod(t3d_tc + 1.0, 4.0) - 2.0) - 1.0;
+    ${wrapCode}
 
     vec4 t3d_col = ${this.getInput('texture', cc, 't3d_tc')};
     ${shading === 'light' ? `t3d_col.rgb *= exp(-t3d_t * 0.08);`

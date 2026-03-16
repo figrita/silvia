@@ -31,6 +31,16 @@ registerNode({
             label: 'Rotation',
             type: 'float',
             control: {default: 0, min: -2, max: 2, step: 0.001, unit: 'π'}
+        },
+        'centerX': {
+            label: 'Center X',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
+        },
+        'centerY': {
+            label: 'Center Y',
+            type: 'float',
+            control: {default: 0.0, min: -2.0, max: 2.0, step: 0.01, unit: '⬓'}
         }
     },
 
@@ -80,10 +90,12 @@ registerNode({
     float frequency = ${this.getInput('frequency', cc)};
     float phase = ${this.getInput('phase', cc)} * PI;
     float rotation = ${this.getInput('rotation', cc)} * PI;
+    vec2 center = vec2(${this.getInput('centerX', cc)}, ${this.getInput('centerY', cc)});
+    vec2 cuv = uv - center;
 
     ${mode === 'radial' ? `
     // Radial: wave based on distance from center
-    float wavePos = length(uv) * frequency + phase;
+    float wavePos = length(cuv) * frequency + phase;
     ` : `
     // Linear: rotate UV, sample along Y, displace along Y, rotate back
     // At rotation=0 wave fronts are horizontal (displacement is vertical)
@@ -91,8 +103,8 @@ registerNode({
     float cs = cos(rotation);
     float sn = sin(rotation);
     vec2 rotUV = vec2(
-        uv.x * cs + uv.y * sn,
-       -uv.x * sn + uv.y * cs
+        cuv.x * cs + cuv.y * sn,
+       -cuv.x * sn + cuv.y * cs
     );
     float wavePos = rotUV.y * frequency + phase;
     `}
@@ -115,12 +127,12 @@ registerNode({
     vec2 displacedUV;
     ${mode === 'radial' ? (displacement === 'wiggle' ? `
     // Radial wiggle: displace tangentially (perpendicular to radial direction)
-    vec2 radialDir = length(uv) > 0.0 ? normalize(uv) : vec2(0.0);
+    vec2 radialDir = length(cuv) > 0.0 ? normalize(cuv) : vec2(0.0);
     vec2 tangentDir = vec2(-radialDir.y, radialDir.x);
     displacedUV = uv + tangentDir * wave * amplitude;
     ` : `
     // Radial ripple: displace along radial direction (zoom in/out with distance)
-    vec2 radialDir = length(uv) > 0.0 ? normalize(uv) : vec2(0.0);
+    vec2 radialDir = length(cuv) > 0.0 ? normalize(cuv) : vec2(0.0);
     displacedUV = uv + radialDir * wave * amplitude;
     `) : (displacement === 'wiggle' ? `
     // Wiggle: displace along X in rotated space (perpendicular to wave direction)
@@ -128,14 +140,14 @@ registerNode({
     displacedUV = vec2(
         displaced.x * cs - displaced.y * sn,
         displaced.x * sn + displaced.y * cs
-    );
+    ) + center;
     ` : `
     // Ripple: displace along Y in rotated space (parallel to wave direction)
     vec2 displaced = vec2(rotUV.x, rotUV.y + wave * amplitude);
     displacedUV = vec2(
         displaced.x * cs - displaced.y * sn,
         displaced.x * sn + displaced.y * cs
-    );
+    ) + center;
     `)}
 
     return ${this.getInput('input', cc, 'displacedUV')};
