@@ -28,6 +28,13 @@ export class WebGLRenderer{
         this.pendingFence = null
         this.droppedFrames = 0
 
+        // Uniform location cache — invalidated on program change
+        this._uniformCache = new Map()
+
+        // Texture dimension cache — tracks last uploaded size per texture key
+        // to allow texSubImage2D instead of texImage2D when dimensions match
+        this._texDimensions = new Map()
+
         // Async shader compilation support
         this.parallelShaderCompileExt = this.gl.getExtension('KHR_parallel_shader_compile')
         this.pendingProgram = null
@@ -128,6 +135,7 @@ export class WebGLRenderer{
         const fragmentShader = this._createShader(gl.FRAGMENT_SHADER, fragmentShaderSource)
         if(this.program){gl.deleteProgram(this.program)}
         this.program = this._createProgram(vertexShader, fragmentShader)
+        this._uniformCache.clear()
     }
 
     _updateProgramAsync(vertexShaderSource, fragmentShaderSource, onComplete){
@@ -179,6 +187,7 @@ export class WebGLRenderer{
                 }
                 this.program = this.pendingProgram
                 this.pendingProgram = null
+                this._uniformCache.clear()
 
                 const elapsed = performance.now() - this.compilationStartTime
 
@@ -219,54 +228,61 @@ export class WebGLRenderer{
 
         // Skip standard uniforms for main mixer
         if(!customOptions.skipStandardUniforms){
-            gl.uniform1f(gl.getUniformLocation(this.program, 'u_time'), time)
-            gl.uniform2f(gl.getUniformLocation(this.program, 'u_resolution'), gl.canvas.width, gl.canvas.height)
-            gl.uniform1i(gl.getUniformLocation(this.program, 'u_current_frame_index'), this.currentIndex)
-            gl.uniform1i(gl.getUniformLocation(this.program, 'u_frame_buffer_size'), this.frameBufferSize) // Set the dynamic buffer size uniform
+            gl.uniform1f(this._getUniform('u_time'), time)
+            gl.uniform2f(this._getUniform('u_resolution'), gl.canvas.width, gl.canvas.height)
+            gl.uniform1i(this._getUniform('u_current_frame_index'), this.currentIndex)
+            gl.uniform1i(this._getUniform('u_frame_buffer_size'), this.frameBufferSize)
 
             gl.activeTexture(gl.TEXTURE0)
             gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.historyTexture)
-            gl.uniform1i(gl.getUniformLocation(this.program, 'u_frame_history'), 0)
+            gl.uniform1i(this._getUniform('u_frame_history'), 0)
         }
 
         let textureUnit = 1
 
         // Handle direct canvas texture input
         if(customOptions.textureProviders){
-            Object.entries(customOptions.textureProviders).forEach(([uniformName, provider]) => {
-                const location = gl.getUniformLocation(this.program, uniformName)
-                if(location){
-                    // Use existing textureMap caching system
-                    let texture = textureMap.get(uniformName)
-                    gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                    if(!texture){
-                        texture = gl.createTexture()
-                        textureMap.set(uniformName, texture)
-                        gl.bindTexture(gl.TEXTURE_2D, texture)
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
-                    } else {
-                        gl.bindTexture(gl.TEXTURE_2D, texture)
-                    }
-                    
-                    const canvas = provider()  // Returns HTMLCanvasElement or null
-                    if(canvas instanceof HTMLCanvasElement && canvas.width > 0 && canvas.height > 0){
-                        // Use the actual canvas
-                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
-                    } else {
-                        // Create a 1x1 black texture as fallback
-                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, this.blackPixel)
-                    }
-                    
-                    gl.uniform1i(location, textureUnit)
-                    textureUnit++
+            for(const uniformName in customOptions.textureProviders){
+                const location = this._getUniform(uniformName)
+                if(!location) continue
+                const provider = customOptions.textureProviders[uniformName]
+
+                let texture = textureMap.get(uniformName)
+                gl.activeTexture(gl.TEXTURE0 + textureUnit)
+                if(!texture){
+                    texture = gl.createTexture()
+                    textureMap.set(uniformName, texture)
+                    gl.bindTexture(gl.TEXTURE_2D, texture)
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
+                } else {
+                    gl.bindTexture(gl.TEXTURE_2D, texture)
                 }
-            })
+
+                const canvas = provider()
+                if(canvas instanceof HTMLCanvasElement && canvas.width > 0 && canvas.height > 0){
+                    const dimKey = uniformName
+                    const prev = this._texDimensions.get(dimKey)
+                    if(prev && prev[0] === canvas.width && prev[1] === canvas.height){
+                        // Dimensions unchanged — sub-upload avoids GPU reallocation
+                        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
+                    } else {
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
+                        this._texDimensions.set(dimKey, [canvas.width, canvas.height])
+                    }
+                } else {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, this.blackPixel)
+                    this._texDimensions.delete(uniformName)
+                }
+
+                gl.uniform1i(location, textureUnit)
+                textureUnit++
+            }
         }
         shaderInfo.uniformProviders.forEach(provider => {
-            const location = gl.getUniformLocation(this.program, provider.uniformName)
+            const location = this._getUniform(provider.uniformName)
             if(!location){return}
             if(provider.sourcePort){
                 if(provider.sourcePort.textureUniformUpdate){
@@ -334,8 +350,18 @@ export class WebGLRenderer{
             gl.deleteSync(this.pendingFence)
             this.pendingFence = null
         }
+        this._texDimensions.clear()
         this._initFramebuffers()
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+    }
+
+    _getUniform(name){
+        let loc = this._uniformCache.get(name)
+        if(loc === undefined){
+            loc = this.gl.getUniformLocation(this.program, name)
+            this._uniformCache.set(name, loc)
+        }
+        return loc
     }
 
     _createShader(type, source){
