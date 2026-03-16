@@ -31,7 +31,6 @@ function createAboutModal(){
                 <p>Created by figrita -- <a href="https://buymeacoffee.com/figrita" data-external-link><strong>Buy me a coffee</strong></a></p>
                 <p><a href="https://github.com/figrita/silvia" data-external-link><strong>Source on Github</strong></a></p>
                 <p><a href="https://discord.gg/cZYa2bDjs9" data-external-link><strong>Silvia Discord</strong></a></p>
-                <p><a href="https://silviahub.net/" data-external-link><strong>Silvia Hub</strong></a> -- browse and share workspaces</p>
             </div>
 
             <div class="about-section">
