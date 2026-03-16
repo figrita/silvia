@@ -312,6 +312,12 @@ body.s-number-scrubbing .node .input-control s-color {
             .node-options {
                 display: flex;
                 flex-direction: column;
+
+                &:has(+ .node-custom:empty) {
+                    border-bottom-left-radius: 12px;
+                    border-bottom-right-radius: 12px;
+                    overflow: hidden;
+                }
             }
 
             .node-option {
