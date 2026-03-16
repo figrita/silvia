@@ -158,13 +158,13 @@ s-number.midi-mapped::after {
 /* MIDI learning animation */
 s-number.midi-learning {
     animation: midi-learning-pulse 1.5s infinite;
-    border-color: var(--primary) !important;
-    outline: 2px solid var(--primary);
+    border-color: var(--primary-color) !important;
+    outline: 2px solid var(--primary-color);
     outline-offset: 2px;
 }
 
 s-number.midi-learning .s-number-input {
-    border-color: var(--primary);
+    border-color: var(--primary-color);
     background: hsla(var(--theme-hue), var(--theme-sat), var(--theme-light), 0.1);
 }
 
