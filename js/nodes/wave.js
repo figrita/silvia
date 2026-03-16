@@ -4,8 +4,8 @@ registerNode({
     slug: 'wave',
     icon: '〰️',
     label: 'Wave',
-    tooltip: 'Creates wave distortion effects. Adjust frequency for wave count, amplitude for distortion strength, speed for animation.',
-    
+    tooltip: 'Wave distortion. Rotation controls wave direction. Amplitude controls strength, frequency controls density, phase offsets the wave.',
+
     input: {
         'input': {
             label: 'Input',
@@ -27,13 +27,13 @@ registerNode({
             type: 'float',
             control: {default: 0, min: -4, max: 4, step: 0.001, unit: 'π'}
         },
-        'angle': {
-            label: 'Angle',
+        'rotation': {
+            label: 'Rotation',
             type: 'float',
-            control: {default: 0, min: -4, max: 4, step: 0.001, unit: 'π'}
+            control: {default: 0, min: -2, max: 2, step: 0.001, unit: 'π'}
         }
     },
-    
+
     options: {
         'waveform': {
             label: 'Waveform',
@@ -47,53 +47,57 @@ registerNode({
                 {value: 'noise', name: 'Noise'}
             ]
         },
-        'axis': {
-            label: 'Axis',
+        'mode': {
+            label: 'Mode',
             type: 'select',
-            default: 'horizontal',
+            default: 'linear',
             choices: [
-                {value: 'horizontal', name: 'Horizontal'},
-                {value: 'vertical', name: 'Vertical'},
-                {value: 'both', name: 'Both'},
+                {value: 'linear', name: 'Linear'},
                 {value: 'radial', name: 'Radial'}
+            ]
+        },
+        'displacement': {
+            label: 'Displacement',
+            type: 'select',
+            default: 'wiggle',
+            choices: [
+                {value: 'wiggle', name: 'Wiggle'},
+                {value: 'ripple', name: 'Ripple'}
             ]
         }
     },
-    
+
     output: {
         'output': {
             label: 'Output',
             type: 'color',
             genCode(cc, funcName){
                 const waveform = this.getOption('waveform')
-                const axis = this.getOption('axis')
+                const mode = this.getOption('mode')
+                const displacement = this.getOption('displacement')
                 return `vec4 ${funcName}(vec2 uv) {
     float amplitude = ${this.getInput('amplitude', cc)};
     float frequency = ${this.getInput('frequency', cc)};
     float phase = ${this.getInput('phase', cc)} * PI;
-    float angle = ${this.getInput('angle', cc)} * PI;
-    
-    // Rotate coordinates for angled waves
-    float cs = cos(angle);
-    float sn = sin(angle);
-    vec2 rotUV = vec2(
-        uv.x * cs - uv.y * sn,
-        uv.x * sn + uv.y * cs
-    );
-    
-    // Calculate wave position
-    ${axis === 'radial' ? `
-    float dist = length(uv);
-    float wavePos = dist * frequency + phase;
-    ` : axis === 'both' ? `
-    float wavePos = (rotUV.x + rotUV.y) * frequency + phase;
-    ` : axis === 'vertical' ? `
-    float wavePos = rotUV.x * frequency + phase;
+    float rotation = ${this.getInput('rotation', cc)} * PI;
+
+    ${mode === 'radial' ? `
+    // Radial: wave based on distance from center
+    float wavePos = length(uv) * frequency + phase;
     ` : `
+    // Linear: rotate UV, sample along Y, displace along Y, rotate back
+    // At rotation=0 wave fronts are horizontal (displacement is vertical)
+    // Rotation spins the whole pattern
+    float cs = cos(rotation);
+    float sn = sin(rotation);
+    vec2 rotUV = vec2(
+        uv.x * cs + uv.y * sn,
+       -uv.x * sn + uv.y * cs
+    );
     float wavePos = rotUV.y * frequency + phase;
     `}
-    
-    // Calculate wave displacement
+
+    // Evaluate waveform
     float wave;
     ${waveform === 'triangle' ? `
     wave = 2.0 * abs(mod(wavePos / PI, 2.0) - 1.0) - 1.0;
@@ -106,27 +110,34 @@ registerNode({
     ` : `
     wave = sin(wavePos);
     `}
-    
-    // Apply displacement
-    vec2 displacedUV = uv;
-    ${axis === 'radial' ? `
-    vec2 radialDir = normalize(uv);
-    displacedUV += radialDir * wave * amplitude;
-    ` : axis === 'both' ? `
-    vec2 displaceDir = normalize(vec2(1.0, 1.0));
-    float cs2 = cos(-angle);
-    float sn2 = sin(-angle);
-    displaceDir = vec2(
-        displaceDir.x * cs2 - displaceDir.y * sn2,
-        displaceDir.x * sn2 + displaceDir.y * cs2
-    );
-    displacedUV += displaceDir * wave * amplitude;
-    ` : axis === 'vertical' ? `
-    displacedUV.x += wave * amplitude;
+
+    // Displace
+    vec2 displacedUV;
+    ${mode === 'radial' ? (displacement === 'wiggle' ? `
+    // Radial wiggle: displace tangentially (perpendicular to radial direction)
+    vec2 radialDir = length(uv) > 0.0 ? normalize(uv) : vec2(0.0);
+    vec2 tangentDir = vec2(-radialDir.y, radialDir.x);
+    displacedUV = uv + tangentDir * wave * amplitude;
     ` : `
-    displacedUV.y += wave * amplitude;
-    `}
-    
+    // Radial ripple: displace along radial direction (zoom in/out with distance)
+    vec2 radialDir = length(uv) > 0.0 ? normalize(uv) : vec2(0.0);
+    displacedUV = uv + radialDir * wave * amplitude;
+    `) : (displacement === 'wiggle' ? `
+    // Wiggle: displace along X in rotated space (perpendicular to wave direction)
+    vec2 displaced = vec2(rotUV.x + wave * amplitude, rotUV.y);
+    displacedUV = vec2(
+        displaced.x * cs - displaced.y * sn,
+        displaced.x * sn + displaced.y * cs
+    );
+    ` : `
+    // Ripple: displace along Y in rotated space (parallel to wave direction)
+    vec2 displaced = vec2(rotUV.x, rotUV.y + wave * amplitude);
+    displacedUV = vec2(
+        displaced.x * cs - displaced.y * sn,
+        displaced.x * sn + displaced.y * cs
+    );
+    `)}
+
     return ${this.getInput('input', cc, 'displacedUV')};
 }`
             }
