@@ -1,10 +1,8 @@
 // electron.js
-console.log('Main Electron process starting...')
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs').promises
 const crypto = require('crypto')
-console.log('Electron modules loaded successfully')
 
 // Prevent Chromium from throttling timers/rendering for off-screen content.
 // Critical for live video: all WebGL canvases must render every frame even when
@@ -118,15 +116,11 @@ function createWindow() {
     win.webContents.setBackgroundThrottling(false)
 
     win.webContents.setWindowOpenHandler(({ url }) => {
-        console.log('Window open handler called with URL:', url)
-
         // Allow only asset:// protocol and about:blank (for injected projector windows)
         if (!url.startsWith('asset://') && url !== 'about:blank') {
-            console.log('Blocked attempt to open URL:', url)
             return { action: 'deny' }
         }
 
-        console.log('Allowing window open for URL:', url)
         return {
             action: 'allow',
             overrideBrowserWindowOptions: {
@@ -162,8 +156,7 @@ function createWindow() {
             return
         }
 
-        // Block all other requests
-        console.log('Blocked network request to:', url)
+        console.warn('Blocked network request:', url)
         callback({ cancel: true })
     })
 
@@ -231,8 +224,13 @@ ipcMain.handle('save-session', async (event, sessionData) => {
 ipcMain.handle('load-session', async () => {
     const wsPath = getWorkspacePath()
     const sessionPath = path.join(wsPath, SESSION_FILE)
-    const content = await fs.readFile(sessionPath, 'utf8')
-    return JSON.parse(content)
+    try {
+        const content = await fs.readFile(sessionPath, 'utf8')
+        return JSON.parse(content)
+    } catch (e) {
+        if (e.code === 'ENOENT') return null
+        throw e
+    }
 })
 
 // IPC: toggle Save menu item visibility
@@ -287,7 +285,6 @@ ipcMain.handle('copy-asset-from-path', async (event, filePath, type, thumbnailDa
                 }
 
                 await fs.writeFile(thumbnailPath, thumbnailBuffer)
-                console.log(`Thumbnail saved: ${thumbnailPath}`)
             } catch (error) {
                 console.error('Failed to save video thumbnail:', error)
                 // Continue without thumbnail - don't fail the entire upload
@@ -310,8 +307,6 @@ ipcMain.handle('copy-asset-from-path', async (event, filePath, type, thumbnailDa
         const metadataPath = path.join(assetDir, `${assetId}.json`)
         await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
 
-        console.log(`Asset copied from path: ${assetPath}`)
-        console.log(`Asset URL returned: ${assetUrl}`)
         return assetUrl
     } catch (error) {
         console.error('Failed to copy asset from path:', error)
@@ -321,13 +316,11 @@ ipcMain.handle('copy-asset-from-path', async (event, filePath, type, thumbnailDa
 
 ipcMain.handle('resolve-asset-path', async (event, assetPath) => {
     try {
-        console.log(`Resolving asset path: ${assetPath}`)
         if (!assetPath.startsWith('asset://')) {
             throw new Error('Invalid asset path')
         }
-        
+
         // For asset:// URLs, just pass them through - the protocol handler will resolve them
-        console.log(`Asset resolved: ${assetPath}`)
         return assetPath
     } catch (error) {
         console.error('Failed to resolve asset path:', error)
@@ -395,28 +388,20 @@ ipcMain.handle('delete-asset', async (event, assetPath) => {
         const assetDir = path.dirname(fullPath)
         const metadataPath = path.join(assetDir, `${assetId}.json`)
 
-        console.log(`Deleting asset: ${fullPath}`)
-
         // Delete asset file and metadata
         await fs.unlink(fullPath)
-        console.log(`Deleted asset file: ${fullPath}`)
-
         await fs.unlink(metadataPath)
-        console.log(`Deleted metadata: ${metadataPath}`)
 
         // For video assets, also delete thumbnail if it exists
         if (relativePath.startsWith('videos/')) {
             const thumbnailPath = path.join(assetDir, `${assetId}_thumb.png`)
             try {
                 await fs.unlink(thumbnailPath)
-                console.log(`Deleted video thumbnail: ${thumbnailPath}`)
-            } catch (error) {
+            } catch {
                 // Thumbnail might not exist, that's fine
-                console.log(`No thumbnail to delete for video asset: ${assetId}`)
             }
         }
 
-        console.log(`Successfully deleted asset: ${assetPath}`)
         return true
     } catch (error) {
         console.error('Failed to delete asset:', error)
@@ -479,7 +464,6 @@ ipcMain.handle('update-asset-info', async (event, assetPath, newInfo) => {
         // Write updated metadata back to file
         await fs.writeFile(metadataPath, JSON.stringify(updatedMetadata, null, 2))
 
-        console.log(`Updated asset metadata: ${assetPath}`)
         return true
     } catch (error) {
         console.error('Failed to update asset info:', error)
@@ -523,7 +507,6 @@ ipcMain.handle('save-patch-file', async (event, patchData, filename, folderName 
         patchData.meta.savedAt = new Date().toISOString()
         
         await fs.writeFile(patchPath, JSON.stringify(patchData, null, 2))
-        console.log(`Patch saved: ${patchPath}`)
         return patchPath
     } catch (error) {
         console.error('Failed to save patch file:', error)
@@ -734,7 +717,6 @@ ipcMain.handle('load-patch-file', async (event, filename) => {
         const content = await fs.readFile(patchPath, 'utf8')
         const patchData = JSON.parse(content)
         
-        console.log(`Patch loaded: ${patchPath}`)
         return patchData
     } catch (error) {
         console.error('Failed to load patch file:', error)
@@ -748,7 +730,6 @@ ipcMain.handle('delete-patch-file', async (event, filename) => {
         
         const patchPath = path.join(wsPath, 'saves', filename)
         await fs.unlink(patchPath)
-        console.log(`Patch deleted: ${patchPath}`)
         return true
     } catch (error) {
         console.error('Failed to delete patch file:', error)
@@ -760,7 +741,6 @@ ipcMain.handle('load-patch-from-path', async (event, filePath) => {
     try {
         const content = await fs.readFile(filePath, 'utf8')
         const patchData = JSON.parse(content)
-        console.log(`External patch loaded: ${filePath}`)
         return patchData
     } catch (error) {
         console.error('Failed to load patch from path:', error)
@@ -894,7 +874,6 @@ app.whenReady().then(async () => {
 
     // Ensure required directories exist
     const wsPath = getWorkspacePath()
-    console.log('WORKSPACE PATH:', wsPath)
 
     const success = await ensureDirectories()
     if (!success) {
@@ -911,10 +890,7 @@ app.whenReady().then(async () => {
             const url = new URL(request.url)
             // For asset://videos/filename.mp4: hostname="videos", pathname="/filename.mp4"
             const relativePath = url.hostname + url.pathname
-            console.log(`Asset protocol called with URL: ${request.url}`)
-            console.log(`Relative path: ${relativePath}`)
             const assetPath = path.join(wsPath, 'assets', relativePath)
-            console.log(`Looking for file at: ${assetPath}`)
             
             // Security: ensure path is within assets directory
             const normalizedAssetPath = path.normalize(assetPath)
@@ -926,7 +902,6 @@ app.whenReady().then(async () => {
             // Check if file exists synchronously (registerFileProtocol doesn't support async)
             try {
                 require('fs').accessSync(assetPath)
-                console.log(`Asset protocol success: ${assetPath}`)
                 callback({ path: assetPath })
             } catch {
                 console.error('Asset file not found:', assetPath)
@@ -939,9 +914,7 @@ app.whenReady().then(async () => {
     })
 
 
-    console.log('🪟 About to create main window...')
     const mainWindow = createWindow()
-    console.log('🪟 Main window created successfully')
     
     // Handle command line file argument after window is created
     if (app.commandLineFile) {
