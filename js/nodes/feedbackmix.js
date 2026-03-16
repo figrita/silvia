@@ -37,7 +37,7 @@ registerNode({
     vec2 screenUV = vec2((uv.x / aspect + 1.0) * 0.5, (uv.y + 1.0) * 0.5);
     vec4 liveColor = ${liveInput};
     float delay_norm = ${delayAmount};
-    float absolute_delay = delay_norm * ${maxDelayFrames};
+    float absolute_delay = mix(1.0, ${maxDelayFrames}, delay_norm);
     float target_frame_index = mod(
         float(u_current_frame_index) - absolute_delay + float(u_frame_buffer_size),
         float(u_frame_buffer_size)
