@@ -1,9 +1,8 @@
-// settings.js - Complete rewrite for multi-color theme and wire color toggle
+// settings.js - Theme and visual settings modal
 
 import {autowire, StringToFragment, mapJoin} from './utils.js'
 import {Connection} from './connections.js'
 import {themeManager} from './themeManager.js'
-import {midiManager} from './midiManager.js'
 
 // --- The settings object, exported for other modules to use ---
 export const settings = {
@@ -45,7 +44,7 @@ function createSettingsModal(){
     const html = `
     <div class="modal-overlay" style="display: none;" data-el="settingsModal">
         <div class="modal-content">
-            <h2>Settings</h2>
+            <h2>Theme</h2>
             
             <div class="form-group">
                 <label>Theme Colors</label>
@@ -129,20 +128,6 @@ function createSettingsModal(){
                     <span>Reverse Horizontal Scrolling</span>
                 </label>
                 <p class="help-text" style="margin-top: 5px;">Reverses the direction of horizontal scrolling in the editor workspace.</p>
-            </div>
-            
-            <div class="form-group">
-                <label>MIDI Devices</label>
-                <div id="midi-devices-list" style="margin-top: 0.5rem;">
-                    <div style="color: var(--text-secondary); font-size: 0.9rem;">Loading MIDI devices...</div>
-                </div>
-                <button id="refresh-midi-btn" style="width: 16rem; margin-top: 0.5rem; padding: 6px 12px; background: var(--bg-hover); border: 1px solid var(--primary-muted); border-radius: 4px; cursor: pointer;">
-                    Refresh MIDI Devices
-                </button>
-                <button id="clear-midi-mappings-btn" style="width: 16rem; margin-top: 0.5rem; padding: 6px 12px; background: var(--bg-hover); border: 1px solid var(--primary-muted); border-radius: 4px; cursor: pointer;">
-                    Clear All MIDI Mappings
-                </button>
-                <p class="help-text" style="margin-top: 5px;">Alt/Option+Click on any control to assign MIDI. Connected devices will appear here.</p>
             </div>
             
             <div class="modal-actions">
@@ -229,7 +214,6 @@ export function initSettings(){
     // --- Event Listeners ---
     openBtn.addEventListener('click', () => {
         updateModalUI()
-        updateMIDIDevicesList()
         settingsModal.style.display = 'flex'
     })
 
@@ -311,26 +295,7 @@ export function initSettings(){
 
     // Set initial wire color mode
     Connection.updateThemeClass?.()
-    
-    // MIDI device buttons
-    const refreshMidiBtn = document.getElementById('refresh-midi-btn')
-    const clearMidiBtn = document.getElementById('clear-midi-mappings-btn')
-    
-    if(refreshMidiBtn){
-        refreshMidiBtn.addEventListener('click', () => {
-            updateMIDIDevicesList()
-        })
-    }
-    
-    if(clearMidiBtn){
-        clearMidiBtn.addEventListener('click', () => {
-            if(confirm('Clear all MIDI mappings? This cannot be undone.')){
-                midiManager.clearAllMappings()
-                alert('All MIDI mappings have been cleared.')
-            }
-        })
-    }
-    
+
     // Theme preset buttons
     settingsModal.addEventListener('click', (e) => {
         if(e.target.classList.contains('theme-preset')){
@@ -364,34 +329,3 @@ function updateGlowStyles(){
     document.documentElement.style.setProperty('--glow-amount', `${glowAmount}px`)
 }
 
-/**
- * Updates the MIDI devices list in the settings modal
- */
-function updateMIDIDevicesList(){
-    const devicesContainer = document.getElementById('midi-devices-list')
-    if(!devicesContainer) return
-    
-    // Check if MIDI is available
-    if(midiManager.midiDisabled){
-        devicesContainer.innerHTML = `
-            <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                MIDI not available in this browser.
-                ${midiManager.isFirefox ? '<br>Install the Jazz-MIDI add-on for Firefox.' : ''}
-            </div>
-        `
-        return
-    }
-    
-    // Get connected MIDI devices
-    const devices = Array.from(midiManager.inputs.values())
-    
-    if(devices.length === 0){
-        devicesContainer.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.9rem;">No MIDI devices connected</div>'
-    } else {
-        devicesContainer.innerHTML = devices.map(device => `
-            <div style="padding: 4px 0; color: var(--text-primary); font-size: 0.9rem;">
-                ✓ ${device.name} ${device.manufacturer ? `(${device.manufacturer})` : ''}
-            </div>
-        `).join('')
-    }
-}

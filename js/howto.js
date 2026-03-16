@@ -40,7 +40,7 @@ function createHowtoModal(){
                         <li><strong>Ports</strong> -- The dots on the sides. Outputs on the right, inputs on the left. Drag between them to connect.</li>
                         <li><strong>Connections</strong> -- Drag from one port to a compatible port to wire them together.</li>
                         <li><strong>Output Node</strong> -- The final destination. It takes a color input and renders everything to the GPU.</li>
-                        <li><strong>Coordinates</strong> -- Centered at (0,0), extending from -1 to +1 in X and Y. Patterns look the same on any screen size.</li>
+                        <li><strong>Coordinates &amp; units</strong> -- (0,0) is the center. Y goes -1 to +1 (bottom to top); X stretches with the aspect ratio (~-1.78 to +1.78 on 16:9). The <code>&#x2B13;</code> unit means "half the viewport height" -- so 1.0&#x2B13; is the distance from center to the top edge, and everything scales with the window.</li>
                     </ul>
 
                     <h2 id="howto-global">Global Shortcuts</h2>
@@ -232,16 +232,35 @@ function createHowtoModal(){
                     </div>
 
                     <h2 id="howto-midi">MIDI</h2>
-                    <ul>
-                        <li><strong>MIDI Learn</strong> -- <kbd data-mod="alt">Alt</kbd>+click any number input or action button. Then move a knob/fader or press a key to assign it.</li>
-                        <li><strong>Knobs & Faders</strong> -- Map to number inputs via CC.</li>
-                        <li><strong>Keys & Pads</strong> -- Map to action buttons via Note.</li>
-                        <li><strong>Indicator</strong> -- Mapped controls show a dot. They flash when triggered.
+                    <p><kbd data-mod="alt">Alt</kbd>+click any number input or action button to learn. Move a knob/fader (CC) or press a key/pad (Note) to assign it. <kbd data-mod="alt">Alt</kbd>+click a mapped control again to unmap. Learning times out after 10 seconds.</p>
+                    <div class="howto-shortcut-grid">
+                        <div class="howto-shortcut-key"><strong>CC &rarr; Numbers</strong></div>
+                        <div class="howto-shortcut-desc">Knobs and faders map to number inputs. Values scale linearly across the input's min/max range (log-scale for exponential parameters like frequency).</div>
+
+                        <div class="howto-shortcut-key"><strong>Note &rarr; Actions</strong></div>
+                        <div class="howto-shortcut-desc">Keys and pads map to action buttons. Note On triggers the action, Note Off releases it.</div>
+
+                        <div class="howto-shortcut-key"><strong>Indicator dots</strong></div>
+                        <div class="howto-shortcut-desc">Mapped controls show a colored dot. Hover to see the mapping (e.g. "CC 7", "Note C4"). Action buttons flash on trigger.
                             <div class="howto-figure-inline"><img src="./assets/images/howto/midi-dot.png" alt="MIDI mapped indicator dot"></div>
-                        </li>
-                        <li><strong>Auto-saved</strong> -- Mappings persist across sessions.</li>
-                        <li><strong>Settings</strong> -- See connected devices and clear mappings.</li>
-                    </ul>
+                        </div>
+
+                        <div class="howto-shortcut-key"><strong>Saved with patch</strong></div>
+                        <div class="howto-shortcut-desc">Mappings are stored in the patch file and restored on load.</div>
+                    </div>
+
+                    <h3>MIDI Settings</h3>
+                    <p>Open from the MIDI button in the toolbar.</p>
+                    <div class="howto-shortcut-grid">
+                        <div class="howto-shortcut-key"><strong>Devices</strong></div>
+                        <div class="howto-shortcut-desc">Lists connected MIDI inputs. Refresh to re-scan. All inputs are auto-connected.</div>
+
+                        <div class="howto-shortcut-key"><strong>Mappings</strong></div>
+                        <div class="howto-shortcut-desc">Table of all active mappings with node name, control, CC/Note, and live value. Unmap individually or clear all.</div>
+
+                        <div class="howto-shortcut-key"><strong>Monitor</strong></div>
+                        <div class="howto-shortcut-desc">Toggle to see incoming MIDI messages in real time -- useful for debugging connections.</div>
+                    </div>
 
                     <h2 id="howto-maininput">Main Input</h2>
                     <p>The left panel. Sets up video and audio sources for Main Input nodes.</p>

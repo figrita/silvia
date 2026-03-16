@@ -9,6 +9,7 @@ class MidiManager {
         this.ccMappings = new Map() // Map of CC number to Set of s-number elements
         this.noteMappings = new Map() // Map of note number to Set of action buttons
         this.lastCCValues = new Map() // Store last CC values for smooth updates
+        this.lastNoteOnTimes = new Map() // Store timestamps of recent note-on events
         
         this.init()
         
@@ -142,6 +143,7 @@ class MidiManager {
     }
     
     handleNoteOn(note, velocity) {
+        this.lastNoteOnTimes.set(note, performance.now())
         const mappings = this.noteMappings.get(note)
         if (!mappings) return
         
