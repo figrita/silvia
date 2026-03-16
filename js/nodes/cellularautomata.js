@@ -44,11 +44,20 @@ registerNode({
 
                 const width = this._getActualWidth()
                 const height = this._getActualHeight()
-                gl.texImage2D(
-                    gl.TEXTURE_2D, 0, gl.LUMINANCE,
-                    width, height, 0,
-                    gl.LUMINANCE, gl.UNSIGNED_BYTE, this.runtimeState.textureData
-                )
+                if(this._texW === width && this._texH === height){
+                    gl.texSubImage2D(
+                        gl.TEXTURE_2D, 0, 0, 0,
+                        width, height,
+                        gl.LUMINANCE, gl.UNSIGNED_BYTE, this.runtimeState.textureData
+                    )
+                } else {
+                    gl.texImage2D(
+                        gl.TEXTURE_2D, 0, gl.LUMINANCE,
+                        width, height, 0,
+                        gl.LUMINANCE, gl.UNSIGNED_BYTE, this.runtimeState.textureData
+                    )
+                    this._texW = width; this._texH = height
+                }
 
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)

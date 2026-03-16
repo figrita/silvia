@@ -410,9 +410,15 @@ class MainInputManager {
 
         if (entry.lastUploadedFrame !== this._frameCount) {
             if (this.canvasHasData && this.canvas.width > 0 && this.canvas.height > 0) {
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.canvas)
+                if(entry.w === this.canvas.width && entry.h === this.canvas.height){
+                    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, this.canvas)
+                } else {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.canvas)
+                    entry.w = this.canvas.width; entry.h = this.canvas.height
+                }
             } else {
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, this._blackPixel)
+                entry.w = 0; entry.h = 0
             }
             entry.lastUploadedFrame = this._frameCount
         }
