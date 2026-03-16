@@ -31,7 +31,7 @@
 .midi-mapping-info {
     position: absolute;
     background: var(--bg-interactive);
-    border: 1px solid var(--primary);
+    border: 1px solid var(--primary-color);
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 11px;
@@ -43,8 +43,8 @@
 
 /* MIDI trigger feedback */
 .midi-triggered {
-    background: var(--primary) !important;
-    color: var(--bg-primary) !important;
+    background: var(--primary-dark) !important;
+    color: var(--text-primary) !important;
 }
 
 /* Action button MIDI styles */
