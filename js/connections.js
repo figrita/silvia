@@ -1,6 +1,6 @@
 // connections.js - Complete rewrite for dual wire coloring system
 
-import {getGoldenRatioColor, mapJoin} from './utils.js'
+import {getGoldenRatioColor, mapJoin, navigateToNode} from './utils.js'
 import {settings} from './settings.js'
 import {SNode, getDescendants} from './snode.js'
 import {canConvert, createConversionMenu, removeConversionMenu} from './typeConversions.js'
@@ -431,12 +431,10 @@ export class Connection{
         const portLabel = sourcePort.label || sourcePort.key
         tag.title = `${workspace.name} \u2192 ${sourceNode.label} \u2192 ${portLabel}`
 
-        // Click to navigate to source workspace
+        // Click to navigate to source node
         tag.addEventListener('click', (e) => {
             e.stopPropagation()
-            WorkspaceManager.setActive(sourceWorkspaceId)
-            SNode.updateVisibility()
-            document.dispatchEvent(new CustomEvent('workspace-switched'))
+            navigateToNode(sourceNode, {SNode, WorkspaceManager})
         })
 
         // Append to the .node-input row (already has position: relative)
