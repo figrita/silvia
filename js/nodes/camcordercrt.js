@@ -63,25 +63,26 @@ registerNode({
     elements: {
         canvas: null,
         zoomControl: null,
-        tiltControl: null
+        rotateControl: null
     },
 
     values: {
         fbZoom: 1.02,
         fbRotation: 0.01,
         fbDriftX: 0,
-        fbDriftY: 0
+        fbDriftY: 0,
+        fbTiltX: 0,
+        fbTiltY: 0
     },
 
     runtimeState: {
         animationFrameId: null,
         isDragging: false,
-        isRotating: false,
+        isTilting: false,
         dragStartX: 0,
         dragStartY: 0,
         dragStartValX: 0,
-        dragStartValY: 0,
-        dragStartRot: 0
+        dragStartValY: 0
     },
 
     output: {
@@ -92,7 +93,7 @@ registerNode({
                 // Register CPU-driven uniforms for feedback camera
                 const base = uniformName || funcName
                 const fbU = {}
-                for (const key of ['fbZoom', 'fbRot', 'fbDX', 'fbDY']) {
+                for (const key of ['fbZoom', 'fbRot', 'fbDX', 'fbDY', 'fbTX', 'fbTY']) {
                     fbU[key] = `${base}_${key}`
                     cc.uniforms.set(fbU[key], {type: 'float', sourcePort: this.output.output})
                 }
@@ -186,16 +187,22 @@ registerNode({
     float fbR = ${fbU.fbRot};
     float fbDX = ${fbU.fbDX};
     float fbDY = ${fbU.fbDY};
+    float fbTX = ${fbU.fbTX};
+    float fbTY = ${fbU.fbTY};
     float fbCon = ${fbContrast};
     float fbDel = ${fbDelay};
 
     vec2 screenUV = vec2((uv.x / aspect + 1.0) * 0.5, (uv.y + 1.0) * 0.5);
 
-    // Simulate camera transform: zoom, rotate, drift
+    // Simulate camera transform: zoom, rotate, drift, perspective tilt
     vec2 fbUV = screenUV - 0.5;
     fbUV /= fbZ;
     float cr = cos(fbR), sr = sin(fbR);
     fbUV = vec2(fbUV.x * cr - fbUV.y * sr, fbUV.x * sr + fbUV.y * cr);
+    // Perspective tilt (camera angled relative to screen)
+    float pw = 1.0 + fbUV.x * fbTX + fbUV.y * fbTY;
+    pw = max(pw, 0.001);
+    fbUV /= pw;
     fbUV += vec2(fbDX, fbDY);
     fbUV += 0.5;
 
@@ -227,6 +234,8 @@ registerNode({
                 else if (uniformName.endsWith('_fbRot')) gl.uniform1f(loc, this.values.fbRotation)
                 else if (uniformName.endsWith('_fbDX')) gl.uniform1f(loc, this.values.fbDriftX)
                 else if (uniformName.endsWith('_fbDY')) gl.uniform1f(loc, this.values.fbDriftY)
+                else if (uniformName.endsWith('_fbTX')) gl.uniform1f(loc, this.values.fbTiltX)
+                else if (uniformName.endsWith('_fbTY')) gl.uniform1f(loc, this.values.fbTiltY)
             }
         }
     },
@@ -239,15 +248,15 @@ registerNode({
                 <canvas data-el="canvas" width="200" height="200"
                     style="width: 100%; aspect-ratio: 1; border-radius: 4px; cursor: crosshair;"></canvas>
                 <div style="font-size: 0.7rem; color: #555; text-align: center; line-height: 1.4;">
-                    drag: drift &nbsp; shift+drag: tilt &nbsp; scroll: zoom &nbsp; dbl-click: reset
+                    drag: drift &nbsp; shift+drag: tilt &nbsp; scroll: zoom &nbsp; shift+scroll: rotate &nbsp; dbl-click: reset
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 0.9rem; color: #ccc;">Zoom</label>
                     <s-number value="${this.values.fbZoom}" default="${this.defaults.fbZoom}" min="0.9" max="1.2" step="0.001" data-el="zoomControl"></s-number>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label style="font-size: 0.9rem; color: #ccc;">Tilt</label>
-                    <s-number value="${this.values.fbRotation}" default="${this.defaults.fbRotation}" min="-0.5" max="0.5" step="0.001" data-el="tiltControl"></s-number>
+                    <label style="font-size: 0.9rem; color: #ccc;">Rotate</label>
+                    <s-number value="${this.values.fbRotation}" default="${this.defaults.fbRotation}" min="-0.5" max="0.5" step="0.001" data-el="rotateControl"></s-number>
                 </div>
             </div>
         `
@@ -271,7 +280,7 @@ registerNode({
         })
         canvas.addEventListener('click', () => canvas.focus())
 
-        // Drag = drift, shift+drag = rotation
+        // Drag = drift, shift+drag = perspective tilt
         canvas.addEventListener('pointerdown', (e) => {
             e.preventDefault()
             canvas.setPointerCapture(e.pointerId)
@@ -279,8 +288,9 @@ registerNode({
             this.runtimeState.dragStartX = e.clientX
             this.runtimeState.dragStartY = e.clientY
             if (e.shiftKey) {
-                this.runtimeState.isRotating = true
-                this.runtimeState.dragStartRot = this.values.fbRotation
+                this.runtimeState.isTilting = true
+                this.runtimeState.dragStartValX = this.values.fbTiltX
+                this.runtimeState.dragStartValY = this.values.fbTiltY
             } else {
                 this.runtimeState.isDragging = true
                 this.runtimeState.dragStartValX = this.values.fbDriftX
@@ -297,29 +307,36 @@ registerNode({
                 this.values.fbDriftY = Math.max(-0.1, Math.min(0.1,
                     this.runtimeState.dragStartValY - dy * 0.0005))
             }
-            if (this.runtimeState.isRotating) {
+            if (this.runtimeState.isTilting) {
                 const dx = e.clientX - this.runtimeState.dragStartX
-                this.values.fbRotation = Math.max(-0.5, Math.min(0.5,
-                    this.runtimeState.dragStartRot + dx * 0.002))
-                this.elements.tiltControl.value = this.values.fbRotation.toFixed(3)
+                const dy = e.clientY - this.runtimeState.dragStartY
+                this.values.fbTiltX = Math.max(-2.0, Math.min(2.0,
+                    this.runtimeState.dragStartValX + dx * 0.005))
+                this.values.fbTiltY = Math.max(-2.0, Math.min(2.0,
+                    this.runtimeState.dragStartValY - dy * 0.005))
             }
         })
 
         const endDrag = () => {
             this.runtimeState.isDragging = false
-            this.runtimeState.isRotating = false
+            this.runtimeState.isTilting = false
         }
         canvas.addEventListener('pointerup', endDrag)
         canvas.addEventListener('pointerleave', endDrag)
 
-        // Scroll = zoom (only when focused)
+        // Scroll = zoom, shift+scroll = rotate (only when focused)
         canvas.addEventListener('wheel', (e) => {
             if (document.activeElement !== canvas) return
             e.preventDefault()
             e.stopPropagation()
             const delta = e.deltaY > 0 ? -0.003 : 0.003
-            this.values.fbZoom = Math.max(0.9, Math.min(1.2, this.values.fbZoom + delta))
-            this.elements.zoomControl.value = this.values.fbZoom.toFixed(3)
+            if (e.shiftKey) {
+                this.values.fbRotation = Math.max(-0.5, Math.min(0.5, this.values.fbRotation + delta))
+                this.elements.rotateControl.value = this.values.fbRotation.toFixed(3)
+            } else {
+                this.values.fbZoom = Math.max(0.9, Math.min(1.2, this.values.fbZoom + delta))
+                this.elements.zoomControl.value = this.values.fbZoom.toFixed(3)
+            }
         }, {passive: false})
 
         // Double-click = reset camera
@@ -328,15 +345,17 @@ registerNode({
             this.values.fbRotation = this.defaults.fbRotation
             this.values.fbDriftX = this.defaults.fbDriftX
             this.values.fbDriftY = this.defaults.fbDriftY
+            this.values.fbTiltX = this.defaults.fbTiltX
+            this.values.fbTiltY = this.defaults.fbTiltY
             this.elements.zoomControl.value = this.values.fbZoom.toFixed(3)
-            this.elements.tiltControl.value = this.values.fbRotation.toFixed(3)
+            this.elements.rotateControl.value = this.values.fbRotation.toFixed(3)
         })
 
         // s-number listeners
         this.elements.zoomControl.addEventListener('input', (e) => {
             this.values.fbZoom = parseFloat(e.target.value)
         })
-        this.elements.tiltControl.addEventListener('input', (e) => {
+        this.elements.rotateControl.addEventListener('input', (e) => {
             this.values.fbRotation = parseFloat(e.target.value)
         })
         // Animation loop for viewfinder preview
@@ -392,6 +411,8 @@ registerNode({
             // Apply camera transform for next iteration
             ctx.scale(this.values.fbZoom, this.values.fbZoom)
             ctx.rotate(this.values.fbRotation)
+            // Approximate perspective tilt as skew
+            ctx.transform(1, this.values.fbTiltY * 0.02, this.values.fbTiltX * 0.02, 1, 0, 0)
             ctx.translate(
                 -this.values.fbDriftX * driftPx,
                 this.values.fbDriftY * driftPx
@@ -416,6 +437,34 @@ registerNode({
         ctx.beginPath()
         ctx.arc(camX, camY, 5, 0, Math.PI * 2)
         ctx.stroke()
+
+        // Tilt meter (top-right) — shows perspective tilt as dot on crosshair
+        const tMeterX = w - 24
+        const tMeterY = 24
+        const tMeterR = 12
+        const tiltMax = 2.0
+        const tNormX = this.values.fbTiltX / tiltMax
+        const tNormY = this.values.fbTiltY / tiltMax
+        const tDotX = tMeterX + tNormX * tMeterR
+        const tDotY = tMeterY - tNormY * tMeterR
+
+        ctx.strokeStyle = 'rgba(255, 180, 60, 0.4)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(tMeterX, tMeterY, tMeterR, 0, Math.PI * 2)
+        ctx.stroke()
+        // Crosshair lines
+        ctx.beginPath()
+        ctx.moveTo(tMeterX - tMeterR, tMeterY)
+        ctx.lineTo(tMeterX + tMeterR, tMeterY)
+        ctx.moveTo(tMeterX, tMeterY - tMeterR)
+        ctx.lineTo(tMeterX, tMeterY + tMeterR)
+        ctx.stroke()
+        // Tilt dot
+        ctx.fillStyle = 'rgba(255, 180, 60, 0.9)'
+        ctx.beginPath()
+        ctx.arc(tDotX, tDotY, 3, 0, Math.PI * 2)
+        ctx.fill()
 
         // Viewfinder corner brackets
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
