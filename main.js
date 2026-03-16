@@ -18,6 +18,7 @@ import { SNode } from './js/snode.js'
 import { createMenu } from './js/menu.js'
 import { BackgroundRenderer } from './js/nodes/_background.js'
 import { initSettings, settings } from './js/settings.js'
+import { initMidiSettings } from './js/midiSettings.js'
 import { initSave, serializeWorkspace, quickSave, openSaveModal } from './js/save.js'
 import { initLoad, deserializeWorkspace, createNodesAndConnections } from './js/load.js'
 import { addVersionToPatch, getCurrentVersion } from './js/version.js'
@@ -236,6 +237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 3. Initialize UI components and managers
     createMenu()
     initSettings()
+    initMidiSettings()
     initSave()
     initLoad()
     initAbout()
