@@ -241,6 +241,49 @@ export function hexToRgba(hex){
     return {r, g, b, a}
 }
 
+/**
+ * Navigates to a node: switches workspace if needed, then scrolls editor to center on it.
+ * @param {object} node - An SNode instance with .nodeEl and .workspaceVisibility
+ * @param {object} deps - {SNode, WorkspaceManager} to avoid circular imports
+ */
+export function navigateToNode(node, {SNode, WorkspaceManager}){
+    if(!node) return
+    // Find a workspace this node lives on
+    let wsId = null
+    if(node.workspaceVisibility){
+        for(const id of node.workspaceVisibility){
+            if(WorkspaceManager.workspaces.get(id)){
+                wsId = id
+                break
+            }
+        }
+    }
+    if(!wsId) return
+
+    // Switch workspace first
+    if(WorkspaceManager.activeWorkspaceId !== wsId){
+        WorkspaceManager.setActive(wsId)
+        SNode.updateVisibility()
+        document.dispatchEvent(new CustomEvent('workspace-switched'))
+    }
+
+    // Scroll after layout settles
+    requestAnimationFrame(() => {
+        const editor = document.getElementById('editor')
+        if(editor && node.nodeEl){
+            const nodeLeft = parseFloat(node.nodeEl.style.left) || 0
+            const nodeTop = parseFloat(node.nodeEl.style.top) || 0
+            const nodeW = node.nodeEl.offsetWidth
+            const nodeH = node.nodeEl.offsetHeight
+            editor.scrollTo({
+                left: nodeLeft + nodeW / 2 - editor.clientWidth / 2,
+                top: nodeTop + nodeH / 2 - editor.clientHeight / 2,
+                behavior: 'smooth'
+            })
+        }
+    })
+}
+
 let toastEl = null
 let toastTimer = null
 
