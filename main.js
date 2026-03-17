@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const patch = {
             ...defaultPatches[defaultPatches.length - 1],
             workspaceTree: {
-                "version": "0.7.1",
+                "version": "0.7.2",
                 "activeWorkspaceId": 1,
                 "workspaces": [{"id": 1, "name": "Workspace 1"}]
             },
