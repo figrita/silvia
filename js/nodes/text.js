@@ -92,11 +92,11 @@ registerNode({
 
                     gl.activeTexture(gl.TEXTURE0 + textureUnit)
                     gl.bindTexture(gl.TEXTURE_2D, texture)
-                    if(this._texW === renderCanvas.width && this._texH === renderCanvas.height){
+                    if(texture._w === renderCanvas.width && texture._h === renderCanvas.height){
                         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, renderCanvas)
                     } else {
                         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, renderCanvas)
-                        this._texW = renderCanvas.width; this._texH = renderCanvas.height
+                        texture._w = renderCanvas.width; texture._h = renderCanvas.height
                     }
 
                     const location = gl.getUniformLocation(program, uniformName)

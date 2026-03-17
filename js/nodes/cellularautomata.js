@@ -44,7 +44,7 @@ registerNode({
 
                 const width = this._getActualWidth()
                 const height = this._getActualHeight()
-                if(this._texW === width && this._texH === height){
+                if(texture._w === width && texture._h === height){
                     gl.texSubImage2D(
                         gl.TEXTURE_2D, 0, 0, 0,
                         width, height,
@@ -56,7 +56,7 @@ registerNode({
                         width, height, 0,
                         gl.LUMINANCE, gl.UNSIGNED_BYTE, this.runtimeState.textureData
                     )
-                    this._texW = width; this._texH = height
+                    texture._w = width; texture._h = height
                 }
 
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
