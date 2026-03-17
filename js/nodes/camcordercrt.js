@@ -5,7 +5,7 @@ registerNode({
     slug: 'camcordercrt',
     icon: '📼',
     label: 'Camcorder CRT',
-    tooltip: 'All-in-one VHS camcorder / CRT feedback loop. Barrel distortion, chromatic aberration, scanlines, phosphor glow, noise, vignette, plus spatial feedback with zoom, rotation and drift -- like pointing a camcorder at its own monitor.',
+    tooltip: 'All-in-one VHS camcorder / CRT feedback loop. Barrel distortion, chromatic aberration, scanlines, phosphor glow, brightness, vignette, plus spatial feedback with zoom, rotation and drift -- like pointing a camcorder at its own monitor.',
     input: {
         'input': {
             label: 'Input',
@@ -16,42 +16,42 @@ registerNode({
         'curvature': {
             label: 'Curvature',
             type: 'float',
-            control: {default: 0.4, min: 0.0, max: 2.0, step: 0.01}
+            control: {default: 0.0, min: 0.0, max: 2.0, step: 0.01}
         },
         'aberration': {
             label: 'Aberration',
             type: 'float',
-            control: {default: 0.5, min: 0.0, max: 3.0, step: 0.01}
+            control: {default: 0.0, min: 0.0, max: 3.0, step: 0.01}
         },
         'scanlines': {
             label: 'Scanlines',
             type: 'float',
-            control: {default: 0.3, min: 0.0, max: 1.0, step: 0.01}
+            control: {default: 0.0, min: 0.0, max: 1.0, step: 0.01}
         },
         'glow': {
             label: 'Glow',
             type: 'float',
-            control: {default: 0.3, min: 0.0, max: 2.0, step: 0.01}
+            control: {default: 0.0, min: 0.0, max: 2.0, step: 0.01}
         },
-        'noise': {
-            label: 'Noise',
+        'brightness': {
+            label: 'Brightness',
             type: 'float',
-            control: {default: 0.08, min: 0.0, max: 0.5, step: 0.01}
+            control: {default: 1.0, min: 0.0, max: 2.0, step: 0.01}
         },
         'vignette': {
             label: 'Vignette',
             type: 'float',
-            control: {default: 0.6, min: 0.0, max: 2.0, step: 0.01}
+            control: {default: 0.0, min: 0.0, max: 2.0, step: 0.01}
         },
         'fbAmount': {
             label: 'Feedback',
             type: 'float',
-            control: {default: 0.85, min: 0.0, max: 1.0, step: 0.01}
+            control: {default: 0.0, min: 0.0, max: 1.0, step: 0.01}
         },
         'fbContrast': {
             label: 'FB Contrast',
             type: 'float',
-            control: {default: 1.1, min: 0.5, max: 2.0, step: 0.01}
+            control: {default: 1.0, min: 0.5, max: 2.0, step: 0.01}
         },
         'fbDelay': {
             label: 'FB Delay',
@@ -63,12 +63,16 @@ registerNode({
     elements: {
         canvas: null,
         zoomControl: null,
-        rotateControl: null
+        rotateControl: null,
+        tiltXControl: null,
+        tiltYControl: null,
+        driftXControl: null,
+        driftYControl: null
     },
 
     values: {
-        fbZoom: 1.02,
-        fbRotation: 0.01,
+        fbZoom: 1.0,
+        fbRotation: 0.0,
         fbDriftX: 0,
         fbDriftY: 0,
         fbTiltX: 0,
@@ -102,7 +106,7 @@ registerNode({
                 const aberration = this.getInput('aberration', cc)
                 const scanlines = this.getInput('scanlines', cc)
                 const glow = this.getInput('glow', cc)
-                const noise = this.getInput('noise', cc)
+                const brightness = this.getInput('brightness', cc)
                 const vignette = this.getInput('vignette', cc)
                 const fbAmount = this.getInput('fbAmount', cc)
                 const fbContrast = this.getInput('fbContrast', cc)
@@ -113,7 +117,7 @@ registerNode({
     float aber = ${aberration};
     float scan = ${scanlines};
     float glw = ${glow};
-    float nse = ${noise};
+    float brt = ${brightness};
     float vig = ${vignette};
     float aspect = u_resolution.x / u_resolution.y;
 
@@ -165,9 +169,8 @@ registerNode({
     );
     color.rgb *= mix(vec3(1.0), phosphorTint, scan * 0.5);
 
-    // --- Analog noise / grain ---
-    float n = fract(sin(dot(crtUV * 543.21 + u_time * 7.13, vec2(12.9898, 78.233))) * 43758.5453);
-    color.rgb += (n - 0.5) * nse;
+    // --- Brightness ---
+    color.rgb *= brt;
 
     // --- Vignette ---
     float vigR2 = dot(norm, norm);
@@ -246,9 +249,9 @@ registerNode({
         const html = `
             <div style="padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
                 <canvas data-el="canvas" width="200" height="200"
-                    style="width: 100%; aspect-ratio: 1; border-radius: 4px; cursor: crosshair;"></canvas>
-                <div style="font-size: 0.7rem; color: #555; text-align: center; line-height: 1.4;">
-                    drag: drift &nbsp; shift+drag: tilt &nbsp; scroll: zoom &nbsp; shift+scroll: rotate &nbsp; dbl-click: reset
+                    style="width: 100%; max-width: 200px; aspect-ratio: 1; border-radius: 4px; cursor: crosshair; align-self: center;"></canvas>
+                <div style="font-size: 0.75rem; color: #888; text-align: center; line-height: 1.5; max-width: 200px; align-self: center;">
+                    drag: drift · shift+drag: tilt · scroll: zoom · shift+scroll: rotate · dbl-click: reset
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 0.9rem; color: #ccc;">Zoom</label>
@@ -257,6 +260,22 @@ registerNode({
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 0.9rem; color: #ccc;">Rotate</label>
                     <s-number value="${this.values.fbRotation}" default="${this.defaults.fbRotation}" min="-0.5" max="0.5" step="0.001" data-el="rotateControl"></s-number>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-size: 0.9rem; color: #ccc;">Tilt X</label>
+                    <s-number value="${this.values.fbTiltX}" default="${this.defaults.fbTiltX}" min="-2.0" max="2.0" step="0.01" data-el="tiltXControl"></s-number>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-size: 0.9rem; color: #ccc;">Tilt Y</label>
+                    <s-number value="${this.values.fbTiltY}" default="${this.defaults.fbTiltY}" min="-2.0" max="2.0" step="0.01" data-el="tiltYControl"></s-number>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-size: 0.9rem; color: #ccc;">Drift X</label>
+                    <s-number value="${this.values.fbDriftX}" default="${this.defaults.fbDriftX}" min="-0.1" max="0.1" step="0.001" data-el="driftXControl"></s-number>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-size: 0.9rem; color: #ccc;">Drift Y</label>
+                    <s-number value="${this.values.fbDriftY}" default="${this.defaults.fbDriftY}" min="-0.1" max="0.1" step="0.001" data-el="driftYControl"></s-number>
                 </div>
             </div>
         `
@@ -306,6 +325,8 @@ registerNode({
                     this.runtimeState.dragStartValX + dx * 0.0005))
                 this.values.fbDriftY = Math.max(-0.1, Math.min(0.1,
                     this.runtimeState.dragStartValY - dy * 0.0005))
+                this.elements.driftXControl.value = this.values.fbDriftX.toFixed(3)
+                this.elements.driftYControl.value = this.values.fbDriftY.toFixed(3)
             }
             if (this.runtimeState.isTilting) {
                 const dx = e.clientX - this.runtimeState.dragStartX
@@ -314,6 +335,8 @@ registerNode({
                     this.runtimeState.dragStartValX + dx * 0.005))
                 this.values.fbTiltY = Math.max(-2.0, Math.min(2.0,
                     this.runtimeState.dragStartValY - dy * 0.005))
+                this.elements.tiltXControl.value = this.values.fbTiltX.toFixed(2)
+                this.elements.tiltYControl.value = this.values.fbTiltY.toFixed(2)
             }
         })
 
@@ -349,6 +372,10 @@ registerNode({
             this.values.fbTiltY = this.defaults.fbTiltY
             this.elements.zoomControl.value = this.values.fbZoom.toFixed(3)
             this.elements.rotateControl.value = this.values.fbRotation.toFixed(3)
+            this.elements.tiltXControl.value = this.values.fbTiltX.toFixed(2)
+            this.elements.tiltYControl.value = this.values.fbTiltY.toFixed(2)
+            this.elements.driftXControl.value = this.values.fbDriftX.toFixed(3)
+            this.elements.driftYControl.value = this.values.fbDriftY.toFixed(3)
         })
 
         // s-number listeners
@@ -357,6 +384,18 @@ registerNode({
         })
         this.elements.rotateControl.addEventListener('input', (e) => {
             this.values.fbRotation = parseFloat(e.target.value)
+        })
+        this.elements.tiltXControl.addEventListener('input', (e) => {
+            this.values.fbTiltX = parseFloat(e.target.value)
+        })
+        this.elements.tiltYControl.addEventListener('input', (e) => {
+            this.values.fbTiltY = parseFloat(e.target.value)
+        })
+        this.elements.driftXControl.addEventListener('input', (e) => {
+            this.values.fbDriftX = parseFloat(e.target.value)
+        })
+        this.elements.driftYControl.addEventListener('input', (e) => {
+            this.values.fbDriftY = parseFloat(e.target.value)
         })
         // Animation loop for viewfinder preview
         const animate = () => {
@@ -387,8 +426,15 @@ registerNode({
         const driftPx = w * 5
 
         // Feedback spiral preview — nested rectangles showing the tunnel
-        ctx.save()
-        ctx.translate(cx, cy)
+        // Manual corner projection to match the shader's perspective divide
+        const cr = Math.cos(this.values.fbRotation)
+        const sr = Math.sin(this.values.fbRotation)
+        let corners = [
+            [-rectW / 2, -rectH / 2],
+            [ rectW / 2, -rectH / 2],
+            [ rectW / 2,  rectH / 2],
+            [-rectW / 2,  rectH / 2]
+        ]
 
         for (let i = 0; i < 50; i++) {
             const alpha = Math.pow(0.88, i)
@@ -406,20 +452,36 @@ registerNode({
                 ctx.lineWidth = 1
             }
 
-            ctx.strokeRect(-rectW / 2, -rectH / 2, rectW, rectH)
+            ctx.beginPath()
+            ctx.moveTo(cx + corners[0][0], cy + corners[0][1])
+            for (let j = 1; j < 4; j++) {
+                ctx.lineTo(cx + corners[j][0], cy + corners[j][1])
+            }
+            ctx.closePath()
+            ctx.stroke()
 
-            // Apply camera transform for next iteration
-            ctx.scale(this.values.fbZoom, this.values.fbZoom)
-            ctx.rotate(this.values.fbRotation)
-            // Approximate perspective tilt as skew
-            ctx.transform(1, this.values.fbTiltY * 0.02, this.values.fbTiltX * 0.02, 1, 0, 0)
-            ctx.translate(
-                -this.values.fbDriftX * driftPx,
-                this.values.fbDriftY * driftPx
-            )
+            // Transform corners for next iteration (matching shader)
+            corners = corners.map(([x, y]) => {
+                // Zoom
+                x *= this.values.fbZoom
+                y *= this.values.fbZoom
+                // Rotate
+                const rx = x * cr - y * sr
+                const ry = x * sr + y * cr
+                x = rx; y = ry
+                // Perspective tilt (shader: fbUV /= 1.0 + fbUV.x*tiltX + fbUV.y*tiltY)
+                const nx = -x / rectW
+                const ny = y / rectH
+                const pw = Math.max(1.0 + nx * this.values.fbTiltX + ny * this.values.fbTiltY, 0.001)
+                x /= pw
+                y /= pw
+                // Drift
+                x -= this.values.fbDriftX * driftPx
+                y += this.values.fbDriftY * driftPx
+                return [x, y]
+            })
         }
 
-        ctx.restore()
         ctx.globalAlpha = 1.0
 
         // Camera crosshair at drift offset
