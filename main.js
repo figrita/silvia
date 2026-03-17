@@ -35,6 +35,7 @@ import { workspaceTabBar } from './js/workspaceTabBar.js'
 import { mainInput } from './js/mainInput.js'
 import { mainInputUI } from './js/mainInputUI.js'
 import { initIcons } from './js/icons.js'
+import { defaultPatches } from './js/defaults.js'
 
 
 // --- Centralized Resize Handler ---
@@ -309,149 +310,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
     }
 
-    // 6. Check if this is the user's first visit and show about
-    const hasVisitedBefore = localStorage.getItem('silvia_has_visited')
-    if (!hasVisitedBefore) {
-        // Mark that the user has visited
-        localStorage.setItem('silvia_has_visited', 'true')
-        // Show the about dialog
+    // 6. Show About on first visit or when the version changes
+    const lastSeenVersion = localStorage.getItem('silvia_last_seen_version')
+    if (lastSeenVersion !== getCurrentVersion()) {
+        localStorage.setItem('silvia_last_seen_version', getCurrentVersion())
         showAbout()
     }
 
     // 7. Try to restore saved workspaces, or create default nodes for a new session
     const restoredWorkspaces = await loadAllWorkspaces()
     if (!restoredWorkspaces) {
-        // Demo patch: Main Input → Camcorder CRT → Color Shift → Output
-        // with bass-reactive vignette
+        // Load the "Camcorder Cemetery Feedback" default patch
         const patch = {
-            "nodes": [
-                {
-                    "id": 0,
-                    "slug": "maininput",
-                    "x": 75,
-                    "y": 55,
-                    "controls": {},
-                    "workspaceVisibility": [1],
-                    "values": {
-                        "thresholds": {"bass": 1, "bassExciter": 1, "mid": 1, "high": 1},
-                        "debounceMs": 100,
-                        "audioVisibility": {"numbers": true, "events": true}
-                    }
-                },
-                {
-                    "id": 1,
-                    "slug": "camcordercrt",
-                    "x": 390,
-                    "y": 30,
-                    "controls": {
-                        "curvature": 0,
-                        "aberration": 0.67,
-                        "scanlines": 0.73,
-                        "glow": 0.64,
-                        "brightness": 1.29,
-                        "vignette": 0.5,
-                        "fbAmount": 0.66,
-                        "fbContrast": 1.62,
-                        "fbDelay": 0
-                    },
-                    "workspaceVisibility": [1],
-                    "values": {
-                        "fbZoom": 1,
-                        "fbRotation": 0.156,
-                        "fbDriftX": 0.0205,
-                        "fbDriftY": 0.054,
-                        "fbTiltX": 0,
-                        "fbTiltY": 0
-                    },
-                    "customControlRanges": {
-                        "zoomControl": {"min": 0.9, "max": 1.2, "step": 0.001, "value": 1},
-                        "rotateControl": {"min": -0.5, "max": 0.5, "step": 0.001, "value": 0.156},
-                        "tiltXControl": {"min": -2, "max": 2, "step": 0.01, "value": 0},
-                        "tiltYControl": {"min": -2, "max": 2, "step": 0.01, "value": 0},
-                        "driftXControl": {"min": -0.1, "max": 0.1, "step": 0.001, "value": 0.021},
-                        "driftYControl": {"min": -0.1, "max": 0.1, "step": 0.001, "value": 0.054}
-                    }
-                },
-                {
-                    "id": 2,
-                    "slug": "colorshift",
-                    "x": 730,
-                    "y": 55,
-                    "controls": {
-                        "hue": 0.011,
-                        "saturation": 1.18,
-                        "value": 1
-                    },
-                    "workspaceVisibility": [1]
-                },
-                {
-                    "id": 3,
-                    "slug": "output",
-                    "x": 1040,
-                    "y": 30,
-                    "controls": {
-                        "showA": "",
-                        "showB": "",
-                        "snap": "",
-                        "rec": ""
-                    },
-                    "workspaceVisibility": [1],
-                    "optionValues": {
-                        "resolution": "1280x720",
-                        "recordDuration": "manual"
-                    },
-                    "values": {
-                        "frameHistorySize": 10
-                    }
-                }
-            ],
-            "connections": [
-                {
-                    "fromNode": 0,
-                    "fromPort": "output",
-                    "toNode": 1,
-                    "toPort": "input"
-                },
-                {
-                    "fromNode": 1,
-                    "fromPort": "output",
-                    "toNode": 2,
-                    "toPort": "input"
-                },
-                {
-                    "fromNode": 2,
-                    "fromPort": "output",
-                    "toNode": 3,
-                    "toPort": "input"
-                },
-                {
-                    "fromNode": 0,
-                    "fromPort": "bass",
-                    "toNode": 1,
-                    "toPort": "vignette"
-                }
-            ],
-            "editorWidth": 2286,
-            "workspaceTree": {
-                "version": "0.7",
+            ...defaultPatches[defaultPatches.length - 1],
+            workspaceTree: {
+                "version": "0.7.1",
                 "activeWorkspaceId": 1,
                 "workspaces": [{"id": 1, "name": "Workspace 1"}]
             },
-            "meta": {
-                "name": "Workspace 1"
-            },
-            "version": getCurrentVersion()
+            version: getCurrentVersion()
         }
+        // Tag all nodes as visible in workspace 1
+        patch.nodes = patch.nodes.map(n => ({...n, workspaceVisibility: [1]}))
 
         deserializeWorkspace(patch)
-
-        // Load bundled demo video into Main Input (hack: direct path, not a user file)
-        try {
-            await mainInput.setVideoSource('video', {url: 'assets/demo/demo.mp4'})
-            await mainInput.setAudioSource('video')
-        } catch (e) {
-            console.warn('Demo video not available:', e)
-        }
     }
 
     // Ensure initial workspace/layer visibility is correct

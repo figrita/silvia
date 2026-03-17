@@ -81,6 +81,11 @@ class MainInputManager {
         document.body.appendChild(this.audioElement)
 
         this.isInitialized = true
+
+        // Load bundled demo video as default source
+        this.setVideoSource('video', {url: 'assets/demo/demo.mp4'})
+            .then(() => this.setAudioSource('video'))
+            .catch(e => console.warn('Demo video not available:', e))
     }
 
     // ============ VIDEO SOURCE METHODS ============
