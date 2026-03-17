@@ -14,8 +14,9 @@
  * - 0.2: Added control ranges and asset references
  * - 0.6.0: Flat workspace system (development)
  * - 0.7: Flat workspace system with multi-workspace node visibility
+ * - 0.7.1: Version-aware About dialog
  */
-export const PATCH_VERSION = '0.7'
+export const PATCH_VERSION = '0.7.1'
 
 /**
  * Get the current patch format version
