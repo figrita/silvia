@@ -1163,13 +1163,14 @@ export class SNode{
 
         this.nodeEl.addEventListener('pointerdown', e => {
             if(close.contains(e.target)){return}
+
+            // Always bring node to front, even when clicking child controls.
+            this.nodeEl.style.zIndex = SNode.nextZIndex++
+
             if(e.target.closest('.input-control') || e.target.closest('.action-control-button')){return}
             if(e.target.closest('.option-control')){return}
             if(e.target.closest('.node-custom')){return}
             if(e.target.closest('.node-show-bg')){return}
-
-            // Replace the re-append hack with a z-index update.
-            this.nodeEl.style.zIndex = SNode.nextZIndex++
 
             if(header.contains(e.target) && e.button === 0){
                 e.preventDefault() // Prevent text selection during drag
