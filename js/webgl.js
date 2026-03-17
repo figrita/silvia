@@ -31,10 +31,6 @@ export class WebGLRenderer{
         // Uniform location cache — invalidated on program change
         this._uniformCache = new Map()
 
-        // Texture dimension cache — tracks last uploaded size per texture key
-        // to allow texSubImage2D instead of texImage2D when dimensions match
-        this._texDimensions = new Map()
-
         // Async shader compilation support
         this.parallelShaderCompileExt = this.gl.getExtension('KHR_parallel_shader_compile')
         this.pendingProgram = null
@@ -247,34 +243,33 @@ export class WebGLRenderer{
                 if(!location) continue
                 const provider = customOptions.textureProviders[uniformName]
 
-                let texture = textureMap.get(uniformName)
+                let entry = textureMap.get(uniformName)
                 gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                if(!texture){
-                    texture = gl.createTexture()
-                    textureMap.set(uniformName, texture)
-                    gl.bindTexture(gl.TEXTURE_2D, texture)
+                if(!entry){
+                    const tex = gl.createTexture()
+                    entry = {tex, w: 0, h: 0}
+                    textureMap.set(uniformName, entry)
+                    gl.bindTexture(gl.TEXTURE_2D, tex)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
                 } else {
-                    gl.bindTexture(gl.TEXTURE_2D, texture)
+                    gl.bindTexture(gl.TEXTURE_2D, entry.tex)
                 }
 
                 const canvas = provider()
                 if(canvas instanceof HTMLCanvasElement && canvas.width > 0 && canvas.height > 0){
-                    const dimKey = uniformName
-                    const prev = this._texDimensions.get(dimKey)
-                    if(prev && prev[0] === canvas.width && prev[1] === canvas.height){
+                    if(entry.w === canvas.width && entry.h === canvas.height){
                         // Dimensions unchanged — sub-upload avoids GPU reallocation
                         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
                     } else {
                         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
-                        this._texDimensions.set(dimKey, [canvas.width, canvas.height])
+                        entry.w = canvas.width; entry.h = canvas.height
                     }
                 } else {
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, this.blackPixel)
-                    this._texDimensions.delete(uniformName)
+                    entry.w = 0; entry.h = 0
                 }
 
                 gl.uniform1i(location, textureUnit)
@@ -350,7 +345,6 @@ export class WebGLRenderer{
             gl.deleteSync(this.pendingFence)
             this.pendingFence = null
         }
-        this._texDimensions.clear()
         this._initFramebuffers()
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
     }

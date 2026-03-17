@@ -61,11 +61,12 @@ registerNode({
 
                 const canvas = this.elements.drawingCanvas
                 if (canvas && canvas.width > 0 && canvas.height > 0) {
-                    let texture = textureMap.get(this)
-                    if (!texture) {
-                        texture = gl.createTexture()
-                        textureMap.set(this, texture)
-                        gl.bindTexture(gl.TEXTURE_2D, texture)
+                    let entry = textureMap.get(this)
+                    if (!entry) {
+                        const tex = gl.createTexture()
+                        entry = {tex, w: 0, h: 0}
+                        textureMap.set(this, entry)
+                        gl.bindTexture(gl.TEXTURE_2D, tex)
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
@@ -73,12 +74,12 @@ registerNode({
                     }
 
                     gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                    gl.bindTexture(gl.TEXTURE_2D, texture)
-                    if(texture._w === canvas.width && texture._h === canvas.height){
+                    gl.bindTexture(gl.TEXTURE_2D, entry.tex)
+                    if(entry.w === canvas.width && entry.h === canvas.height){
                         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
                     } else {
                         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
-                        texture._w = canvas.width; texture._h = canvas.height
+                        entry.w = canvas.width; entry.h = canvas.height
                     }
 
                     const location = gl.getUniformLocation(program, uniformName)
