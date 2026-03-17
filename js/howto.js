@@ -265,6 +265,7 @@ function createHowtoModal(){
                     <h2 id="howto-maininput">Main Input</h2>
                     <p>The left panel. Sets up video and audio sources for Main Input nodes.</p>
                     <ul>
+                        <li><strong>Demo Video</strong> -- A bundled video loads by default. The audio analyzer needs a user click anywhere on the page before it can start (browser autoplay policy).</li>
                         <li><strong>Video</strong> -- File, webcam, or screen capture.</li>
                         <li><strong>Audio</strong> -- File, mic, or the video's audio track.</li>
                         <li>Click the arrow to collapse / expand.</li>
