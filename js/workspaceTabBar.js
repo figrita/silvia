@@ -157,15 +157,15 @@ class WorkspaceTabBar {
             ? [
                 { icon: iconHtml('pencil', 14), label: 'Rename', action: () => this.startRenaming(this.tabBarEl.querySelector(`[data-workspace-id="${workspaceId}"]`)) },
                 { icon: iconHtml('info', 14), label: 'Properties...', action: () => this.showPropertiesModal(workspaceId) },
-                { icon: iconHtml('x', 14), label: 'Close', action: () => this.deleteWorkspace(workspaceId) }
+                { icon: iconHtml('x', 14), label: 'Close', inline: true, action: (itemEl) => this.showInlineDeleteConfirm(menu, workspaceId, itemEl) }
             ]
             : [{ icon: iconHtml('plus', 14), label: 'New Workspace', action: () => this.createNewWorkspace() }]
 
-        items.forEach(({ icon, label, action }) => {
+        items.forEach(({ icon, label, action, inline }) => {
             const item = document.createElement('div')
             item.className = 'context-menu-item'
             item.innerHTML = `<span class="context-menu-icon">${icon}</span><span>${label}</span>`
-            item.addEventListener('click', () => { menu.remove(); action() })
+            item.addEventListener('click', (e) => { if (!inline) menu.remove(); else e.stopPropagation(); action(item) })
             menu.appendChild(item)
         })
 
@@ -255,45 +255,36 @@ class WorkspaceTabBar {
         nameInput.select()
     }
 
-    deleteWorkspace(workspaceId) {
+    showInlineDeleteConfirm(menu, workspaceId, itemEl) {
         const workspace = WorkspaceManager.workspaces.get(workspaceId)
-        if (!workspace) return
+        if (!workspace) { menu.remove(); return }
 
         const orphanedNodes = [...SNode.nodes].filter(n =>
             n.workspaceVisibility?.size === 1 && n.workspaceVisibility.has(workspaceId)
         )
 
-        if (orphanedNodes.length > 0) {
-            this.showDeleteModal(workspace, orphanedNodes)
-        } else {
+        if (orphanedNodes.length === 0) {
+            menu.remove()
             this.executeDelete(workspace, [])
+            return
         }
-    }
 
-    showDeleteModal(workspace, orphanedNodes) {
-        document.getElementById('workspace-delete-modal')?.remove()
-
-        const modal = document.createElement('div')
-        modal.id = 'workspace-delete-modal'
-        modal.className = 'workspace-delete-modal'
-        modal.innerHTML = `
-            <div class="workspace-delete-modal-content">
-                <h3>Close "${workspace.name}"?</h3>
-                <p><strong>${orphanedNodes.length}</strong> node${orphanedNodes.length > 1 ? 's' : ''} will be deleted.</p>
-                <div class="workspace-delete-modal-buttons">
-                    <button class="modal-btn delete-btn">Close</button>
-                    <button class="modal-btn cancel-btn">Cancel</button>
-                </div>
+        const panel = document.createElement('div')
+        panel.className = 'tabbar-confirm-panel'
+        panel.innerHTML = `
+            <div class="tabbar-confirm-note">${orphanedNodes.length} node${orphanedNodes.length > 1 ? 's' : ''} will be deleted</div>
+            <div class="tabbar-confirm-btns">
+                <button class="tabbar-confirm-yes">Close</button>
+                <button class="tabbar-confirm-no">Cancel</button>
             </div>
         `
-        document.body.appendChild(modal)
+        itemEl.replaceWith(panel)
 
-        const esc = (e) => { if (e.key === 'Escape') close() }
-        const close = () => { modal.remove(); document.removeEventListener('keydown', esc) }
-        modal.querySelector('.delete-btn').addEventListener('click', () => { close(); this.executeDelete(workspace, orphanedNodes) })
-        modal.querySelector('.cancel-btn').addEventListener('click', close)
-        modal.addEventListener('click', (e) => { if (e.target === modal) close() })
-        document.addEventListener('keydown', esc)
+        panel.querySelector('.tabbar-confirm-yes').addEventListener('click', () => {
+            menu.remove()
+            this.executeDelete(workspace, orphanedNodes)
+        })
+        panel.querySelector('.tabbar-confirm-no').addEventListener('click', () => menu.remove())
     }
 
     executeDelete(workspace, orphanedNodes) {

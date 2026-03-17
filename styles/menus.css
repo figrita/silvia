@@ -229,4 +229,62 @@
     border: 1px solid var(--border-subtle);
     border-radius: 2px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    width: 180px;
+}
+
+.tabbar-confirm-panel {
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tabbar-confirm-question {
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.tabbar-confirm-note {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.tabbar-confirm-btns {
+    display: flex;
+    gap: 4px;
+}
+
+.tabbar-confirm-yes,
+.tabbar-confirm-no {
+    flex: 1;
+    height: 22px;
+    border-radius: 4px;
+    border: 1px solid var(--border-subtle);
+    font-family: monospace;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0 8px;
+}
+
+.tabbar-confirm-yes {
+    background: var(--bg-interactive);
+    color: var(--text-primary);
+}
+
+.tabbar-confirm-yes:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-muted);
+}
+
+.tabbar-confirm-no {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+.tabbar-confirm-no:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-normal);
 }
