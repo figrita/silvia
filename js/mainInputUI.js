@@ -386,6 +386,7 @@ export class MainInputUI {
                     <button class="btn" id="screen-start-btn">Start Screen Capture</button>
                 `
                 break
+
         }
 
         this.elements.videoControls.innerHTML = html
