@@ -83,7 +83,7 @@ class MainInputManager {
         this.isInitialized = true
 
         // Load bundled demo video as default source
-        this.setVideoSource('video', {url: 'assets/demo/demo.mp4'})
+        this.setVideoSource('demo')
             .then(() => this.setAudioSource('video'))
             .catch(e => console.warn('Demo video not available:', e))
     }
@@ -100,6 +100,10 @@ class MainInputManager {
 
         switch (type) {
             case 'none':
+                break
+
+            case 'demo':
+                await this._loadVideoFile(null, 'assets/demo/demo.mp4')
                 break
 
             case 'video':
@@ -369,7 +373,7 @@ class MainInputManager {
             return
         }
 
-        if (this.videoSourceType === 'video' && this.videoElement.src) {
+        if ((this.videoSourceType === 'video' || this.videoSourceType === 'demo') && this.videoElement.src) {
             // Close previous analyzer to avoid leaked AudioContext / duplicate MediaElementSource
             if (this.audioAnalyzer) {
                 this.audioAnalyzer.close()

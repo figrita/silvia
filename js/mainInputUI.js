@@ -41,8 +41,9 @@ export class MainInputUI {
         this.panel = this._createPanel()
         document.body.appendChild(this.panel)
 
-        // Set up state change callback
+        // Set up state change callback and sync with current state
         mainInput.onStateChange = () => this._updateUI()
+        this._updateUI()
 
         this.isInitialized = true
     }
@@ -67,6 +68,7 @@ export class MainInputUI {
                 <div class="input-section">
                     <h4>Video Source</h4>
                     <select id="main-input-video-type" class="source-select">
+                        <option value="demo">Demo Video</option>
                         <option value="none">None</option>
                         <option value="video">Video File</option>
                         <option value="webcam">Webcam</option>
@@ -232,6 +234,8 @@ export class MainInputUI {
 
             if (type === 'none') {
                 await mainInput.setVideoSource('none')
+            } else if (type === 'demo') {
+                await mainInput.setVideoSource('demo')
             }
             // Other types require user action (button click)
         })
@@ -357,6 +361,7 @@ export class MainInputUI {
         let html = ''
 
         switch (type) {
+            case 'demo':
             case 'none':
                 html = ''
                 break
@@ -575,6 +580,10 @@ export class MainInputUI {
             case 'none':
                 this.elements.videoStatus.textContent = 'No video source'
                 this.elements.videoStatus.style.color = 'var(--text-muted)'
+                break
+            case 'demo':
+                this.elements.videoStatus.textContent = 'Demo video'
+                this.elements.videoStatus.style.color = 'var(--color-number)'
                 break
             case 'video':
                 this.elements.videoStatus.textContent = 'Video loaded'
