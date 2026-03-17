@@ -95,6 +95,22 @@ export class AudioAnalyzer{
 
         this.#visibleElement = visibleMediaElement
 
+        // Defer full initialization until a user gesture if needed,
+        // to avoid noisy browser autoplay/AudioContext warnings.
+        const hasGesture = navigator.userActivation?.hasBeenActive
+        if (hasGesture) {
+            this.#initFileImmediate()
+        } else {
+            this.start() // Start the analysis loop (outputs zeros until context exists)
+            this.#resumeOnInteraction()
+        }
+    }
+
+    /** Sets up AudioContext + shadow player. Only call after a user gesture. */
+    #initFileImmediate(){
+        const visibleMediaElement = this.#visibleElement
+        if(!visibleMediaElement || this.#audioCtx){return}
+
         // @ts-ignore
         this.#audioCtx = new (window.AudioContext || window.webkitAudioContext)()
         this.#analyser = this.#audioCtx.createAnalyser()
@@ -102,7 +118,9 @@ export class AudioAnalyzer{
 
         // Create and configure the silent shadow player.
         this.#shadowPlayer = document.createElement(visibleMediaElement.tagName.toLowerCase())
-        this.#shadowPlayer.src = visibleMediaElement.src
+        if (visibleMediaElement.src) {
+            this.#shadowPlayer.src = visibleMediaElement.src
+        }
         this.#shadowPlayer.crossOrigin = visibleMediaElement.crossOrigin || 'anonymous'
         this.#shadowPlayer.volume = 1.0
         this.#shadowPlayer.muted = false
@@ -116,20 +134,13 @@ export class AudioAnalyzer{
         // Explicitly don't connect to destination - only to analyser
 
         this.#addSyncListeners()
-        this.start()
-
-        // Resume AudioContext if suspended (browser autoplay policy)
-        if (this.#audioCtx.state === 'suspended') {
-            this.#resumeOnInteraction()
-        }
 
         // Perform initial synchronization
-        if(!visibleMediaElement.paused){
-            this.#shadowPlayer.play().catch(e => console.warn('Shadow player play interrupted:', e))
+        if(!visibleMediaElement.paused && visibleMediaElement.src){
+            this.#shadowPlayer.play().catch(() => {})
         }
         this.#shadowPlayer.currentTime = visibleMediaElement.currentTime
         this.#shadowPlayer.playbackRate = visibleMediaElement.playbackRate
-
     }
 
     /**
@@ -197,7 +208,7 @@ export class AudioAnalyzer{
     }
 
     // --- Synchronization methods for file-based sources (as arrow functions) ---
-    #syncPlay = () => { this.#shadowPlayer?.play().catch(e => console.warn('Shadow player sync play failed', e)) }
+    #syncPlay = () => { this.#shadowPlayer?.play().catch(() => {}) }
     #syncPause = () => { this.#shadowPlayer?.pause() }
     #syncSeek = () => { if(this.#shadowPlayer){this.#shadowPlayer.currentTime = this.#visibleElement.currentTime} }
     #syncRateChange = () => { if(this.#shadowPlayer){this.#shadowPlayer.playbackRate = this.#visibleElement.playbackRate} }
@@ -205,17 +216,18 @@ export class AudioAnalyzer{
 
 
     #resumeOnInteraction(){
-        const ctx = this.#audioCtx
-        const shadow = this.#shadowPlayer
-        const visible = this.#visibleElement
         const resume = () => {
             cleanup()
-            if (ctx.state === 'suspended') {
-                ctx.resume().then(() => {
+            // Deferred init: create AudioContext + shadow player on first gesture
+            if (!this.#audioCtx) {
+                this.#initFileImmediate()
+            }
+            if (this.#audioCtx?.state === 'suspended') {
+                this.#audioCtx.resume().then(() => {
                     // Re-sync shadow player after context resumes
-                    if (shadow && visible && !visible.paused) {
-                        shadow.currentTime = visible.currentTime
-                        shadow.play().catch(() => {})
+                    if (this.#shadowPlayer && this.#visibleElement && !this.#visibleElement.paused) {
+                        this.#shadowPlayer.currentTime = this.#visibleElement.currentTime
+                        this.#shadowPlayer.play().catch(() => {})
                     }
                 }).catch(() => {})
             }
