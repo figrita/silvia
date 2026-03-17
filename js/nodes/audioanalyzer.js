@@ -139,11 +139,11 @@ registerNode({
 
                 // Upload waveform data as a 1D texture (1024x1)
                 const waveformData = this.runtimeState.analyzer.waveformData
-                if(this._texInit){
+                if(texture._init){
                     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 1024, 1, gl.RED, gl.UNSIGNED_BYTE, waveformData)
                 } else {
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1024, 1, 0, gl.RED, gl.UNSIGNED_BYTE, waveformData)
-                    this._texInit = true
+                    texture._init = true
                 }
 
                 const location = gl.getUniformLocation(program, uniformName)
