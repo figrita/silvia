@@ -321,61 +321,81 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 7. Try to restore saved workspaces, or create default nodes for a new session
     const restoredWorkspaces = await loadAllWorkspaces()
     if (!restoredWorkspaces) {
-        // Create the init patch
+        // Demo patch: Main Input → Camcorder CRT → Color Shift → Output
+        // with bass-reactive vignette
         const patch = {
             "nodes": [
                 {
-                    "id": 4,
-                    "slug": "kaleidoscope",
-                    "x": 658,
-                    "y": 92,
-                    "controls": {
-                        "segments": 16,
-                        "offset": 0.24,
-                        "twist": 0,
-                        "zoom": 1,
-                        "sourceSegment": 1
-                    },
-                    "optionValues": {
-                        "style": "classic"
-                    },
-                    "controlRanges": {
-                        "sourceSegment": {
-                            "min": 1,
-                            "max": 16
-                        }
-                    }
-                },
-                {
-                    "id": 5,
-                    "slug": "fractalnoise",
+                    "id": 0,
+                    "slug": "maininput",
                     "x": 75,
-                    "y": 67,
-                    "controls": {
-                        "foreground": "#000000ff",
-                        "background": "#ffffffff",
-                        "scale": 5,
-                        "timeSpeed": 0.27,
-                        "octaves": 4,
-                        "lacunarity": 2,
-                        "gain": 0.5,
-                        "contrast": 1
-                    },
-                    "optionValues": {
-                        "type": "standard"
+                    "y": 55,
+                    "controls": {},
+                    "workspaceVisibility": [1],
+                    "values": {
+                        "thresholds": {"bass": 1, "bassExciter": 1, "mid": 1, "high": 1},
+                        "debounceMs": 100,
+                        "audioVisibility": {"numbers": true, "events": true}
                     }
                 },
                 {
-                    "id": 6,
+                    "id": 1,
+                    "slug": "camcordercrt",
+                    "x": 390,
+                    "y": 30,
+                    "controls": {
+                        "curvature": 0,
+                        "aberration": 0.67,
+                        "scanlines": 0.73,
+                        "glow": 0.64,
+                        "brightness": 1.29,
+                        "vignette": 0.5,
+                        "fbAmount": 0.66,
+                        "fbContrast": 1.62,
+                        "fbDelay": 0
+                    },
+                    "workspaceVisibility": [1],
+                    "values": {
+                        "fbZoom": 1,
+                        "fbRotation": 0.156,
+                        "fbDriftX": 0.0205,
+                        "fbDriftY": 0.054,
+                        "fbTiltX": 0,
+                        "fbTiltY": 0
+                    },
+                    "customControlRanges": {
+                        "zoomControl": {"min": 0.9, "max": 1.2, "step": 0.001, "value": 1},
+                        "rotateControl": {"min": -0.5, "max": 0.5, "step": 0.001, "value": 0.156},
+                        "tiltXControl": {"min": -2, "max": 2, "step": 0.01, "value": 0},
+                        "tiltYControl": {"min": -2, "max": 2, "step": 0.01, "value": 0},
+                        "driftXControl": {"min": -0.1, "max": 0.1, "step": 0.001, "value": 0.021},
+                        "driftYControl": {"min": -0.1, "max": 0.1, "step": 0.001, "value": 0.054}
+                    }
+                },
+                {
+                    "id": 2,
+                    "slug": "colorshift",
+                    "x": 730,
+                    "y": 55,
+                    "controls": {
+                        "hue": 0.011,
+                        "saturation": 1.18,
+                        "value": 1
+                    },
+                    "workspaceVisibility": [1]
+                },
+                {
+                    "id": 3,
                     "slug": "output",
-                    "x": 974,
-                    "y": 46,
+                    "x": 1040,
+                    "y": 30,
                     "controls": {
                         "showA": "",
                         "showB": "",
                         "snap": "",
                         "rec": ""
                     },
+                    "workspaceVisibility": [1],
                     "optionValues": {
                         "resolution": "1280x720",
                         "recordDuration": "manual"
@@ -383,49 +403,55 @@ document.addEventListener('DOMContentLoaded', async () => {
                     "values": {
                         "frameHistorySize": 10
                     }
-                },
-                {
-                    "id": 12,
-                    "slug": "tunnel",
-                    "x": 348,
-                    "y": 97,
-                    "controls": {
-                        "distance": 0.45,
-                        "speed": 0.1,
-                        "rotation": 0
-                    }
                 }
             ],
             "connections": [
                 {
-                    "fromNode": 4,
+                    "fromNode": 0,
                     "fromPort": "output",
-                    "toNode": 6,
+                    "toNode": 1,
                     "toPort": "input"
                 },
                 {
-                    "fromNode": 5,
-                    "fromPort": "color",
-                    "toNode": 12,
-                    "toPort": "texture"
+                    "fromNode": 1,
+                    "fromPort": "output",
+                    "toNode": 2,
+                    "toPort": "input"
                 },
                 {
-                    "fromNode": 12,
+                    "fromNode": 2,
                     "fromPort": "output",
-                    "toNode": 4,
+                    "toNode": 3,
                     "toPort": "input"
+                },
+                {
+                    "fromNode": 0,
+                    "fromPort": "bass",
+                    "toNode": 1,
+                    "toPort": "vignette"
                 }
             ],
-            "editorWidth": 1653,
+            "editorWidth": 2286,
+            "workspaceTree": {
+                "version": "0.7",
+                "activeWorkspaceId": 1,
+                "workspaces": [{"id": 1, "name": "Workspace 1"}]
+            },
             "meta": {
-                "name": "Example",
-                "author": "Silvia",
-                "description": "A simple workspace to get you started!"
+                "name": "Workspace 1"
             },
             "version": getCurrentVersion()
         }
 
         deserializeWorkspace(patch)
+
+        // Load bundled demo video into Main Input (hack: direct path, not a user file)
+        try {
+            await mainInput.setVideoSource('video', {url: 'assets/demo/demo.mp4'})
+            await mainInput.setAudioSource('video')
+        } catch (e) {
+            console.warn('Demo video not available:', e)
+        }
     }
 
     // Ensure initial workspace/layer visibility is correct
