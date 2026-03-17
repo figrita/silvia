@@ -365,12 +365,23 @@ body.s-number-scrubbing .node .input-control s-color {
                 display: flex;
                 flex-direction: column;
                 padding: 0;
-                border-bottom-left-radius: 12px;
-                border-bottom-right-radius: 12px;
-                overflow: hidden;
 
                 &:empty {
                     display: none;
+                }
+
+                /* Bottom elements that fill the node width need their own radius */
+                & > canvas:last-child,
+                & > video:last-child {
+                    border-bottom-left-radius: 12px;
+                    border-bottom-right-radius: 12px;
+                }
+
+                /* Drop-zone wrappers (imagegif, video nodes) — hidden file input follows in DOM */
+                & > .drop-zone {
+                    border-bottom-left-radius: 12px;
+                    border-bottom-right-radius: 12px;
+                    overflow: hidden;
                 }
             }
         }
