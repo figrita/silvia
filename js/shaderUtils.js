@@ -197,6 +197,36 @@ float snoise(vec2 v){
     return 130.0 * dot(m, g);
 }`,
 
+    SRGB2OKLAB: `
+vec3 srgb2oklab(vec3 c) {
+    vec3 lin = pow(max(c, 0.0), vec3(2.2));
+    float l = 0.4122214708 * lin.r + 0.5363325363 * lin.g + 0.0514459929 * lin.b;
+    float m = 0.2119034982 * lin.r + 0.6806995451 * lin.g + 0.1073969566 * lin.b;
+    float s = 0.0883024619 * lin.r + 0.2817188376 * lin.g + 0.6299787005 * lin.b;
+    l = pow(max(l, 0.0), 1.0/3.0);
+    m = pow(max(m, 0.0), 1.0/3.0);
+    s = pow(max(s, 0.0), 1.0/3.0);
+    return vec3(
+        0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+        1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+        0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+    );
+}`,
+
+    OKLAB2SRGB: `
+vec3 oklab2srgb(vec3 lab) {
+    float l = lab.x + 0.3963377774 * lab.y + 0.2158037573 * lab.z;
+    float m = lab.x - 0.1055613458 * lab.y - 0.0638541728 * lab.z;
+    float s = lab.x - 0.0894841775 * lab.y - 1.2914855480 * lab.z;
+    l = l * l * l; m = m * m * m; s = s * s * s;
+    vec3 lin = vec3(
+        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+    );
+    return pow(clamp(lin, 0.0, 1.0), vec3(1.0/2.2));
+}`,
+
     SIMPLEX3D: `
 // Simplex 3D noise
 vec3 mod289_3d(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
