@@ -40,12 +40,12 @@ const categoryStructure = [
     {
         name: 'Feedback',
         icon: '🎸',
-        nodes: ['feedback', 'stargate', 'variabletimefeedback', 'geissflow', 'feedbackmix']
+        nodes: ['feedback', 'stargate', 'variabletimefeedback', 'geissflow', 'feedbackmix', 'camcordercrt']
     },
     {
         name: 'Effects',
         icon: '🔍',
-        nodes: ['colorshift', 'contrast', 'invert', 'colorize', 'chromaticaberration', 'chromakey', 'posterize', 'dither', 'colormapping', 'autoexposure', 'blur', 'bloom', 'dilate', 'erode', 'edgedetection', 'supersampling', 'sincfilter', 'sharpen', 'emboss', 'heighttonormal', 'simplelight', 'halftone', 'mosaic', 'kuwahara', 'pixelsort', 'camcordercrt']
+        nodes: ['colorshift', 'contrast', 'invert', 'colorize', 'chromaticaberration', 'chromakey', 'posterize', 'dither', 'colormapping', 'autoexposure', 'blur', 'bloom', 'dilate', 'erode', 'edgedetection', 'supersampling', 'sincfilter', 'sharpen', 'emboss', 'heighttonormal', 'simplelight', 'halftone', 'mosaic', 'kuwahara', 'pixelsort']
     },
     {
         name: 'Mix',
