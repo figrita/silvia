@@ -47,30 +47,31 @@ registerNode({
 
                 const {video} = this.elements
 
-                let texture = textureMap.get(this)
-                if(!texture){
-                    texture = gl.createTexture()
-                    textureMap.set(this, texture)
-                    gl.bindTexture(gl.TEXTURE_2D, texture)
+                let entry = textureMap.get(this)
+                if(!entry){
+                    const tex = gl.createTexture()
+                    entry = {tex, w: 0, h: 0}
+                    textureMap.set(this, entry)
+                    gl.bindTexture(gl.TEXTURE_2D, tex)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
                 }
 
                 gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                gl.bindTexture(gl.TEXTURE_2D, texture)
+                gl.bindTexture(gl.TEXTURE_2D, entry.tex)
 
                 if(video && video.readyState >= video.HAVE_CURRENT_DATA){
-                    if(texture._w === video.videoWidth && texture._h === video.videoHeight){
+                    if(entry.w === video.videoWidth && entry.h === video.videoHeight){
                         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, video)
                     } else {
                         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video)
-                        texture._w = video.videoWidth; texture._h = video.videoHeight
+                        entry.w = video.videoWidth; entry.h = video.videoHeight
                     }
                 } else {
                     const blackPixel = new Uint8Array([0, 0, 0, 255])
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, blackPixel)
-                    texture._w = 0; texture._h = 0
+                    entry.w = 0; entry.h = 0
                 }
 
                 const location = gl.getUniformLocation(program, uniformName)

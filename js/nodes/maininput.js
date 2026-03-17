@@ -139,11 +139,12 @@ registerNode({
             textureUniformUpdate(uniformName, gl, program, textureUnit, textureMap) {
                 if (this.isDestroyed) return
 
-                let texture = textureMap.get(this.output.oscilloscope)
-                if (!texture) {
-                    texture = gl.createTexture()
-                    textureMap.set(this.output.oscilloscope, texture)
-                    gl.bindTexture(gl.TEXTURE_2D, texture)
+                let entry = textureMap.get(this.output.oscilloscope)
+                if (!entry) {
+                    const tex = gl.createTexture()
+                    entry = {tex, init: false}
+                    textureMap.set(this.output.oscilloscope, entry)
+                    gl.bindTexture(gl.TEXTURE_2D, tex)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
@@ -151,14 +152,14 @@ registerNode({
                 }
 
                 gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                gl.bindTexture(gl.TEXTURE_2D, texture)
+                gl.bindTexture(gl.TEXTURE_2D, entry.tex)
 
                 const waveformData = mainInput.getWaveformData()
-                if(texture._init){
+                if(entry.init){
                     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 1024, 1, gl.RED, gl.UNSIGNED_BYTE, waveformData)
                 } else {
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1024, 1, 0, gl.RED, gl.UNSIGNED_BYTE, waveformData)
-                    texture._init = true
+                    entry.init = true
                 }
 
                 const location = gl.getUniformLocation(program, uniformName)

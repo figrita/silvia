@@ -43,23 +43,24 @@ registerNode({
                 const {previewCanvas} = this.elements
 
                 if(previewCanvas && previewCanvas.width > 0 && previewCanvas.height > 0){
-                    let texture = textureMap.get(this)
-                    if(!texture){
-                        texture = gl.createTexture()
-                        textureMap.set(this, texture)
-                        gl.bindTexture(gl.TEXTURE_2D, texture)
+                    let entry = textureMap.get(this)
+                    if(!entry){
+                        const tex = gl.createTexture()
+                        entry = {tex, w: 0, h: 0}
+                        textureMap.set(this, entry)
+                        gl.bindTexture(gl.TEXTURE_2D, tex)
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
                     }
 
                     gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                    gl.bindTexture(gl.TEXTURE_2D, texture)
-                    if(texture._w === previewCanvas.width && texture._h === previewCanvas.height){
+                    gl.bindTexture(gl.TEXTURE_2D, entry.tex)
+                    if(entry.w === previewCanvas.width && entry.h === previewCanvas.height){
                         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, previewCanvas)
                     } else {
                         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, previewCanvas)
-                        texture._w = previewCanvas.width; texture._h = previewCanvas.height
+                        entry.w = previewCanvas.width; entry.h = previewCanvas.height
                     }
 
                     const location = gl.getUniformLocation(program, uniformName)

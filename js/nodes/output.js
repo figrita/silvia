@@ -92,22 +92,23 @@ registerNode({
                 if(this.isDestroyed){return}
                 const sourceCanvas = this.runtimeState.renderer?.gl?.canvas
                 if(!sourceCanvas || sourceCanvas.width === 0 || sourceCanvas.height === 0){return}
-                let texture = textureMap.get(this)
-                if(!texture){
-                    texture = gl.createTexture()
-                    textureMap.set(this, texture)
-                    gl.bindTexture(gl.TEXTURE_2D, texture)
+                let entry = textureMap.get(this)
+                if(!entry){
+                    const tex = gl.createTexture()
+                    entry = {tex, w: 0, h: 0}
+                    textureMap.set(this, entry)
+                    gl.bindTexture(gl.TEXTURE_2D, tex)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
                 }
                 gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                gl.bindTexture(gl.TEXTURE_2D, texture)
-                if(texture._w === sourceCanvas.width && texture._h === sourceCanvas.height){
+                gl.bindTexture(gl.TEXTURE_2D, entry.tex)
+                if(entry.w === sourceCanvas.width && entry.h === sourceCanvas.height){
                     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas)
                 } else {
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas)
-                    texture._w = sourceCanvas.width; texture._h = sourceCanvas.height
+                    entry.w = sourceCanvas.width; entry.h = sourceCanvas.height
                 }
                 gl.uniform1i(gl.getUniformLocation(program, uniformName), textureUnit)
             }
@@ -430,7 +431,6 @@ registerNode({
             font-size: 11px;
             font-family: monospace;
             color: #999;
-            margin-bottom: 8px;
             height: 20px;
         `
         statusLine.innerHTML = `
@@ -511,7 +511,7 @@ registerNode({
         // Clean up GPU textures to avoid stale mailbox handles
         if(this.runtimeState.textureMap && this.runtimeState.renderer?.gl){
             const gl = this.runtimeState.renderer.gl
-            this.runtimeState.textureMap.forEach(tex => gl.deleteTexture(tex))
+            this.runtimeState.textureMap.forEach(entry => gl.deleteTexture(entry.tex))
             this.runtimeState.textureMap.clear()
         }
 

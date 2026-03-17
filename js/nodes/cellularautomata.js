@@ -33,18 +33,19 @@ registerNode({
             textureUniformUpdate(uniformName, gl, program, textureUnit, textureMap){
                 if(this.isDestroyed || !this.runtimeState.textureData){return}
 
-                let texture = textureMap.get(this)
-                if(!texture){
-                    texture = gl.createTexture()
-                    textureMap.set(this, texture)
+                let entry = textureMap.get(this)
+                if(!entry){
+                    const tex = gl.createTexture()
+                    entry = {tex, w: 0, h: 0}
+                    textureMap.set(this, entry)
                 }
 
                 gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                gl.bindTexture(gl.TEXTURE_2D, texture)
+                gl.bindTexture(gl.TEXTURE_2D, entry.tex)
 
                 const width = this._getActualWidth()
                 const height = this._getActualHeight()
-                if(texture._w === width && texture._h === height){
+                if(entry.w === width && entry.h === height){
                     gl.texSubImage2D(
                         gl.TEXTURE_2D, 0, 0, 0,
                         width, height,
@@ -56,7 +57,7 @@ registerNode({
                         width, height, 0,
                         gl.LUMINANCE, gl.UNSIGNED_BYTE, this.runtimeState.textureData
                     )
-                    texture._w = width; texture._h = height
+                    entry.w = width; entry.h = height
                 }
 
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
