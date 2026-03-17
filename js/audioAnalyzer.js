@@ -118,6 +118,11 @@ export class AudioAnalyzer{
         this.#addSyncListeners()
         this.start()
 
+        // Resume AudioContext if suspended (browser autoplay policy)
+        if (this.#audioCtx.state === 'suspended') {
+            this.#resumeOnInteraction()
+        }
+
         // Perform initial synchronization
         if(!visibleMediaElement.paused){
             this.#shadowPlayer.play().catch(e => console.warn('Shadow player play interrupted:', e))
@@ -198,6 +203,32 @@ export class AudioAnalyzer{
     #syncRateChange = () => { if(this.#shadowPlayer){this.#shadowPlayer.playbackRate = this.#visibleElement.playbackRate} }
     #syncLoop = () => { if(this.#shadowPlayer){this.#shadowPlayer.loop = this.#visibleElement.loop} }
 
+
+    #resumeOnInteraction(){
+        const ctx = this.#audioCtx
+        const shadow = this.#shadowPlayer
+        const visible = this.#visibleElement
+        const resume = () => {
+            cleanup()
+            if (ctx.state === 'suspended') {
+                ctx.resume().then(() => {
+                    // Re-sync shadow player after context resumes
+                    if (shadow && visible && !visible.paused) {
+                        shadow.currentTime = visible.currentTime
+                        shadow.play().catch(() => {})
+                    }
+                }).catch(() => {})
+            }
+        }
+        const cleanup = () => {
+            document.removeEventListener('click', resume)
+            document.removeEventListener('keydown', resume)
+            document.removeEventListener('pointerdown', resume)
+        }
+        document.addEventListener('click', resume)
+        document.addEventListener('keydown', resume)
+        document.addEventListener('pointerdown', resume)
+    }
 
     #addSyncListeners(){
         if(!this.#visibleElement){return}
