@@ -311,9 +311,10 @@ void main() {
     float scaleB = viewportAspect / u_aspectB;  // Scale factor to maintain aspect ratio
     uvB.x = (uvB.x - 0.5) * scaleB + 0.5;      // Scale horizontally, centered
 
-    // Sample with mirror wrapping (handled by texture parameters) and Y flip
-    vec4 colorA = texture(u_channelA, vec2(uvA.x, 1.0 - uvA.y));
-    vec4 colorB = texture(u_channelB, vec2(uvB.x, 1.0 - uvB.y));
+    // Sample with mirror wrapping (handled by texture parameters)
+    // No Y flip needed — tempTexture and mixer FBO share GL convention (Y=0=bottom)
+    vec4 colorA = texture(u_channelA, uvA);
+    vec4 colorB = texture(u_channelB, uvB);
 
     float mixAmount = 0.5 + 0.5 * tan(u_mix * 1.5707963);
     int method = int(u_crossfadeMethod);
