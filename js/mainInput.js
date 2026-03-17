@@ -98,7 +98,7 @@ class MainInputManager {
                 break
 
             case 'video':
-                await this._loadVideoFile(options.assetPath || options.file)
+                await this._loadVideoFile(options.assetPath || options.file, options.url)
                 break
 
             case 'webcam':
@@ -121,11 +121,15 @@ class MainInputManager {
         this._notifyStateChange()
     }
 
-    async _loadVideoFile(fileOrPath) {
-        if (!fileOrPath) return
-
+    async _loadVideoFile(fileOrPath, directUrl) {
+        // directUrl: hack for loading bundled demo video by relative path
         let videoPath
-        if (typeof fileOrPath === 'string') {
+        if (directUrl) {
+            videoPath = directUrl
+            this.videoAssetPath = null
+        } else if (!fileOrPath) {
+            return
+        } else if (typeof fileOrPath === 'string') {
             // Asset path
             this.videoAssetPath = fileOrPath
             videoPath = await AssetManager.loadAsset(fileOrPath)

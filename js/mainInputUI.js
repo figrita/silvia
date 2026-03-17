@@ -25,8 +25,6 @@ export class MainInputUI {
         // UI element references
         this.elements = {}
 
-        // Tracks whether the user is dragging the seek bar
-        this._seekingVideo = false
         this._updateLoopId = null
     }
 
@@ -50,7 +48,7 @@ export class MainInputUI {
     }
 
     _adjustBodyLayout() {
-        const width = this.isCollapsed ? '31px' : '240px'
+        const width = this.isCollapsed ? '31px' : '320px'
         document.documentElement.style.setProperty('--panel-left-width', width)
     }
 
@@ -75,16 +73,14 @@ export class MainInputUI {
                         <option value="screencapture">Screen Capture</option>
                     </select>
                     <div id="video-preview-container" class="video-preview-container" style="display: none;">
-                        <canvas id="video-preview-canvas" class="video-preview-canvas"></canvas>
-                    </div>
-                    <div id="video-controls" class="source-controls"></div>
-                    <div id="video-playback" class="video-playback" style="display: none;">
-                        <div class="playback-row">
-                            <button id="video-play-pause" class="btn btn-small playback-btn">${iconHtml('pause', 12)}</button>
-                            <input type="range" id="video-seek" class="seek-bar" min="0" max="1000" value="0" step="1">
+                        <div id="video-overlay-buttons" class="video-overlay-buttons">
+                            <button class="btn btn-overlay" id="video-replace-btn">${iconHtml('upload', 11)} Upload</button>
+                            ${isElectronMode ? `<button class="btn btn-overlay" id="video-overlay-assets-btn">${iconHtml('folder-open', 11)} Assets</button>` : ''}
                         </div>
                     </div>
+                    <div id="video-controls" class="source-controls"></div>
                     <div id="video-status" class="source-status">No video source</div>
+                    <input type="file" id="video-file-input" accept="video/*" style="display: none;">
                 </div>
 
                 <!-- Audio Source Section -->
@@ -193,10 +189,6 @@ export class MainInputUI {
             videoTypeSelect: panel.querySelector('#main-input-video-type'),
             videoControls: panel.querySelector('#video-controls'),
             videoPreviewContainer: panel.querySelector('#video-preview-container'),
-            videoPreviewCanvas: panel.querySelector('#video-preview-canvas'),
-            videoPlayback: panel.querySelector('#video-playback'),
-            videoPlayPause: panel.querySelector('#video-play-pause'),
-            videoSeek: panel.querySelector('#video-seek'),
             videoStatus: panel.querySelector('#video-status'),
             audioTypeSelect: panel.querySelector('#main-input-audio-type'),
             audioControls: panel.querySelector('#audio-controls'),
@@ -214,7 +206,12 @@ export class MainInputUI {
             eqMidFreq: panel.querySelector('#eq-mid-freq'),
             eqMidQ: panel.querySelector('#eq-mid-q'),
             eqHighFreq: panel.querySelector('#eq-high-freq'),
-            eqHighQ: panel.querySelector('#eq-high-q')
+            eqHighQ: panel.querySelector('#eq-high-q'),
+            // Video overlay + file input
+            videoOverlayButtons: panel.querySelector('#video-overlay-buttons'),
+            videoReplaceBtn: panel.querySelector('#video-replace-btn'),
+            videoOverlayAssetsBtn: panel.querySelector('#video-overlay-assets-btn'),
+            videoFileInput: panel.querySelector('#video-file-input')
         }
     }
 
@@ -252,25 +249,8 @@ export class MainInputUI {
             // Other types require user action (button click)
         })
 
-        // Video playback controls
-        this.elements.videoPlayPause.addEventListener('click', () => {
-            if (!mainInput.videoElement) return
-            if (mainInput.videoElement.paused) {
-                mainInput.videoElement.play()
-            } else {
-                mainInput.videoElement.pause()
-            }
-        })
-
-        this.elements.videoSeek.addEventListener('mousedown', () => { this._seekingVideo = true })
-        this.elements.videoSeek.addEventListener('touchstart', () => { this._seekingVideo = true })
-        this.elements.videoSeek.addEventListener('input', () => {
-            if (!mainInput.videoElement || !mainInput.videoElement.duration) return
-            const time = (this.elements.videoSeek.value / 1000) * mainInput.videoElement.duration
-            mainInput.videoElement.currentTime = time
-        })
-        this.elements.videoSeek.addEventListener('mouseup', () => { this._seekingVideo = false })
-        this.elements.videoSeek.addEventListener('touchend', () => { this._seekingVideo = false })
+        // Video preview overlay buttons
+        this._setupVideoPreviewOverlay()
 
         // Gain control
         this.elements.gainControl.addEventListener('input', (e) => {
@@ -307,6 +287,71 @@ export class MainInputUI {
         })
     }
 
+    _setupVideoPreviewOverlay() {
+        const container = this.elements.videoPreviewContainer
+        const overlay = this.elements.videoOverlayButtons
+        const fileInput = this.elements.videoFileInput
+
+        // Hover to show overlay buttons
+        container.addEventListener('mouseenter', () => {
+            overlay.style.opacity = '1'
+        })
+        container.addEventListener('mouseleave', () => {
+            overlay.style.opacity = '0'
+        })
+
+        // Upload/Replace button
+        this.elements.videoReplaceBtn?.addEventListener('click', (e) => {
+            e.stopPropagation()
+            fileInput.click()
+        })
+
+        // Assets button (Electron only)
+        this.elements.videoOverlayAssetsBtn?.addEventListener('click', (e) => {
+            e.stopPropagation()
+            AssetManager.showGlobalAssetManager({
+                nodeType: 'video',
+                onSelect: async (assetPath) => {
+                    await mainInput.setVideoSource('video', {assetPath})
+                }
+            })
+        })
+
+        // File input change (shared by overlay + controls buttons)
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0]
+            if (file) {
+                await mainInput.setVideoSource('video', {file})
+            }
+            fileInput.value = '' // Reset so same file can be re-selected
+        })
+
+        // Drag-and-drop on the preview container
+        container.addEventListener('dragenter', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            container.style.outline = '2px solid var(--color-accent)'
+        })
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+        })
+        container.addEventListener('dragleave', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            container.style.outline = ''
+        })
+        container.addEventListener('drop', async (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            container.style.outline = ''
+            const file = e.dataTransfer.files[0]
+            if (file && file.type.startsWith('video/')) {
+                await mainInput.setVideoSource('video', {file})
+            }
+        })
+    }
+
     _updateVideoControls() {
         const type = this.elements.videoTypeSelect.value
         let html = ''
@@ -322,7 +367,6 @@ export class MainInputUI {
                         <button class="btn btn-small" id="video-upload-btn">${iconHtml('upload', 12)} Upload</button>
                         ${isElectronMode ? `<button class="btn btn-small" id="video-assets-btn">${iconHtml('folder-open', 12)} Assets</button>` : ''}
                     </div>
-                    <input type="file" id="video-file-input" accept="video/*" style="display: none;">
                 `
                 break
 
@@ -354,16 +398,8 @@ export class MainInputUI {
         if (type === 'video') {
             const uploadBtn = this.panel.querySelector('#video-upload-btn')
             const assetsBtn = this.panel.querySelector('#video-assets-btn')
-            const fileInput = this.panel.querySelector('#video-file-input')
 
-            uploadBtn?.addEventListener('click', () => fileInput.click())
-
-            fileInput?.addEventListener('change', async (e) => {
-                const file = e.target.files[0]
-                if (file) {
-                    await mainInput.setVideoSource('video', {file})
-                }
-            })
+            uploadBtn?.addEventListener('click', () => this.elements.videoFileInput.click())
 
             assetsBtn?.addEventListener('click', () => {
                 AssetManager.showGlobalAssetManager({
@@ -516,11 +552,23 @@ export class MainInputUI {
     _updateUI() {
         // Update video status and preview visibility
         const hasVideo = mainInput.hasVideo()
-        this.elements.videoPreviewContainer.style.display = hasVideo ? 'block' : 'none'
+        const container = this.elements.videoPreviewContainer
+        container.style.display = hasVideo ? 'block' : 'none'
 
-        // Show playback controls only for video files (not webcam/screencapture)
-        const isVideoFile = mainInput.videoSourceType === 'video'
-        this.elements.videoPlayback.style.display = isVideoFile ? 'block' : 'none'
+        // Move native video element into/out of the preview container
+        const vid = mainInput.videoElement
+        if (hasVideo && vid) {
+            if (vid.parentElement !== container) {
+                vid.style.display = ''
+                vid.style.width = '100%'
+                vid.controls = true
+                container.insertBefore(vid, this.elements.videoOverlayButtons)
+            }
+        } else if (vid && vid.parentElement === container) {
+            vid.style.display = 'none'
+            vid.controls = false
+            document.body.appendChild(vid)
+        }
 
         switch (mainInput.videoSourceType) {
             case 'none':
@@ -575,9 +623,15 @@ export class MainInputUI {
             setupHistogramCanvas(this.elements.histogramCanvas)
         }
 
-        // Sync dropdown selections with actual state
-        this.elements.videoTypeSelect.value = mainInput.videoSourceType
-        this.elements.audioTypeSelect.value = mainInput.audioSourceType
+        // Sync dropdown selections with actual state and re-render controls
+        if (this.elements.videoTypeSelect.value !== mainInput.videoSourceType) {
+            this.elements.videoTypeSelect.value = mainInput.videoSourceType
+            this._updateVideoControls()
+        }
+        if (this.elements.audioTypeSelect.value !== mainInput.audioSourceType) {
+            this.elements.audioTypeSelect.value = mainInput.audioSourceType
+            this._updateAudioControls()
+        }
     }
 
     _startUpdateLoop() {
@@ -587,35 +641,6 @@ export class MainInputUI {
 
         const update = () => {
             if (!this.isInitialized) return
-
-            // --- Video preview ---
-            if (mainInput.hasVideo()) {
-                const srcCanvas = mainInput.canvas
-                const preview = this.elements.videoPreviewCanvas
-                if (srcCanvas && preview && srcCanvas.width > 1) {
-                    // Match aspect ratio
-                    const aspect = srcCanvas.width / srcCanvas.height
-                    const w = preview.parentElement.clientWidth
-                    const h = Math.round(w / aspect)
-                    if (preview.width !== w || preview.height !== h) {
-                        preview.width = w
-                        preview.height = h
-                    }
-                    const ctx = preview.getContext('2d')
-                    ctx.drawImage(srcCanvas, 0, 0, w, h)
-                }
-            }
-
-            // --- Video playback state ---
-            if (mainInput.videoSourceType === 'video' && mainInput.videoElement) {
-                const vid = mainInput.videoElement
-                setIcon(this.elements.videoPlayPause, vid.paused ? 'play' : 'pause', 12)
-
-                // Update seek bar unless user is dragging
-                if (!this._seekingVideo && vid.duration) {
-                    this.elements.videoSeek.value = Math.round((vid.currentTime / vid.duration) * 1000)
-                }
-            }
 
             // --- Audio meters ---
             if (mainInput.hasAudio()) {
@@ -661,6 +686,14 @@ export class MainInputUI {
         if (this._updateLoopId) {
             cancelAnimationFrame(this._updateLoopId)
             this._updateLoopId = null
+        }
+
+        // Return video element to body before removing panel
+        const vid = mainInput.videoElement
+        if (vid && vid.parentElement === this.elements.videoPreviewContainer) {
+            vid.style.display = 'none'
+            vid.controls = false
+            document.body.appendChild(vid)
         }
 
         document.documentElement.style.setProperty('--panel-left-width', '0px')
