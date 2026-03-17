@@ -483,6 +483,7 @@ registerNode({
                 console.error('Failed to load video asset on create:', err)
             })
         }
+
     },
     
     async _handleVideoFilePath(filePath){
