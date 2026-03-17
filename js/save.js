@@ -291,8 +291,8 @@ function updateThumbnailPreview(){
 }
 
 function generateThumbnail(outputNode){
-    if(outputNode?.runtimeState?.renderer?.gl){
-        const {canvas} = outputNode.runtimeState.renderer.gl
+    const canvas = outputNode?.elements?.canvas
+    if(canvas && canvas.width > 0 && canvas.height > 0){
         const tempCanvas = document.createElement('canvas')
         const tempCtx = tempCanvas.getContext('2d')
         const thumbWidth = 256

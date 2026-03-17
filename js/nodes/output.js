@@ -14,9 +14,11 @@ registerNode({
     tooltip: 'Main output node for rendering and display. Shows result on screen, provides recording capabilities, and frame history control. Connect your effect chain here.',
     elements: {
         canvas: null,
+        canvas2d: null,
+        imageData: null,
         frameHistoryControl: null,
-        vramDisplay: null, // Add a reference for the new display
-        statusLine: null // Status line indicator
+        vramDisplay: null,
+        statusLine: null
     },
     values: {
         frameHistorySize: 10
@@ -40,7 +42,7 @@ registerNode({
         },
         'showA': {
             label: 'Show on A',
-            type: 'action', 
+            type: 'action',
             control: {},
             callback(){
                 mainMixer.assignToChannelA(this)
@@ -51,7 +53,7 @@ registerNode({
         'showB': {
             label: 'Show on B',
             type: 'action',
-            control: {},  
+            control: {},
             callback(){
                 mainMixer.assignToChannelB(this)
                 mainMixerUI.updateChannelStatus('B', this)
@@ -85,31 +87,18 @@ registerNode({
     float aspect = float(texSize.x) / float(texSize.y);
     uv.x = (uv.x / aspect + 1.0) * 0.5;
     uv.y = (uv.y + 1.0) * 0.5;
-    return texture(${uniformName}, vec2(uv.x, 1.0 - uv.y));
+    return texture(${uniformName}, uv);
 }`
             },
             textureUniformUpdate(uniformName, gl, program, textureUnit, textureMap){
-                if(this.isDestroyed){return}
-                const sourceCanvas = this.runtimeState.renderer?.gl?.canvas
-                if(!sourceCanvas || sourceCanvas.width === 0 || sourceCanvas.height === 0){return}
-                let entry = textureMap.get(this)
-                if(!entry){
-                    const tex = gl.createTexture()
-                    entry = {tex, w: 0, h: 0}
-                    textureMap.set(this, entry)
-                    gl.bindTexture(gl.TEXTURE_2D, tex)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
-                }
+                if(this.isDestroyed) return
+                const renderer = this.runtimeState.renderer
+                if(!renderer) return
+                const tex = renderer.getLatestTexture()
+                if(!tex) return
+
                 gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                gl.bindTexture(gl.TEXTURE_2D, entry.tex)
-                if(entry.w === sourceCanvas.width && entry.h === sourceCanvas.height){
-                    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas)
-                } else {
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas)
-                    entry.w = sourceCanvas.width; entry.h = sourceCanvas.height
-                }
+                gl.bindTexture(gl.TEXTURE_2D, tex)
                 gl.uniform1i(gl.getUniformLocation(program, uniformName), textureUnit)
             }
         }
@@ -147,26 +136,25 @@ registerNode({
     },
 
     updateResolution(){
-        if(!this.runtimeState.renderer || !this.elements.canvas){return}
-        const resolutionValue = this.getOption('resolution')
-        const [width, height] = resolutionValue.split('x').map(Number)
-        if(this.elements.canvas.width !== width || this.elements.canvas.height !== height){
-            this.elements.canvas.width = width
-            this.elements.canvas.height = height
-            this.elements.canvas.style.aspectRatio = `${width} / ${height}`
-            this.runtimeState.renderer.onResize()
-            // Refresh mixer preview streams — canvas resize invalidates
-            // GPU texture backing, so old captureStreams hold stale mailbox handles
-            mainMixerUI.refreshPreviewForNode(this)
-        }
-        this._updateVramDisplay() // Update VRAM when resolution changes
+        if(!this.runtimeState.renderer || !this.elements.canvas) return
+        const [w, h] = this.getOption('resolution').split('x').map(Number)
+
+        this.elements.canvas.width = w
+        this.elements.canvas.height = h
+        this.elements.canvas.style.aspectRatio = `${w} / ${h}`
+
+        this.runtimeState.renderer.onResize(w, h)
+        this.elements.imageData = null
+
+        mainMixerUI.refreshPreviewForNode(this)
+        this._updateVramDisplay()
     },
 
     updateFrameBufferSize(){
         if(!this.runtimeState.renderer){return}
         const newSize = this.values.frameHistorySize
         this.runtimeState.renderer.setFrameBufferSize(newSize)
-        this._updateVramDisplay() // Update VRAM when history size changes
+        this._updateVramDisplay()
     },
 
     recompile(){
@@ -254,7 +242,7 @@ registerNode({
         link.click()
         document.body.removeChild(link)
     },
-    
+
     _toggleRecording(){
         if(!this.runtimeState.isRecording){
             this._startRecording()
@@ -262,18 +250,18 @@ registerNode({
             this._stopRecording()
         }
     },
-    
+
     _startRecording(){
         if(!this.runtimeState.isActive || !this.elements.canvas){
             alert('Cannot start recording: Output node is not active or has not rendered yet.')
             return
         }
-        
+
         this.runtimeState.recordedChunks = []
-        
+
         try {
             const stream = this.elements.canvas.captureStream(60)
-            
+
             // Try different codecs in order of preference
             const mimeTypes = [
                 'video/webm;codecs=vp9',
@@ -281,7 +269,7 @@ registerNode({
                 'video/webm',
                 'video/mp4'
             ]
-            
+
             let selectedMimeType = 'video/webm'
             for(const mimeType of mimeTypes){
                 if(MediaRecorder.isTypeSupported(mimeType)){
@@ -289,17 +277,17 @@ registerNode({
                     break
                 }
             }
-            
+
             this.runtimeState.mediaRecorder = new MediaRecorder(stream, {
                 mimeType: selectedMimeType
             })
-            
+
             this.runtimeState.mediaRecorder.ondataavailable = (event) => {
                 if(event.data.size > 0){
                     this.runtimeState.recordedChunks.push(event.data)
                 }
             }
-            
+
             this.runtimeState.mediaRecorder.onstop = () => {
                 const blob = new Blob(this.runtimeState.recordedChunks, {type: 'video/webm'})
                 const url = URL.createObjectURL(blob)
@@ -308,15 +296,15 @@ registerNode({
                 anchor.download = getTimestampFilename('silvia_rec', 'webm')
                 anchor.click()
                 URL.revokeObjectURL(url)
-                
+
                 this.runtimeState.recordedChunks = []
             }
-            
+
             this.runtimeState.mediaRecorder.start()
             this.runtimeState.isRecording = true
             this._updateStatusLine()
-            
-            
+
+
             // Auto-stop recording after duration
             const duration = this.getOption('recordDuration')
             if(duration !== 'manual'){
@@ -332,20 +320,20 @@ registerNode({
             alert('Failed to start recording. Your browser may not support canvas recording.')
         }
     },
-    
+
     _stopRecording(){
         if(!this.runtimeState.mediaRecorder || !this.runtimeState.isRecording){
             return
         }
-        
+
         this.runtimeState.isRecording = false
         this.runtimeState.mediaRecorder.stop()
         this._updateStatusLine()
-        
-        
+
+
         this.runtimeState.mediaRecorder = null
     },
-    
+
     _updateVramDisplay(){
         if(!this.elements.canvas || !this.elements.vramDisplay){return}
         const {width, height} = this.elements.canvas
@@ -358,13 +346,20 @@ registerNode({
     },
 
     _clearCanvasToBlack(){
-        if(!this.runtimeState.renderer){return}
-        const gl = this.runtimeState.renderer.gl
-        if(!gl){return}
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-        gl.viewport(0, 0, this.elements.canvas.width, this.elements.canvas.height)
+        const renderer = this.runtimeState.renderer
+        if(!renderer) return
+        const {gl} = renderer
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.tempFBO)
+        gl.viewport(0, 0, renderer._width, renderer._height)
         gl.clearColor(0, 0, 0, 1)
         gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+        if(this.elements.canvas2d){
+            this.elements.canvas2d.fillStyle = '#000'
+            this.elements.canvas2d.fillRect(0, 0, renderer._width, renderer._height)
+        }
     },
 
     _refreshMixerPreview(){
@@ -439,17 +434,33 @@ registerNode({
             <span data-status="recording" style="width: 90px; text-align: left;">○ Ready</span>
         `
         this.elements.statusLine = statusLine
-        
+
         const canvas = document.createElement('canvas')
         canvas.style.width = '360px'
         canvas.style.height = 'auto'
         canvas.style.display = 'block'
         this.elements.canvas = canvas
-        
+        this.elements.canvas2d = canvas.getContext('2d')
+
         this.customArea.appendChild(statusLine)
         this.customArea.appendChild(canvas)
-        
-        this.runtimeState.renderer = new WebGLRenderer(canvas, this.values.frameHistorySize)
+
+        const [w, h] = this.getOption('resolution').split('x').map(Number)
+        canvas.width = w
+        canvas.height = h
+        canvas.style.aspectRatio = `${w} / ${h}`
+
+        this.runtimeState.renderer = new WebGLRenderer(
+            { gl: mainMixer.gl, vao: mainMixer.sharedVao, width: w, height: h },
+            this.values.frameHistorySize
+        )
+        mainMixer.registerOutputRenderer(this.runtimeState.renderer)
+
+        this.runtimeState.renderer.onContextRestored = () => {
+            // Texture handles in textureMap are invalidated by context loss.
+            this.runtimeState.textureMap.clear()
+            this.recompile()
+        }
 
         const optionsContainer = this.nodeEl.querySelector('.node-options')
         if(optionsContainer){
@@ -457,12 +468,12 @@ registerNode({
             <div class="node-option">
                 <div class="option-label">Frame History</div>
                 <div class="option-control">
-                    <s-number 
+                    <s-number
                         midi-disabled
-                        value="${this.values.frameHistorySize}" 
-                        min="1" 
-                        max="120" 
-                        step="1" 
+                        value="${this.values.frameHistorySize}"
+                        min="1"
+                        max="120"
+                        step="1"
                         data-el="frameHistoryControl">
                     </s-number>
                 </div>
@@ -488,37 +499,80 @@ registerNode({
             resolutionControl.addEventListener('change', () => this.updateResolution())
         }
 
-        this.updateResolution() // This will also call _updateVramDisplay for the first time
-        this._updateStatusLine() // Initialize status line
+        this._updateVramDisplay()
+        this._updateStatusLine()
     },
 
     updateOutput(time){
-        if(!this.runtimeState.isActive || !this.runtimeState.renderer){return}
-        this.runtimeState.renderer.render(time, this.runtimeState.shaderInfo, this.runtimeState.textureMap)
+        if(!this.runtimeState.isActive || !this.runtimeState.renderer) return
+        const renderer = this.runtimeState.renderer
+
+        // Collect previous frame's async PBO data and push to 2D display canvas
+        const pixels = renderer.collectReadback()
+        if(pixels){
+            const w = renderer._width, h = renderer._height
+            if(!this.elements.imageData ||
+                this.elements.imageData.width !== w ||
+                this.elements.imageData.height !== h){
+                this.elements.imageData = new ImageData(w, h)
+            }
+            // Flip rows: GL readback is bottom-to-top, canvas is top-to-bottom
+            const rowBytes = w * 4
+            const data = this.elements.imageData.data
+            for(let y = 0; y < h; y++){
+                const srcOffset = (h - 1 - y) * rowBytes
+                data.set(pixels.subarray(srcOffset, srcOffset + rowBytes), y * rowBytes)
+            }
+            this.elements.canvas2d.putImageData(this.elements.imageData, 0, 0)
+        }
+
+        if(renderer.render(time, this.runtimeState.shaderInfo, this.runtimeState.textureMap)){
+            renderer.issueReadback()
+        }
     },
 
     onDestroy(){
-        // Stop recording if active
         if(this.runtimeState.isRecording){
             this._stopRecording()
         }
 
-        // Clear main mixer channel assignment and update UI
         mainMixer.clearChannel(this)
         mainMixerUI.updateChannelStatus('A', mainMixer.channelA)
         mainMixerUI.updateChannelStatus('B', mainMixer.channelB)
 
-        // Clean up GPU textures to avoid stale mailbox handles
-        if(this.runtimeState.textureMap && this.runtimeState.renderer?.gl){
-            const gl = this.runtimeState.renderer.gl
+        if(this.runtimeState.renderer){
+            mainMixer.unregisterOutputRenderer(this.runtimeState.renderer)
+        }
+
+        if(this.runtimeState.renderer && mainMixer.gl){
+            const gl = mainMixer.gl
+            const r = this.runtimeState.renderer
+
+            if(r.historyTexture)  gl.deleteTexture(r.historyTexture)
+            if(r.tempTexture)     gl.deleteTexture(r.tempTexture)
+            if(r.tempFBO)         gl.deleteFramebuffer(r.tempFBO)
+            r.historyFBOs.forEach(fbo => gl.deleteFramebuffer(fbo))
+            if(r._pbo) r._pbo.forEach(b => { if(b) gl.deleteBuffer(b) })
+            if(r._pboFences[0])   gl.deleteSync(r._pboFences[0])
+            if(r._pboFences[1])   gl.deleteSync(r._pboFences[1])
+            if(r.pendingFence)    gl.deleteSync(r.pendingFence)
+            if(r.program)         gl.deleteProgram(r.program)
+            if(r.pendingProgram)  { gl.deleteProgram(r.pendingProgram); r.pendingProgram = null }
+        }
+
+        if(this.runtimeState.textureMap && mainMixer.gl){
+            const gl = mainMixer.gl
             this.runtimeState.textureMap.forEach(entry => gl.deleteTexture(entry.tex))
             this.runtimeState.textureMap.clear()
         }
 
+        this.runtimeState.renderer = null
+
         SNode.outputs.delete(this)
-        if(BackgroundRenderer.outputNode == this){
+
+        if(BackgroundRenderer.outputNode === this){
             BackgroundRenderer.outputNode = null
-            BackgroundRenderer.shaderInfo ? BackgroundRenderer.shaderInfo.removeAllUniformProviders() : null ;
+            BackgroundRenderer.shaderInfo?.removeAllUniformProviders()
         }
     }
 })

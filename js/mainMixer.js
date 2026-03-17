@@ -1,5 +1,6 @@
 import {WebGLRenderer} from './webgl.js'
 import {BackgroundRenderer} from './nodes/_background.js'
+import {mainInput} from './mainInput.js'
 
 export class MainMixer {
     constructor() {
@@ -8,7 +9,6 @@ export class MainMixer {
         this.mixValue = -1.0  // -1=A, 0=center, 1=B
         this.canvas = null    // Hidden mixing canvas
         this.renderer = null  // WebGL renderer instance
-        this.textureMap = new Map()
         this.isInitialized = false
         this.projectorStream = null
         this.backgroundVisible = true
@@ -16,29 +16,52 @@ export class MainMixer {
         this.useViewportResolution = true  // Track if using viewport matching
         this.resizeListener = null  // For cleanup
         this.crossfadeMethod = 0  // 0 = simple mix
+        this.gl = null
+        this.sharedVao = null
+        this._outputRenderers = new Set()
     }
-    
+
     init() {
         // Create hidden canvas for mixing
         this.canvas = document.createElement('canvas')
         this.canvas.style.display = 'none'
         document.body.appendChild(this.canvas)
-        
+
         // Set default resolution (will be updated to match output nodes)
         this.canvas.width = 1280
         this.canvas.height = 720
-        
+
         // Cache background video element reference
         this.bgVideoElement = document.getElementById('background-video')
-        
+
         // Create WebGL renderer (minimal frame buffer)
         this.renderer = new WebGLRenderer(this.canvas, 2)
+
+        // Expose for Output nodes
+        this.gl = this.renderer.gl
+        this.sharedVao = this.renderer.vao
+
+        // Propagate context loss/restore to all FBO-mode renderers.
+        // The standalone _onContextRestored listener (registered first in WebGLRenderer's constructor)
+        // fires before this listener, so this.renderer.vao is already the new VAO when this fires.
+        this.canvas.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault()
+            this._outputRenderers.forEach(r => r.handleContextLost())
+        })
+        this.canvas.addEventListener('webglcontextrestored', () => {
+            this.sharedVao = this.renderer.vao
+            mainInput._sharedTextureCache.delete(this.gl)
+            this._outputRenderers.forEach(r => r.handleContextRestored(this.renderer.vao))
+        })
 
         // Compile static mixing shader
         this.renderer.updateProgram(MIXING_FRAGMENT_SHADER)
 
         this.isInitialized = true
     }
+
+    registerOutputRenderer(renderer)   { this._outputRenderers.add(renderer) }
+    unregisterOutputRenderer(renderer) { this._outputRenderers.delete(renderer) }
 
     assignToChannelA(outputNode) {
         const oldNode = this.channelA
@@ -78,42 +101,42 @@ export class MainMixer {
         gl.clear(gl.COLOR_BUFFER_BIT)
         gl.flush()
     }
-    
+
     setResolution(resolutionString) {
         if (!this.canvas) return
-        
+
         this.useViewportResolution = false
         this._removeResizeListener()
-        
+
         const [width, height] = resolutionString.split('x').map(Number)
         this._updateCanvasSize(width, height)
     }
-    
+
     setViewportResolution() {
         if (!this.canvas) return
-        
+
         this.useViewportResolution = true
         this._updateViewportSize()
         this._setupResizeListener()
     }
-    
+
     _updateViewportSize() {
         // Calculate editor-matching resolution for proper background coverage
         const editor = document.getElementById('editor')
         const editorRect = editor.getBoundingClientRect()
         const viewportWidth = editorRect.width
         const viewportHeight = window.innerHeight
-        
+
         // Use a reasonable resolution that matches the viewport aspect ratio
         // Scale to a good resolution (aim for ~1080p equivalent)
         const targetHeight = Math.min(1080, viewportHeight)
         const aspectRatio = viewportWidth / viewportHeight
         const width = Math.round(targetHeight * aspectRatio)
         const height = targetHeight
-        
+
         this._updateCanvasSize(width, height)
     }
-    
+
     _updateCanvasSize(width, height) {
         if (this.canvas.width !== width || this.canvas.height !== height) {
             this.canvas.width = width
@@ -136,7 +159,7 @@ export class MainMixer {
             BackgroundRenderer.updateProjectorSize()
         }
     }
-    
+
     _setupResizeListener() {
         this._removeResizeListener()
         this.resizeListener = () => {
@@ -146,29 +169,29 @@ export class MainMixer {
         }
         window.addEventListener('resize', this.resizeListener)
     }
-    
+
     _removeResizeListener() {
         if (this.resizeListener) {
             window.removeEventListener('resize', this.resizeListener)
             this.resizeListener = null
         }
     }
-    
+
     setMixValue(value) {
         this.mixValue = Math.max(-1, Math.min(1, value))
     }
-    
+
     setBackgroundVisible(visible) {
         this.backgroundVisible = visible
         if (this.bgVideoElement) {
             this.bgVideoElement.style.display = visible ? 'block' : 'none'
         }
     }
-    
+
     setCrossfadeMethod(method) {
         this.crossfadeMethod = Math.max(0, Math.min(7, method))
     }
-    
+
     connectProjector(projectorVideoElement) {
         if (this.projectorStream && projectorVideoElement) {
             projectorVideoElement.srcObject = this.projectorStream
@@ -177,7 +200,7 @@ export class MainMixer {
         }
         return false
     }
-    
+
     updateMainOutput() {
         if (!this.isInitialized) return
 
@@ -187,65 +210,41 @@ export class MainMixer {
             return
         }
 
-        // Calculate aspect ratios for the assigned channels
-        const getAspectRatio = (channel) => {
-            if (channel && channel.elements && channel.elements.canvas) {
-                const canvas = channel.elements.canvas
-                if (canvas.width > 0 && canvas.height > 0) {
-                    return canvas.width / canvas.height
-                }
-            }
-            return 1.0 // Default square aspect ratio
-        }
-        
-        const aspectA = getAspectRatio(this.channelA)
-        const aspectB = getAspectRatio(this.channelB)
-        
+        const texA = this.channelA?.runtimeState?.isActive
+            ? this.channelA?.runtimeState?.renderer?.getLatestTexture()
+            : null
+        const texB = this.channelB?.runtimeState?.isActive
+            ? this.channelB?.runtimeState?.renderer?.getLatestTexture()
+            : null
+
+        const rA = this.channelA?.runtimeState?.renderer
+        const rB = this.channelB?.runtimeState?.renderer
+        const aspectA = rA ? rA._width / rA._height : 1.0
+        const aspectB = rB ? rB._width / rB._height : 1.0
+
         const shaderInfo = {
             uniformProviders: [
-                {
-                    uniformName: 'u_mix',
-                    type: 'float',
-                    sourceControl: { value: this.mixValue }
-                },
-                {
-                    uniformName: 'u_resolution',
-                    type: 'vec2',
-                    sourceControl: { value: [this.canvas.width, this.canvas.height] }
-                },
-                {
-                    uniformName: 'u_aspectA',
-                    type: 'float',
-                    sourceControl: { value: aspectA }
-                },
-                {
-                    uniformName: 'u_aspectB',
-                    type: 'float',
-                    sourceControl: { value: aspectB }
-                },
-                {
-                    uniformName: 'u_crossfadeMethod',
-                    type: 'float',
-                    sourceControl: { value: this.crossfadeMethod }
-                }
+                { uniformName: 'u_mix',             type: 'float', sourceControl: { value: this.mixValue } },
+                { uniformName: 'u_resolution',      type: 'vec2',  sourceControl: { value: [this.canvas.width, this.canvas.height] } },
+                { uniformName: 'u_aspectA',         type: 'float', sourceControl: { value: aspectA } },
+                { uniformName: 'u_aspectB',         type: 'float', sourceControl: { value: aspectB } },
+                { uniformName: 'u_crossfadeMethod', type: 'float', sourceControl: { value: this.crossfadeMethod } }
             ]
         }
-        
-        const textureProviders = {
-            'u_channelA': () => (this.channelA?.runtimeState?.isActive && this.channelA?.elements?.canvas) || null,
-            'u_channelB': () => (this.channelB?.runtimeState?.isActive && this.channelB?.elements?.canvas) || null
-        }
-        
-        this.renderer.render(performance.now() * 0.001, shaderInfo, this.textureMap, {
+
+        this.renderer.render(performance.now() * 0.001, shaderInfo, null, {
             skipStandardUniforms: true,
-            textureProviders: textureProviders
+            textureBindings: {
+                'u_channelA': texA || this.renderer._blackTexture,
+                'u_channelB': texB || this.renderer._blackTexture
+            }
         })
-        
+
         if (this.backgroundVisible) {
             this._updateBackgroundStream()
         }
     }
-    
+
     _updateBackgroundStream() {
         if (!this.bgVideoElement) return
 
@@ -259,7 +258,7 @@ export class MainMixer {
             this.bgVideoElement.play().catch(() => {})
         }
     }
-    
+
     // Force reconnect projector stream (called when we have a new stream)
     reconnectProjector() {
         if (!this.projectorStream) return
@@ -271,10 +270,10 @@ export class MainMixer {
             console.warn('BackgroundRenderer.reconnectProjectorStream not available')
         }
     }
-    
+
     destroy() {
         this._removeResizeListener()
-        
+
         if (this.canvas && this.canvas.parentNode) {
             this.canvas.parentNode.removeChild(this.canvas)
         }
@@ -298,27 +297,27 @@ out vec4 fragColor;
 
 void main() {
     vec2 uv = gl_FragCoord.xy / u_resolution;
-    
+
     // Calculate viewport aspect ratio
     float viewportAspect = u_resolution.x / u_resolution.y;
-    
+
     // Full-height normalized scaling with aspect ratio correction for texture A
     vec2 uvA = uv;
     float scaleA = viewportAspect / u_aspectA;  // Scale factor to maintain aspect ratio
     uvA.x = (uvA.x - 0.5) * scaleA + 0.5;      // Scale horizontally, centered
-    
-    // Full-height normalized scaling with aspect ratio correction for texture B  
+
+    // Full-height normalized scaling with aspect ratio correction for texture B
     vec2 uvB = uv;
     float scaleB = viewportAspect / u_aspectB;  // Scale factor to maintain aspect ratio
     uvB.x = (uvB.x - 0.5) * scaleB + 0.5;      // Scale horizontally, centered
-    
+
     // Sample with mirror wrapping (handled by texture parameters) and Y flip
     vec4 colorA = texture(u_channelA, vec2(uvA.x, 1.0 - uvA.y));
     vec4 colorB = texture(u_channelB, vec2(uvB.x, 1.0 - uvB.y));
-    
+
     float mixAmount = 0.5 + 0.5 * tan(u_mix * 1.5707963);
     int method = int(u_crossfadeMethod);
-    
+
     if (method == 0) {
         // Simple blend/mix
         fragColor = mix(colorA, colorB, clamp(mixAmount, 0.0, 1.0));
@@ -351,10 +350,10 @@ void main() {
         // Checkerboard - odds wipe bottom-to-top, evens wipe top-to-bottom
         vec2 checker = floor(uv * 8.0); // 8x8 checkerboard
         bool isOdd = mod(checker.x + checker.y, 2.0) > 0.5;
-        
+
         float wipePosition = mixAmount;
         bool showB;
-        
+
         if (isOdd) {
             // Odd squares: wipe bottom-to-top
             showB = (uv.y < wipePosition);
@@ -362,16 +361,16 @@ void main() {
             // Even squares: wipe top-to-bottom
             showB = ((1.0 - uv.y) < wipePosition);
         }
-        
+
         fragColor = showB ? colorB : colorA;
     } else if (method == 7) {
         // Horizontal Lines
         vec2 checker = floor(uv * vec2(16.0, 8.0)); // 16x8 pattern
         bool isOdd = mod(checker.y, 2.0) > 0.5;
-        
+
         float wipePosition = mixAmount;
         bool showB;
-        
+
         if (isOdd) {
             // Odd rows: wipe left-to-right
             showB = (uv.x < wipePosition);
@@ -379,7 +378,7 @@ void main() {
             // Even rows: wipe right-to-left
             showB = ((1.0 - uv.x) < wipePosition);
         }
-        
+
         fragColor = showB ? colorB : colorA;
     } else {
         // Fallback to simple mix
