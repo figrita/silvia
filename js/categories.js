@@ -60,7 +60,7 @@ const categoryStructure = [
     {
         name: 'Convert',
         icon: '🔀',
-        nodes: ['rgba', 'channelsplitter', 'reframerange', 'hsla', 'sliderule', 'lightness', 'luminosity', 'hue', 'saturation']
+        nodes: ['rgba', 'channelsplitter', 'palette', 'reframerange', 'hsla', 'sliderule', 'lightness', 'luminosity', 'hue', 'saturation']
     },
     {
         name: 'Time',
