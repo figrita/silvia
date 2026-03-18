@@ -100,6 +100,7 @@ export class AudioAnalyzer{
         const hasGesture = navigator.userActivation?.hasBeenActive
         if (hasGesture) {
             this.#initFileImmediate()
+            this.start()
         } else {
             this.start() // Start the analysis loop (outputs zeros until context exists)
             this.#resumeOnInteraction()
