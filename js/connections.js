@@ -626,7 +626,12 @@ function managePortVisibility(startPort, shouldHide){
                         isConvertible = true
                     }
                 }
-                if(startNode.slug === 'output' && targetNode !== startNode){isIllegal = false}
+                if(startNode.slug === 'output' && targetNode !== startNode){
+                    isIllegal = false
+                    if(startPort.type !== targetPort.type && canConvert(startPort.type, targetPort.type)){
+                        isConvertible = true
+                    }
+                }
             } else {
                 // Dragging FROM AN INPUT, this port must be a valid output target.
                 // Action inputs can't start a connection drag (only outputs can trigger).
@@ -662,7 +667,12 @@ function managePortVisibility(startPort, shouldHide){
                         isConvertible = true
                     }
                 }
-                if(targetNode.slug === 'output'){isIllegal = false}
+                if(targetNode.slug === 'output'){
+                    isIllegal = false
+                    if(targetPort.type !== startPort.type && canConvert(targetPort.type, startPort.type)){
+                        isConvertible = true
+                    }
+                }
             } else {
                 isIllegal = true
             }
