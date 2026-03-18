@@ -58,6 +58,8 @@ export class WebGLRenderer{
         this.historyFBOs = []
         this.tempTexture = null
         this.tempFBO = null
+        this.outputTexture = null   // Last completed frame (safe to read while tempTexture is a write target)
+        this.outputFBO = null
         this.currentIndex = 0
         this.frameBufferSize = initialFrameBufferSize
         this.contextLost = false
@@ -117,6 +119,8 @@ export class WebGLRenderer{
         if(this.historyTexture){gl.deleteTexture(this.historyTexture)}
         if(this.tempTexture){gl.deleteTexture(this.tempTexture)}
         if(this.tempFBO){gl.deleteFramebuffer(this.tempFBO)}
+        if(this.outputTexture){gl.deleteTexture(this.outputTexture)}
+        if(this.outputFBO){gl.deleteFramebuffer(this.outputFBO)}
         this.historyFBOs.forEach(f => gl.deleteFramebuffer(f))
         this.historyFBOs = []
 
@@ -143,6 +147,17 @@ export class WebGLRenderer{
         this.tempFBO = gl.createFramebuffer()
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.tempFBO)
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.tempTexture, 0)
+
+        // Output texture — holds last completed frame, safe to read while tempTexture is a write target
+        this.outputTexture = gl.createTexture()
+        gl.bindTexture(gl.TEXTURE_2D, this.outputTexture)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this._width, this._height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
+        this.outputFBO = gl.createFramebuffer()
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.outputFBO)
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.outputTexture, 0)
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
         this.currentIndex = 0
@@ -372,6 +387,15 @@ export class WebGLRenderer{
             gl.COLOR_BUFFER_BIT, gl.NEAREST
         )
 
+        // Publish completed frame to outputTexture (distinct from tempTexture so
+        // other renderers can sample it without illegal feedback)
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.outputFBO)
+        gl.blitFramebuffer(
+            0, 0, this._width, this._height,
+            0, 0, this._width, this._height,
+            gl.COLOR_BUFFER_BIT, gl.NEAREST
+        )
+
         if(!this._fboMode){
             gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.tempFBO)
             gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
@@ -415,7 +439,7 @@ export class WebGLRenderer{
     }
 
     getLatestTexture(){
-        return this.tempTexture
+        return this.outputTexture
     }
 
     // PBO async readback — FBO mode only

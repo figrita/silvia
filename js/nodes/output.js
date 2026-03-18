@@ -340,8 +340,8 @@ registerNode({
         const historySize = this.values.frameHistorySize
         const bytesPerPixel = 4 // RGBA
 
-        // Calculate VRAM for the history buffer + the temporary ping-pong buffer
-        const totalBytes = (width * height * bytesPerPixel) * (historySize + 1)
+        // Calculate VRAM for the history buffer + temp + output textures
+        const totalBytes = (width * height * bytesPerPixel) * (historySize + 2)
         this.elements.vramDisplay.textContent = `VRAM: ${formatBytes(totalBytes)}`
     },
 
@@ -551,6 +551,8 @@ registerNode({
             if(r.historyTexture)  gl.deleteTexture(r.historyTexture)
             if(r.tempTexture)     gl.deleteTexture(r.tempTexture)
             if(r.tempFBO)         gl.deleteFramebuffer(r.tempFBO)
+            if(r.outputTexture)   gl.deleteTexture(r.outputTexture)
+            if(r.outputFBO)       gl.deleteFramebuffer(r.outputFBO)
             r.historyFBOs.forEach(fbo => gl.deleteFramebuffer(fbo))
             if(r._pbo) r._pbo.forEach(b => { if(b) gl.deleteBuffer(b) })
             if(r._pboFences[0])   gl.deleteSync(r._pboFences[0])
