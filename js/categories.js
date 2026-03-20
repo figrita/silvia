@@ -15,7 +15,7 @@ const categoryStructure = [
     {
         name: 'Generate',
         icon: '🎨',
-        nodes: ['checkerboard', 'stripes', 'grid', 'houndstooth', 'prideflag', 'circle', 'polygon', 'star', 'spiral', 'phyllotaxis', 'radialgradient', 'lineargradient', 'mandelbrot', 'juliaset', 'sierpinski']
+        nodes: ['checkerboard', 'stripes', 'grid', 'polkadot', 'houndstooth', 'prideflag', 'circle', 'polygon', 'star', 'spiral', 'phyllotaxis', 'radialgradient', 'lineargradient', 'mandelbrot', 'juliaset', 'sierpinski']
     },
     {
         name: 'Noise',
