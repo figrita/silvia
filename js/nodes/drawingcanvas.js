@@ -1,6 +1,7 @@
 import {registerNode} from '../registry.js'
 import {autowire, StringToFragment, hexToRgba} from '../utils.js'
 
+// Icons from Lucide (https://lucide.dev/) — see licenses/LICENSE-LUCIDE
 const TOOL_ICONS = {
     pen:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
     eraser: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>',
@@ -39,7 +40,6 @@ registerNode({
     elements: {
         drawingCanvas: null,
         brushSizeControl: null,
-        opacityControl: null,
         brushColorPicker: null,
         backgroundColorPicker: null,
         toolButtons: null,
@@ -47,7 +47,6 @@ registerNode({
     },
     values: {
         brushSize: 5,
-        brushOpacity: 1.0,
         brushColor: '#ffffffff',
         backgroundColor: '#000000ff',
         canvasWidth: 512,
@@ -229,11 +228,6 @@ registerNode({
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label style="font-size: 0.9rem; color: #ccc;">Opacity</label>
-                    <s-number value="${this.values.brushOpacity}" default="1.0" min="0.0" max="1.0" step="0.01" data-el="opacityControl"></s-number>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center;">
                     <label style="font-size: 0.9rem; color: #ccc;">Color</label>
                     <s-color value="${this.values.brushColor}" data-el="brushColorPicker"></s-color>
                 </div>
@@ -270,9 +264,6 @@ registerNode({
         // Controls
         this.elements.brushSizeControl.addEventListener('input', (e) => {
             this.values.brushSize = parseFloat(e.target.value)
-        })
-        this.elements.opacityControl.addEventListener('input', (e) => {
-            this.values.brushOpacity = parseFloat(e.target.value)
         })
         this.elements.brushColorPicker.addEventListener('change', (e) => {
             if (e.target === this.elements.brushColorPicker) {
@@ -522,12 +513,10 @@ registerNode({
 
         if (tool === 'eraser') {
             ctx.globalCompositeOperation = 'destination-out'
-            ctx.globalAlpha = this.values.brushOpacity
             ctx.strokeStyle = 'rgba(0,0,0,1)'
             ctx.fillStyle = 'rgba(0,0,0,1)'
         } else {
             ctx.globalCompositeOperation = 'source-over'
-            ctx.globalAlpha = this.values.brushOpacity
             ctx.strokeStyle = this.values.brushColor
             ctx.fillStyle = this.values.brushColor
         }
@@ -619,7 +608,7 @@ registerNode({
         const fillR = rgba.r
         const fillG = rgba.g
         const fillB = rgba.b
-        const fillA = Math.round(this.values.brushOpacity * rgba.a * 255)
+        const fillA = Math.round(rgba.a * 255)
 
         // Target color at click point
         const startIdx = (startY * w + startX) * 4
