@@ -620,22 +620,33 @@ export class SNode{
             return connection.source.parent === this || connection.destination.parent === this
         })
 
+        // Collect nodes that need recompilation BEFORE deleting connections,
+        // since getDescendants traverses Connection.connections to find them.
+        const nodesToRefresh = new Set()
+        connectionsToRemove.forEach(connection => {
+            if(connection.source.parent === this){
+                nodesToRefresh.add(connection.destination.parent)
+            }
+        })
+
         // Remove each connection
         connectionsToRemove.forEach(connection => {
             // Re-enable controls disconnected from inputs
             connection.destination.parent.setControlDisabled(connection.destination.key, false)
-            
+
             // Clear port border colors
             Connection.clearPortColor(connection.source.portEl)
             Connection.clearPortColor(connection.destination.portEl)
-            
+
             connection.destination.connection = null
             Connection.connections.delete(connection)
         })
 
         if(connectionsToRemove.length > 0){
             Connection.redrawAllConnections()
-            SNode.refreshDownstreamOutputs(this)
+            for(const node of nodesToRefresh){
+                SNode.refreshDownstreamOutputs(node)
+            }
         }
     }
 
@@ -709,13 +720,34 @@ export class SNode{
                 if(controlEl){
                     const defaultValue = input.control.default ?? 0
                     controlEl.value = defaultValue
-                    
+
                     // Dispatch change event to update any dependent systems
                     controlEl.dispatchEvent(new Event('change', { bubbles: true }))
                 }
             }
         })
-        
+
+        // Reset option selects to their defaults
+        if(this.options){
+            Object.entries(this.options).forEach(([key, option]) => {
+                this.optionValues[key] = option.default
+                const optionEl = this.nodeEl.querySelector(`[data-option-el="${key}"]`)
+                if(optionEl) optionEl.value = option.default
+            })
+        }
+
+        // Reset custom values back to defaults
+        if(this.defaults && this.values){
+            Object.assign(this.values, JSON.parse(JSON.stringify(this.defaults)))
+        }
+
+        // Rebuild custom area from reset values
+        if(this.customArea && this.onCreate){
+            if(this.onDestroy) this.onDestroy()
+            this.customArea.innerHTML = ''
+            this.onCreate()
+        }
+
         // Refresh outputs since control values changed
         SNode.refreshDownstreamOutputs(this)
     }
