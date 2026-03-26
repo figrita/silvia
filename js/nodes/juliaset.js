@@ -61,7 +61,7 @@ registerNode({
 
     input: {
         'input': {
-            label: 'Input',
+            label: 'Map Texture',
             type: 'color',
             control: null
         },
@@ -117,26 +117,11 @@ registerNode({
         }
     },
 
-    options: {
-        'mode': {
-            label: 'Mode',
-            type: 'select',
-            default: 'classic',
-            choices: [
-                {value: 'classic', name: 'Classic'},
-                {value: 'smooth', name: 'Smooth Color'},
-                {value: 'map', name: 'Texture Map'}
-            ]
-        }
-    },
-
     output: {
         'color': {
             label: 'Color',
             type: 'color',
             genCode(cc, funcName){
-                const mode = this.getOption('mode')
-                const inputColor = this.getInput('input', cc, 'finalUV')
                 const foreground = this.getInput('foreground', cc)
                 const background = this.getInput('background', cc)
                 const centerX = this.getInput('centerX', cc)
@@ -145,38 +130,40 @@ registerNode({
                 const cReal = this.getInput('cReal', cc)
                 const cImag = this.getInput('cImag', cc)
                 const iterations = this.getInput('iterations', cc)
-                const strength = this.getInput('strength', cc)
-                const timeMult = this.getInput('timeSpeed', cc)
 
-                if (mode === 'map') {
-                    const escapeRadius = '10000.0'
-                    return `vec4 ${funcName}(vec2 uv) {
+                return `vec4 ${funcName}(vec2 uv) {
     vec2 center = vec2(${centerX}, ${centerY});
     vec2 z = center + (uv) / ${zoom};
     vec2 c = vec2(${cReal}, ${cImag});
 
     int maxIter = int(${iterations});
-    int i;
-    for (i = 0; i < maxIter; i++) {
-        z = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
-        if (dot(z,z) > ${escapeRadius}) break;
+
+    for (int i = 0; i < maxIter; i++) {
+        if (length(z) > 2.0) {
+            float t = float(i) / float(maxIter);
+            return mix(${background}, ${foreground}, t);
+        }
+        float temp = z.x * z.x - z.y * z.y + c.x;
+        z.y = 2.0 * z.x * z.y + c.y;
+        z.x = temp;
     }
 
-    vec2 finalUV;
-    if (i < maxIter) {
-        float tu = mod(atan(z.y, z.x)/(2.0*PI) + u_time * ${timeMult}, 1.0);
-        float tv = log2(log(dot(z,z))/log(${escapeRadius}));
-        float isOddIteration = mod(float(i), 2.0);
-        float flipped_tv = mix(tv, 1.0 - tv, isOddIteration);
-        finalUV = vec2(tu, flipped_tv);
-    } else {
-        finalUV = uv + z * ${strength};
-    }
-
-    return ${inputColor};
+    return ${background};
 }`
-                } else if (mode === 'smooth') {
-                    return `vec4 ${funcName}(vec2 uv) {
+            }
+        },
+        'smooth': {
+            label: 'Smooth',
+            type: 'color',
+            genCode(cc, funcName){
+                const centerX = this.getInput('centerX', cc)
+                const centerY = this.getInput('centerY', cc)
+                const zoom = this.getInput('zoom', cc)
+                const cReal = this.getInput('cReal', cc)
+                const cImag = this.getInput('cImag', cc)
+                const iterations = this.getInput('iterations', cc)
+
+                return `vec4 ${funcName}(vec2 uv) {
     vec2 center = vec2(${centerX}, ${centerY});
     vec2 z = center + (uv) / ${zoom};
     vec2 c = vec2(${cReal}, ${cImag});
@@ -209,27 +196,48 @@ registerNode({
 
     return vec4(col, 1.0);
 }`
-                } else {
-                    return `vec4 ${funcName}(vec2 uv) {
+            }
+        },
+        'map': {
+            label: 'Map',
+            type: 'color',
+            genCode(cc, funcName){
+                const inputColor = this.getInput('input', cc, 'finalUV')
+                const centerX = this.getInput('centerX', cc)
+                const centerY = this.getInput('centerY', cc)
+                const zoom = this.getInput('zoom', cc)
+                const cReal = this.getInput('cReal', cc)
+                const cImag = this.getInput('cImag', cc)
+                const iterations = this.getInput('iterations', cc)
+                const strength = this.getInput('strength', cc)
+                const timeMult = this.getInput('timeSpeed', cc)
+                const escapeRadius = '10000.0'
+
+                return `vec4 ${funcName}(vec2 uv) {
     vec2 center = vec2(${centerX}, ${centerY});
     vec2 z = center + (uv) / ${zoom};
     vec2 c = vec2(${cReal}, ${cImag});
 
     int maxIter = int(${iterations});
-
-    for (int i = 0; i < maxIter; i++) {
-        if (length(z) > 2.0) {
-            float t = float(i) / float(maxIter);
-            return mix(${background}, ${foreground}, t);
-        }
-        float temp = z.x * z.x - z.y * z.y + c.x;
-        z.y = 2.0 * z.x * z.y + c.y;
-        z.x = temp;
+    int i;
+    for (i = 0; i < maxIter; i++) {
+        z = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
+        if (dot(z,z) > ${escapeRadius}) break;
     }
 
-    return ${background};
+    vec2 finalUV;
+    if (i < maxIter) {
+        float tu = mod(atan(z.y, z.x)/(2.0*PI) + u_time * ${timeMult}, 1.0);
+        float tv = log2(log(dot(z,z))/log(${escapeRadius}));
+        float isOddIteration = mod(float(i), 2.0);
+        float flipped_tv = mix(tv, 1.0 - tv, isOddIteration);
+        finalUV = vec2(tu, flipped_tv);
+    } else {
+        finalUV = uv + z * ${strength};
+    }
+
+    return ${inputColor};
 }`
-                }
             }
         },
         'mask': {
