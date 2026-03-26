@@ -15,7 +15,7 @@ const categoryStructure = [
     {
         name: 'Generate',
         icon: '🎨',
-        nodes: ['checkerboard', 'stripes', 'grid', 'polkadot', 'houndstooth', 'prideflag', 'circle', 'polygon', 'star', 'spiral', 'phyllotaxis', 'radialgradient', 'lineargradient', 'mandelbrot', 'juliaset', 'sierpinski']
+        nodes: ['checkerboard', 'stripes', 'grid', 'polkadot', 'houndstooth', 'prideflag', 'circle', 'polygon', 'star', 'spiral', 'phyllotaxis', 'radialgradient', 'lineargradient', 'mandelbrot', 'juliaset', 'lyapunov', 'sierpinski']
     },
     {
         name: 'Noise',
@@ -60,7 +60,7 @@ const categoryStructure = [
     {
         name: 'Convert',
         icon: '🔀',
-        nodes: ['rgba', 'channelsplitter', 'palette', 'reframerange', 'hsla', 'sliderule', 'lightness', 'luminosity', 'hue', 'saturation']
+        nodes: ['rgba', 'channelsplitter', 'palette', 'cosinegradient', 'reframerange', 'hsla', 'sliderule', 'lightness', 'luminosity', 'hue', 'saturation']
     },
     {
         name: 'Time',
