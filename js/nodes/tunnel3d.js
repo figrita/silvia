@@ -48,14 +48,6 @@ registerNode({
                 this._toggleTunnel()
             }
         },
-        'restart': {
-            label: 'Restart',
-            type: 'action',
-            control: {},
-            downCallback(){
-                this._restartTunnel()
-            }
-        },
         'centerX': {
             label: 'Center X',
             type: 'float',
@@ -70,7 +62,7 @@ registerNode({
 
     options: {
         'path': {
-            label: 'Path',
+            label: 'Twist Path',
             type: 'select',
             default: 'sine',
             choices: [
@@ -89,8 +81,18 @@ registerNode({
                 {value: 'heavy', name: 'Heavy'}
             ]
         },
+        'mapping': {
+            label: 'Texture Mapping',
+            type: 'select',
+            default: 'cartesian',
+            choices: [
+                {value: 'cartesian', name: 'Cartesian'},
+                {value: 'cartesian_mirror', name: 'Cart. Mirror'},
+                {value: 'polar', name: 'Polar'}
+            ]
+        },
         'wrap': {
-            label: 'Wrap',
+            label: 'Depth Wrap',
             type: 'select',
             default: 'mirror',
             choices: [
@@ -113,7 +115,14 @@ registerNode({
                 const centerY = this.getInput('centerY', cc)
                 const path = this.getOption('path')
                 const shading = this.getOption('shading')
+                const mapping = this.getOption('mapping')
                 const wrap = this.getOption('wrap')
+
+                const wrapCode = wrap === 'mirror'
+                    ? `t3d_zc = abs(mod(t3d_zc + 1.0, 4.0) - 2.0) - 1.0;`
+                    : wrap === 'repeat'
+                    ? `t3d_zc = fract(t3d_zc * 0.5 + 0.5) * 2.0 - 1.0;`
+                    : ``
 
                 const phaseUniform = `${uniformName}_phase`
                 cc.uniforms.set(phaseUniform, {
@@ -131,12 +140,6 @@ registerNode({
                             return `vec2(sin(${z} * 0.3 + 1.7) * t3d_tw, cos(${z} * 0.5 + 2.3) * t3d_tw * 0.7)`
                     }
                 }
-
-                const wrapCode = wrap === 'mirror'
-                    ? `t3d_tc = abs(mod(t3d_tc + 1.0, 4.0) - 2.0) - 1.0;`
-                    : wrap === 'repeat'
-                    ? `t3d_tc = fract(t3d_tc * 0.5 + 0.5) * 2.0 - 1.0;`
-                    : ``
 
                 return `vec4 ${funcName}(vec2 uv) {
     vec2 t3d_uv = uv - vec2(${centerX}, ${centerY});
@@ -167,9 +170,14 @@ registerNode({
     vec3 t3d_hit = t3d_ro + t3d_rd * t3d_t;
     vec2 t3d_hp = ${pathAt('t3d_hit.z')};
     float t3d_a = atan(t3d_hit.y - t3d_hp.y, t3d_hit.x - t3d_hp.x);
-
-    vec2 t3d_tc = vec2(t3d_a / 3.14159265 * 2.0, t3d_hit.z * 0.5);
+    float t3d_zc = t3d_hit.z * 0.5;
     ${wrapCode}
+    ${mapping === 'polar'
+    ? `float t3d_pr = (t3d_zc + 1.0) * 0.5;
+    vec2 t3d_tc = vec2(cos(t3d_a), sin(t3d_a)) * t3d_pr;`
+    : mapping === 'cartesian_mirror'
+    ? `vec2 t3d_tc = vec2(abs(t3d_a / 3.14159265) * 2.0 - 1.0, t3d_zc);`
+    : `vec2 t3d_tc = vec2(t3d_a / 3.14159265, t3d_zc);`}
 
     vec4 t3d_col = ${this.getInput('texture', cc, 't3d_tc')};
     ${shading === 'light' ? `t3d_col.rgb *= exp(-t3d_t * 0.08);`
@@ -212,13 +220,6 @@ registerNode({
         }
     },
 
-    _restartTunnel(){
-        this.values.isRunning = true
-        if(this.runtimeState.phaseAccumulator){
-            this.runtimeState.phaseAccumulator.resetPhase(0)
-            this.runtimeState.phaseAccumulator.resume()
-        }
-    },
 
     onCreate(){
         if(!this.customArea) return
