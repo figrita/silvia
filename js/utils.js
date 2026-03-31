@@ -17,9 +17,11 @@ export function autowire(container, attr = 'data-el'){
  * @returns {DocumentFragment} - The resulting document fragment.
  */
 export function StringToFragment(string){
-    const renderer = document.createElement('template')
+    const renderer = document.createElement('div')
     renderer.innerHTML = string
-    return renderer.content
+    const fragment = document.createDocumentFragment()
+    fragment.append(...renderer.childNodes)
+    return fragment
 }
 
 /**
