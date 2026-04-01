@@ -33,7 +33,9 @@ registerNode({
         lastStepIndex: -1,
         animationFrameId: null,
         gateTimeouts: [],
-        patterns: [[], [], [], []]
+        patterns: [[], [], [], []],
+        stepEls: null,  // Cached DOM refs: stepEls[step] = NodeList of lane elements
+        prevPlayheadStep: -1
     },
 
     input: {
@@ -48,41 +50,48 @@ registerNode({
         'lane4': {label: 'Lane 4', type: 'action'}
     },
 
-    _generateEuclideanPattern(beats, steps){
-        if(beats === 0 || steps === 0) return new Array(steps).fill(false)
-        if(beats >= steps) return new Array(steps).fill(true)
+    // Writes pattern directly into dest array (no allocation)
+    _generateEuclideanPattern(beats, steps, dest){
+        if(beats === 0 || steps === 0){ dest.fill(false); return }
+        if(beats >= steps){ dest.fill(true); return }
 
-        const pattern = new Array(steps).fill(false)
+        dest.fill(false)
         let slope = beats / steps
         let error = 0
 
         for(let i = 0; i < steps; i++){
             error += slope
             if(error >= 1){
-                pattern[i] = true
+                dest[i] = true
                 error -= 1
             }
         }
-
-        return pattern
     },
 
-    _rotatePattern(pattern, rotation){
-        if(rotation === 0) return pattern
-        const steps = pattern.length
-        const rotated = new Array(steps)
-        for(let i = 0; i < steps; i++){
-            const newIndex = (i + rotation + steps) % steps
-            rotated[newIndex] = pattern[i]
+    // Rotates src into dest in-place (no allocation)
+    _rotatePattern(src, rotation, steps, dest){
+        if(rotation === 0){
+            for(let i = 0; i < steps; i++) dest[i] = src[i]
+            return
         }
-        return rotated
+        for(let i = 0; i < steps; i++){
+            dest[((i + rotation) % steps + steps) % steps] = src[i]
+        }
     },
 
     _updatePatterns(){
+        const steps = this.values.steps
+        // Lazily allocate scratch + pattern arrays (reused across updates)
+        if(!this._scratchPattern || this._scratchPattern.length !== steps){
+            this._scratchPattern = new Array(steps)
+            for(let lane = 0; lane < 4; lane++){
+                this.runtimeState.patterns[lane] = new Array(steps)
+            }
+        }
         for(let lane = 0; lane < 4; lane++){
             const {beats, rotation} = this.values.lanes[lane]
-            const basePattern = this._generateEuclideanPattern(beats, this.values.steps)
-            this.runtimeState.patterns[lane] = this._rotatePattern(basePattern, rotation)
+            this._generateEuclideanPattern(beats, steps, this._scratchPattern)
+            this._rotatePattern(this._scratchPattern, rotation, steps, this.runtimeState.patterns[lane])
         }
     },
 
@@ -108,8 +117,8 @@ registerNode({
     _executeCurrentStep(){
         this._updatePlayhead()
 
-        this.runtimeState.gateTimeouts.forEach(timeout => clearTimeout(timeout))
-        this.runtimeState.gateTimeouts = []
+        for(let i = 0; i < this.runtimeState.gateTimeouts.length; i++) clearTimeout(this.runtimeState.gateTimeouts[i])
+        this.runtimeState.gateTimeouts.length = 0
 
         for(let lane = 0; lane < 4; lane++){
             this.triggerAction(`lane${lane + 1}`, 'up')
@@ -155,8 +164,8 @@ registerNode({
         this.elements.runButton.textContent = this.runtimeState.isRunning ? 'Stop' : 'Start'
 
         if(!this.runtimeState.isRunning){
-            this.runtimeState.gateTimeouts.forEach(timeout => clearTimeout(timeout))
-            this.runtimeState.gateTimeouts = []
+            for(let i = 0; i < this.runtimeState.gateTimeouts.length; i++) clearTimeout(this.runtimeState.gateTimeouts[i])
+            this.runtimeState.gateTimeouts.length = 0
 
             for(let lane = 0; lane < 4; lane++){
                 this.triggerAction(`lane${lane + 1}`, 'up')
@@ -264,27 +273,48 @@ registerNode({
         const fragment = StringToFragment(html)
         this.elements = autowire(fragment)
         this.customArea.appendChild(fragment)
+
+        // Cache step DOM refs — stepEls[step] = NodeList across all lanes
+        // Also cache per-lane-per-step for _updateGrid
+        const steps = this.values.steps
+        this.runtimeState.stepEls = new Array(steps)
+        this._gridCells = new Array(4)
+        for(let lane = 0; lane < 4; lane++){
+            this._gridCells[lane] = new Array(steps)
+        }
+        for(let step = 0; step < steps; step++){
+            this.runtimeState.stepEls[step] = this.elements.grid.querySelectorAll(`.euc-step[data-step="${step}"]`)
+        }
+        for(let lane = 0; lane < 4; lane++){
+            for(let step = 0; step < steps; step++){
+                this._gridCells[lane][step] = this.elements.grid.querySelector(`[data-lane="${lane}"][data-step="${step}"]`)
+            }
+        }
     },
 
     _updateGrid(){
+        const steps = this.values.steps
         for(let lane = 0; lane < 4; lane++){
             const pattern = this.runtimeState.patterns[lane]
-            for(let step = 0; step < this.values.steps; step++){
-                const stepEl = this.elements.grid.querySelector(`[data-lane="${lane}"][data-step="${step}"]`)
-                if(stepEl){
-                    stepEl.classList.toggle('active', pattern[step])
-                }
+            for(let step = 0; step < steps; step++){
+                const el = this._gridCells[lane][step]
+                if(el) el.classList.toggle('active', pattern[step])
             }
         }
     },
 
     _updatePlayhead(){
-        this.elements.grid.querySelectorAll('.playhead').forEach(el => el.classList.remove('playhead'))
-        if(this.runtimeState.currentStep > -1){
-            this.elements.grid.querySelectorAll(`.euc-step[data-step="${this.runtimeState.currentStep}"]`).forEach(el => {
-                el.classList.add('playhead')
-            })
+        const stepEls = this.runtimeState.stepEls
+        const prev = this.runtimeState.prevPlayheadStep
+        const cur = this.runtimeState.currentStep
+
+        if(prev > -1 && stepEls[prev]){
+            stepEls[prev].forEach(el => el.classList.remove('playhead'))
         }
+        if(cur > -1 && stepEls[cur]){
+            stepEls[cur].forEach(el => el.classList.add('playhead'))
+        }
+        this.runtimeState.prevPlayheadStep = cur
     },
 
     _addEventListeners(){
@@ -332,7 +362,7 @@ registerNode({
         if(this.runtimeState.animationFrameId){
             cancelAnimationFrame(this.runtimeState.animationFrameId)
         }
-        this.runtimeState.gateTimeouts.forEach(timeout => clearTimeout(timeout))
-        this.runtimeState.gateTimeouts = []
+        for(let i = 0; i < this.runtimeState.gateTimeouts.length; i++) clearTimeout(this.runtimeState.gateTimeouts[i])
+        this.runtimeState.gateTimeouts.length = 0
     }
 })
