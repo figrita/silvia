@@ -3,15 +3,23 @@ import {autowire, StringToFragment} from '../utils.js'
 import {SNode} from '../snode.js'
 
 // a + b * cos(2π(c·t + d))
+// Writes r,g,b into pre-allocated out array — zero allocation in hot loops
+const TAU = Math.PI * 2
+const _paletteOut = new Float64Array(3)
 
-function evalPalette(t, v) {
-    const TAU = Math.PI * 2
-    return [
-        Math.max(0, Math.min(1, v.aR + v.bR * Math.cos(TAU * (v.cR * t + v.dR)))),
-        Math.max(0, Math.min(1, v.aG + v.bG * Math.cos(TAU * (v.cG * t + v.dG)))),
-        Math.max(0, Math.min(1, v.aB + v.bB * Math.cos(TAU * (v.cB * t + v.dB))))
-    ]
+function evalPalette(t, v, out) {
+    out[0] = Math.max(0, Math.min(1, v.aR + v.bR * Math.cos(TAU * (v.cR * t + v.dR))))
+    out[1] = Math.max(0, Math.min(1, v.aG + v.bG * Math.cos(TAU * (v.cG * t + v.dG))))
+    out[2] = Math.max(0, Math.min(1, v.aB + v.bB * Math.cos(TAU * (v.cB * t + v.dB))))
+    return out
 }
+
+// Channel descriptors hoisted to module scope — no allocation per redraw
+const WAVE_CHANNELS = [
+    {color: 'rgba(255,80,80,0.8)',  idx: 0},
+    {color: 'rgba(80,220,80,0.8)',   idx: 1},
+    {color: 'rgba(80,120,255,0.8)',  idx: 2}
+]
 
 function f(n) { return n.toFixed(4) }
 
@@ -131,17 +139,22 @@ registerNode({
         const w = canvas.width
         const v = this.values
 
-        const imgData = ctx.createImageData(w, 1)
+        // Reuse ImageData across redraws
+        if(!this._gradientImgData || this._gradientImgData.width !== w){
+            this._gradientImgData = ctx.createImageData(w, 1)
+        }
+        const data = this._gradientImgData.data
+        const out = _paletteOut
         for(let x = 0; x < w; x++){
             const t = x / (w - 1)
-            const [r, g, b] = evalPalette(t, v)
+            evalPalette(t, v, out)
             const idx = x * 4
-            imgData.data[idx]     = r * 255
-            imgData.data[idx + 1] = g * 255
-            imgData.data[idx + 2] = b * 255
-            imgData.data[idx + 3] = 255
+            data[idx]     = out[0] * 255
+            data[idx + 1] = out[1] * 255
+            data[idx + 2] = out[2] * 255
+            data[idx + 3] = 255
         }
-        ctx.putImageData(imgData, 0, 0)
+        ctx.putImageData(this._gradientImgData, 0, 0)
     },
 
     _drawWaves(){
@@ -173,21 +186,16 @@ registerNode({
         ctx.stroke()
         ctx.setLineDash([])
 
-        // Channel curves
-        const channels = [
-            {color: 'rgba(255,80,80,0.8)',  idx: 0},
-            {color: 'rgba(80,220,80,0.8)',   idx: 1},
-            {color: 'rgba(80,120,255,0.8)',  idx: 2}
-        ]
-
-        for(const ch of channels){
+        // Channel curves — uses module-level WAVE_CHANNELS, shared _paletteOut
+        const out = _paletteOut
+        for(const ch of WAVE_CHANNELS){
             ctx.strokeStyle = ch.color
             ctx.lineWidth = 1.5
             ctx.beginPath()
             for(let x = 0; x < w; x++){
                 const t = x / (w - 1)
-                const val = evalPalette(t, v)[ch.idx]
-                const y = pad + (1 - val) * plotH
+                evalPalette(t, v, out)
+                const y = pad + (1 - out[ch.idx]) * plotH
                 if(x === 0) ctx.moveTo(x, y)
                 else ctx.lineTo(x, y)
             }
