@@ -10,7 +10,7 @@ const categoryStructure = [
     {
         name: 'Input',
         icon: '📤',
-        nodes: ['maininput', 'color', 'number', 'worldcoordinates', 'imagegif', 'video', 'webcam', 'screencapture', 'text', 'drawingcanvas', 'audioanalyzer', 'micline', 'gamepad', 'mouseinput']
+        nodes: ['maininput', 'color', 'number', 'worldcoordinates', 'xypad', 'imagegif', 'video', 'webcam', 'screencapture', 'text', 'drawingcanvas', 'audioanalyzer', 'micline', 'gamepad', 'mouseinput']
     },
     {
         name: 'Generate',
@@ -25,7 +25,7 @@ const categoryStructure = [
     {
         name: 'Random',
         icon: '🎲',
-        nodes: ['random', 'randomfire', 'triggeredrandom', 'triggeredcolor', 'brownianmotion']
+        nodes: ['random', 'randomfire', 'triggeredrandom', 'triggeredcolor']
     },
     {
         name: 'Transform',
@@ -45,7 +45,7 @@ const categoryStructure = [
     {
         name: 'Effects',
         icon: '🔍',
-        nodes: ['colorshift', 'contrast', 'invert', 'colorize', 'chromaticaberration', 'chromakey', 'posterize', 'dither', 'colormapping', 'autoexposure', 'blur', 'bloom', 'dilate', 'erode', 'edgedetection', 'supersampling', 'sincfilter', 'sharpen', 'emboss', 'heighttonormal', 'simplelight', 'halftone', 'mosaic', 'kuwahara', 'pixelsort']
+        nodes: ['colorshift', 'contrast', 'invert', 'colorize', 'chromaticaberration', 'chromakey', 'posterize', 'dither', 'colordither', 'colormapping', 'autoexposure', 'blur', 'bloom', 'dilate', 'erode', 'edgedetection', 'supersampling', 'sincfilter', 'sharpen', 'emboss', 'heighttonormal', 'simplelight', 'halftone', 'mosaic', 'kuwahara', 'pixelsort', 'wavefold']
     },
     {
         name: 'Mix',
@@ -70,7 +70,7 @@ const categoryStructure = [
     {
         name: 'Games',
         icon: '🕹️',
-        nodes: ['brickgame', 'cellularautomata']
+        nodes: ['brickgame', 'cellularautomata', 'slimemold']
     },
     {
         name: 'Debug',
