@@ -25,7 +25,9 @@ registerNode({
         startTime: 0,  // When the sequencer started
         lastStepIndex: -1,  // Track the last step we triggered
         animationFrameId: null,
-        gateTimeouts: []  // Track gate release timeouts
+        gateTimeouts: [],  // Track gate release timeouts
+        stepEls: null,  // Cached DOM refs: stepEls[step] = array of 4 lane elements
+        prevPlayheadStep: -1
     },
 
     input: {
@@ -61,8 +63,8 @@ registerNode({
             cancelAnimationFrame(this.runtimeState.animationFrameId)
         }
         // Clear any pending gate timeouts
-        this.runtimeState.gateTimeouts.forEach(timeout => clearTimeout(timeout))
-        this.runtimeState.gateTimeouts = []
+        for(let i = 0; i < this.runtimeState.gateTimeouts.length; i++) clearTimeout(this.runtimeState.gateTimeouts[i])
+        this.runtimeState.gateTimeouts.length = 0
     },
 
     _run(timestamp){
@@ -91,8 +93,8 @@ registerNode({
         this._updatePlayhead()
 
         // Clear any previous gate timeouts and send up events first
-        this.runtimeState.gateTimeouts.forEach(timeout => clearTimeout(timeout))
-        this.runtimeState.gateTimeouts = []
+        for(let i = 0; i < this.runtimeState.gateTimeouts.length; i++) clearTimeout(this.runtimeState.gateTimeouts[i])
+        this.runtimeState.gateTimeouts.length = 0
         
         // Send up events for all lanes to ensure clean note-offs
         for(let lane = 0; lane < 4; lane++){
@@ -151,9 +153,9 @@ registerNode({
         
         if(!this.runtimeState.isRunning){
             // Clear any pending gate timeouts when stopping
-            this.runtimeState.gateTimeouts.forEach(timeout => clearTimeout(timeout))
-            this.runtimeState.gateTimeouts = []
-            
+            for(let i = 0; i < this.runtimeState.gateTimeouts.length; i++) clearTimeout(this.runtimeState.gateTimeouts[i])
+            this.runtimeState.gateTimeouts.length = 0
+
             // Send up events for any lanes that might still be gated
             for(let lane = 0; lane < 4; lane++){
                 this.triggerAction(`lane${lane + 1}`, 'up')
@@ -241,6 +243,12 @@ registerNode({
         const fragment = StringToFragment(html)
         this.elements = autowire(fragment)
         this.customArea.appendChild(fragment)
+
+        // Cache step DOM refs — avoids querySelectorAll on every playhead update
+        this.runtimeState.stepEls = new Array(16)
+        for(let step = 0; step < 16; step++){
+            this.runtimeState.stepEls[step] = this.elements.grid.querySelectorAll(`.seq-step[data-step="${step}"]`)
+        }
     },
 
     _addEventListeners(){
@@ -275,11 +283,18 @@ registerNode({
     },
 
     _updatePlayhead(){
-        this.elements.grid.querySelectorAll('.playhead').forEach(el => el.classList.remove('playhead'))
-        if(this.runtimeState.currentStep > -1){
-            this.elements.grid.querySelectorAll(`.seq-step[data-step="${this.runtimeState.currentStep}"]`).forEach(el => {
-                el.classList.add('playhead')
-            })
+        const stepEls = this.runtimeState.stepEls
+        const prev = this.runtimeState.prevPlayheadStep
+        const cur = this.runtimeState.currentStep
+
+        // Remove playhead from previous step (O(4) instead of full querySelectorAll)
+        if(prev > -1 && stepEls[prev]){
+            stepEls[prev].forEach(el => el.classList.remove('playhead'))
         }
+        // Add playhead to current step
+        if(cur > -1 && stepEls[cur]){
+            stepEls[cur].forEach(el => el.classList.add('playhead'))
+        }
+        this.runtimeState.prevPlayheadStep = cur
     }
 })
