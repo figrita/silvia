@@ -1,6 +1,19 @@
 import {registerNode} from '../registry.js'
 import {autowire, StringToFragment} from '../utils.js'
 
+// Precomputed brick row/col LUTs — avoids Math.floor(i/8) and i%8 per brick per frame
+const BRICK_ROW = new Uint8Array(48)
+const BRICK_COL = new Uint8Array(48)
+const BRICK_X   = new Float32Array(48) // world-space center X
+const BRICK_Y   = new Float32Array(48) // world-space center Y
+for(let i = 0; i < 48; i++){
+    const row = (i / 8) | 0
+    const col = i % 8
+    BRICK_ROW[i] = row
+    BRICK_COL[i] = col
+    BRICK_X[i] = -0.875 + col * 0.25
+    BRICK_Y[i] = 0.8 - row * 0.15
+}
 
 registerNode({
     slug: 'brickgame',
@@ -213,10 +226,12 @@ registerNode({
         paddleLeft: false,
         paddleRight: false,
         
-        // Bricks (8x6 grid)
-        bricks: new Array(48).fill(1),
+        // Bricks (8x6 grid) — Uint8Array: 1=alive, 0=broken
+        bricks: new Uint8Array(48),
         bricksLeft: 48,
         score: 0,
+        lastRenderedScore: -1,
+        lastRenderedBricks: -1,
         
         // Animation
         animationFrameId: null,
@@ -309,7 +324,8 @@ registerNode({
         this.runtimeState.ballVX = (Math.random() - 0.5) * 0.008
         this.runtimeState.ballVY = Math.random() * 0.004 + 0.004
         this.runtimeState.paddleX = 0.0
-        this.runtimeState.bricks = new Array(48).fill(1)
+        this.runtimeState.bricks = new Uint8Array(48)
+        this.runtimeState.bricks.fill(1)
         this.runtimeState.bricksLeft = 48
         if (!won) this.runtimeState.score = 0
         this.runtimeState.gameRunning = false
@@ -474,29 +490,25 @@ registerNode({
 
     _checkBrickCollisions() {
         const ballRadius = 0.02
-        
+        const bricks = this.runtimeState.bricks
+        const bx = this.runtimeState.ballX
+        const by = this.runtimeState.ballY
+
         for (let i = 0; i < 48; i++) {
-            if (this.runtimeState.bricks[i] === 0) continue
-            
-            const row = Math.floor(i / 8)
-            const col = i % 8
-            const brickX = -0.875 + col * 0.25
-            const brickY = 0.8 - row * 0.15
-            
-            // Simple AABB collision
-            if (this.runtimeState.ballX + ballRadius > brickX - 0.1 &&
-                this.runtimeState.ballX - ballRadius < brickX + 0.1 &&
-                this.runtimeState.ballY + ballRadius > brickY - 0.05 &&
-                this.runtimeState.ballY - ballRadius < brickY + 0.05) {
-                
-                // Remove brick
-                this.runtimeState.bricks[i] = 0
+            if (bricks[i] === 0) continue
+
+            // Simple AABB collision using precomputed brick positions
+            if (bx + ballRadius > BRICK_X[i] - 0.1 &&
+                bx - ballRadius < BRICK_X[i] + 0.1 &&
+                by + ballRadius > BRICK_Y[i] - 0.05 &&
+                by - ballRadius < BRICK_Y[i] + 0.05) {
+
+                bricks[i] = 0
                 this.runtimeState.bricksLeft--
                 this.runtimeState.score += 10
-                
-                // Bounce ball
+
                 this.runtimeState.ballVY = -this.runtimeState.ballVY
-                
+
                 this.triggerAction('brickBroken')
                 break
             }
@@ -504,8 +516,14 @@ registerNode({
     },
 
     _updateUI() {
-        this.elements.scoreDisplay.textContent = `Score: ${this.runtimeState.score}`
-        this.elements.bricksDisplay.textContent = `Bricks: ${this.runtimeState.bricksLeft}`
+        if(this.runtimeState.score !== this.runtimeState.lastRenderedScore){
+            this.runtimeState.lastRenderedScore = this.runtimeState.score
+            this.elements.scoreDisplay.textContent = `Score: ${this.runtimeState.score}`
+        }
+        if(this.runtimeState.bricksLeft !== this.runtimeState.lastRenderedBricks){
+            this.runtimeState.lastRenderedBricks = this.runtimeState.bricksLeft
+            this.elements.bricksDisplay.textContent = `Bricks: ${this.runtimeState.bricksLeft}`
+        }
     },
 
     _initCanvas() {
@@ -545,19 +563,15 @@ registerNode({
         const paddleW = this.runtimeState.paddleWidth * scale
         ctx.fillRect(paddleX - paddleW/2, paddleY - 3, paddleW, 6)
         
-        // Draw bricks
+        // Draw bricks using precomputed positions
+        const bricks = this.runtimeState.bricks
+        const brickW = 0.2 * scale
+        const brickH = 0.1 * scale
         for (let i = 0; i < 48; i++) {
-            if (this.runtimeState.bricks[i] === 0) continue
-            
-            const row = Math.floor(i / 8)
-            const col = i % 8
-            const brickWorldX = -0.875 + col * 0.25
-            const brickWorldY = 0.8 - row * 0.15
-            
-            const brickX = centerX + brickWorldX * scale
-            const brickY = centerY - brickWorldY * scale // Flip Y
-            
-            ctx.fillRect(brickX - 0.1 * scale, brickY - 0.05 * scale, 0.2 * scale, 0.1 * scale)
+            if (bricks[i] === 0) continue
+            const bx = centerX + BRICK_X[i] * scale
+            const by = centerY - BRICK_Y[i] * scale
+            ctx.fillRect(bx - brickW * 0.5, by - brickH * 0.5, brickW, brickH)
         }
         
         // Copy to display canvas
