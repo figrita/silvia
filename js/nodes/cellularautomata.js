@@ -89,18 +89,29 @@ registerNode({
     values: {
         gridScale: 4,  // Integer multiplier, actual size = gridScale * 16
         initThreshold: 0.6,
+        trailDecay: 0.05,
+        stepsPerFrame: 1,
         autoRun: false
     },
     defaults: {
         gridScale: 4,
         initThreshold: 0.6,
+        trailDecay: 0.05,
+        stepsPerFrame: 1,
         autoRun: false
     },
     runtimeState: {
-        grid: [],
+        grid: null,
+        gridNext: null,
+        trailMap: null,
         textureData: null,
         isRunning: false,
-        intervalId: null
+        intervalId: null,
+        previewCtx: null,
+        previewImgData: null,
+        painting: false,
+        paintX: 0,
+        paintY: 0
     },
 
     onCreate(){
@@ -131,6 +142,12 @@ registerNode({
             this.values.initThreshold = parseFloat(this.elements.thresholdControl.value)
             this._randomizeGrid()
         })
+        this.elements.trailDecayControl.addEventListener('input', () => {
+            this.values.trailDecay = parseFloat(this.elements.trailDecayControl.value)
+        })
+        this.elements.spfControl.addEventListener('input', () => {
+            this.values.stepsPerFrame = parseInt(this.elements.spfControl.value, 10)
+        })
     },
 
     onDestroy(){
@@ -150,94 +167,171 @@ registerNode({
         if(this.runtimeState.isRunning){
             const speedHz = 30
             this.runtimeState.intervalId = setInterval(() => {
-                this._stepSimulation()
+                const n = this.values.stepsPerFrame
+                for(let i = 0; i < n; i++){
+                    this._stepSimulation(i === n - 1)
+                }
             }, 1000 / speedHz)
         }
     },
 
-    _stepSimulation(){
-        const width = this._getActualWidth()
-        const height = this._getActualHeight()
-        const nextGrid = Array(height).fill(null).map(() => Array(width).fill(0))
+    _stepSimulation(render = true){
+        const w = this._getActualWidth()
+        const h = this._getActualHeight()
+        const grid = this.runtimeState.grid
+        const next = this.runtimeState.gridNext
         const algorithm = this.getOption('algorithm')
+        const isBrians = algorithm === 'brians_brain'
 
-        for(let y = 0; y < height; y++){
-            for(let x = 0; x < width; x++){
-                let liveNeighbors = 0
-                for(let i = -1; i <= 1; i++){
-                    for(let j = -1; j <= 1; j++){
-                        if(i === 0 && j === 0){continue}
-                        const nx = (x + j + width) % width
-                        const ny = (y + i + height) % height
-                        if(this.runtimeState.grid[ny][nx] === 1){
-                            liveNeighbors++
-                        }
-                    }
-                }
+        // Build birth/survive lookup tables (indexed by neighbor count 0-8)
+        let birthLUT, surviveLUT
+        if(!isBrians){
+            birthLUT = new Uint8Array(9)
+            surviveLUT = new Uint8Array(9)
+            const rulesets = {
+                'life': [[3], [2, 3]],
+                'highlife': [[3, 6], [2, 3]],
+                'day_and_night': [[3, 6, 7, 8], [3, 4, 6, 7, 8]]
+            }
+            const [B, S] = rulesets[algorithm]
+            for(let i = 0; i < B.length; i++) birthLUT[B[i]] = 1
+            for(let i = 0; i < S.length; i++) surviveLUT[S[i]] = 1
+        }
 
-                const currentState = this.runtimeState.grid[y][x]
+        for(let y = 0; y < h; y++){
+            const ym = ((y - 1) + h) % h
+            const yp = (y + 1) % h
+            const yOff = y * w
+            const ymOff = ym * w
+            const ypOff = yp * w
+            for(let x = 0; x < w; x++){
+                const xm = ((x - 1) + w) % w
+                const xp = (x + 1) % w
 
-                if(algorithm === 'brians_brain'){
-                    if(currentState === 1){nextGrid[y][x] = 2}
-                    else if(currentState === 2){nextGrid[y][x] = 0}
-                    else if(currentState === 0 && liveNeighbors === 2){nextGrid[y][x] = 1}
-                    else {nextGrid[y][x] = 0}
+                const n =
+                    (grid[ymOff + xm] === 1) + (grid[ymOff + x] === 1) + (grid[ymOff + xp] === 1) +
+                    (grid[yOff + xm] === 1)  +                           (grid[yOff + xp] === 1) +
+                    (grid[ypOff + xm] === 1) + (grid[ypOff + x] === 1) + (grid[ypOff + xp] === 1)
+
+                const cur = grid[yOff + x]
+                const idx = yOff + x
+
+                if(isBrians){
+                    if(cur === 1) next[idx] = 2
+                    else if(cur === 2) next[idx] = 0
+                    else next[idx] = n === 2 ? 1 : 0
                 } else {
-                    const rules = {
-                        'life': {B: [3], S: [2, 3]},
-                        'highlife': {B: [3, 6], S: [2, 3]},
-                        'day_and_night': {B: [3, 6, 7, 8], S: [3, 4, 6, 7, 8]}
-                    }
-                    const {B, S} = rules[algorithm]
-                    const wasAlive = currentState === 1
-
-                    if(wasAlive && S.includes(liveNeighbors)){nextGrid[y][x] = 1}
-                    else if(!wasAlive && B.includes(liveNeighbors)){nextGrid[y][x] = 1}
-                    else {nextGrid[y][x] = 0}
-
+                    if(cur === 1) next[idx] = surviveLUT[n]
+                    else next[idx] = birthLUT[n]
                 }
             }
         }
-        this.runtimeState.grid = nextGrid
-        this._updateTextureFromGrid()
+
+        // Swap buffers
+        this.runtimeState.grid = next
+        this.runtimeState.gridNext = grid
+        if(render) this._updateTextureFromGrid()
     },
 
     _initGrid(){
         const width = this._getActualWidth()
         const height = this._getActualHeight()
-        this.runtimeState.grid = Array(height).fill(null).map(() => Array(width).fill(0))
-        this.runtimeState.textureData = new Uint8Array(width * height)
+        const size = width * height
+        this.runtimeState.grid = new Uint8Array(size)
+        this.runtimeState.gridNext = new Uint8Array(size)
+        this.runtimeState.trailMap = new Float32Array(size)
+        this.runtimeState.textureData = new Uint8Array(size)
         this._randomizeGrid()
     },
 
     _randomizeGrid(){
-        const width = this._getActualWidth()
-        const height = this._getActualHeight()
-        for(let y = 0; y < height; y++){
-            for(let x = 0; x < width; x++){
-                this.runtimeState.grid[y][x] = Math.random() > this.values.initThreshold ? 1 : 0
-            }
+        const size = this._getActualWidth() * this._getActualHeight()
+        const grid = this.runtimeState.grid
+        const thresh = this.values.initThreshold
+        for(let i = 0; i < size; i++){
+            grid[i] = Math.random() > thresh ? 1 : 0
         }
+        this.runtimeState.trailMap.fill(0)
         this._updateTextureFromGrid()
     },
 
     _updateTextureFromGrid(){
-        const width = this._getActualWidth()
-        const height = this._getActualHeight()
-        for(let y = 0; y < height; y++){
-            for(let x = 0; x < width; x++){
-                const state = this.runtimeState.grid[y][x]
-                const i = (y * width + x)
-                if(state === 1){this.runtimeState.textureData[i] = 255}
-                else if(state === 2){this.runtimeState.textureData[i] = 128}
-                else {this.runtimeState.textureData[i] = 0}
+        const size = this._getActualWidth() * this._getActualHeight()
+        const grid = this.runtimeState.grid
+        const trailMap = this.runtimeState.trailMap
+        const textureData = this.runtimeState.textureData
+        const retain = 1.0 - this.values.trailDecay
+
+        for(let i = 0; i < size; i++){
+            const state = grid[i]
+            if(state === 1) trailMap[i] = 1.0
+            else if(state === 2) trailMap[i] = trailMap[i] < 0.5 ? 0.5 : trailMap[i]
+            else trailMap[i] *= retain
+
+            const v = (trailMap[i] * 255) | 0
+            textureData[i] = v > 255 ? 255 : v
+        }
+        this._renderPreview()
+    },
+
+    _renderPreview(){
+        const ctx = this.runtimeState.previewCtx
+        if(!ctx) return
+        const canvas = ctx.canvas
+        const w = this._getActualWidth()
+        const h = this._getActualHeight()
+        const data = this.runtimeState.textureData
+        if(!data) return
+
+        const pw = canvas.width
+        const ph = canvas.height
+        if(!this.runtimeState.previewImgData || this.runtimeState.previewImgData.width !== pw){
+            this.runtimeState.previewImgData = ctx.createImageData(pw, ph)
+        }
+        const pixels = this.runtimeState.previewImgData.data
+
+        // Tile ~1.5 worlds, flip Y to match OpenGL
+        for(let py = 0; py < ph; py++){
+            const sy = (h - 1) - (Math.floor(py / ph * h * 1.5) % h)
+            for(let px = 0; px < pw; px++){
+                const sx = Math.floor(px / pw * w * 1.5) % w
+                const v = data[sy * w + sx]
+                const idx = (py * pw + px) * 4
+                pixels[idx] = v
+                pixels[idx + 1] = v
+                pixels[idx + 2] = v
+                pixels[idx + 3] = 255
             }
         }
+        ctx.putImageData(this.runtimeState.previewImgData, 0, 0)
+    },
+
+    _sprayAt(canvasX, canvasY){
+        const canvas = this.runtimeState.previewCtx.canvas
+        const w = this._getActualWidth()
+        const h = this._getActualHeight()
+        const simX = Math.floor((canvasX / canvas.clientWidth) * w * 1.5) % w
+        const simY = (h - 1) - (Math.floor((canvasY / canvas.clientHeight) * h * 1.5) % h)
+        const radius = Math.max(w, h) * 0.1
+        const grid = this.runtimeState.grid
+
+        for(let dy = -Math.ceil(radius); dy <= Math.ceil(radius); dy++){
+            for(let dx = -Math.ceil(radius); dx <= Math.ceil(radius); dx++){
+                if(dx * dx + dy * dy > radius * radius) continue
+                if(Math.random() > 0.5) continue
+                const gx = ((simX + dx) % w + w) % w
+                const gy = ((simY + dy) % h + h) % h
+                grid[gy * w + gx] = 1
+            }
+        }
+        this._updateTextureFromGrid()
+        this._renderPreview()
     },
 
     _createUI(){
         const html = `
             <div style="padding: 0.5rem; display:flex; flex-direction:column; gap: 0.5rem;">
+                <canvas data-el="previewCanvas" width="300" height="300" style="width:300px; height:300px; display:block; margin:0 auto; cursor:crosshair; image-rendering:pixelated;"></canvas>
                 <div class="checkbox-group" style="margin:0;">
                     <label>
                         <input type="checkbox" data-el="runCheckbox">
@@ -252,6 +346,14 @@ registerNode({
                 <div style="display:flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
                     <label for="ca-threshold" style="font-size:0.9rem; color:#ccc;">Init Threshold</label>
                     <s-number id="ca-threshold" value="${this.values.initThreshold}" default="${this.defaults.initThreshold}" min="0.0" max="1.0" step="0.01" data-el="thresholdControl"></s-number>
+                </div>
+                <div style="display:flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                    <label style="font-size:0.9rem; color:#ccc;">Trail Decay</label>
+                    <s-number value="${this.values.trailDecay}" default="${this.defaults.trailDecay}" min="0.001" max="1.0" step="0.005" data-el="trailDecayControl"></s-number>
+                </div>
+                <div style="display:flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                    <label style="font-size:0.9rem; color:#ccc;">Steps/Frame</label>
+                    <s-number midi-disabled value="${this.values.stepsPerFrame}" default="${this.defaults.stepsPerFrame}" min="1" max="20" step="1" data-el="spfControl"></s-number>
                 </div>
             </div>
         `
@@ -268,5 +370,29 @@ registerNode({
         })
 
         this.customArea.appendChild(fragment)
+
+        // Set up preview canvas with spray-can drawing
+        const previewCanvas = this.elements.previewCanvas
+        this.runtimeState.previewCtx = previewCanvas.getContext('2d')
+
+        previewCanvas.addEventListener('pointerdown', (e) => {
+            this.runtimeState.painting = true
+            previewCanvas.setPointerCapture(e.pointerId)
+            const rect = previewCanvas.getBoundingClientRect()
+            this._sprayAt(e.clientX - rect.left, e.clientY - rect.top)
+        })
+        previewCanvas.addEventListener('pointermove', (e) => {
+            if(!this.runtimeState.painting) return
+            const rect = previewCanvas.getBoundingClientRect()
+            this._sprayAt(e.clientX - rect.left, e.clientY - rect.top)
+        })
+        previewCanvas.addEventListener('pointerup', () => {
+            this.runtimeState.painting = false
+        })
+        previewCanvas.addEventListener('pointerleave', () => {
+            this.runtimeState.painting = false
+        })
+
+        this._renderPreview()
     }
 })
