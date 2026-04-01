@@ -64,6 +64,9 @@ registerNode({
         shapeStartX: 0,
         shapeStartY: 0,
         previewSnapshot: null,
+        // Cached symmetry transforms (recomputed only when mode/dimensions change)
+        cachedTransforms: null,
+        cachedSymmetryKey: null,
     },
 
     input: {
@@ -322,6 +325,13 @@ registerNode({
         const mode = this.values.symmetry
         const w = this.values.canvasWidth
         const h = this.values.canvasHeight
+        const key = `${mode}:${w}:${h}`
+
+        // Return cached transforms if mode and dimensions haven't changed
+        if (this.runtimeState.cachedSymmetryKey === key) {
+            return this.runtimeState.cachedTransforms
+        }
+
         const cx = w / 2
         const cy = h / 2
 
@@ -353,6 +363,8 @@ registerNode({
             }
         }
 
+        this.runtimeState.cachedTransforms = transforms
+        this.runtimeState.cachedSymmetryKey = key
         return transforms
     },
 
@@ -629,42 +641,64 @@ registerNode({
                    Math.abs(data[idx + 3] - targetA) <= tolerance
         }
 
-        // Scanline fill
-        const stack = [[startX, startY]]
-        const visited = new Uint8Array(w * h)
+        // Scanline fill with flat typed-array stack (no per-push array allocation)
+        const totalPixels = w * h
+        const stackX = new Int32Array(totalPixels)
+        const stackY = new Int32Array(totalPixels)
+        let stackPtr = 0
+        stackX[stackPtr] = startX
+        stackY[stackPtr] = startY
+        stackPtr++
 
-        while (stack.length > 0) {
-            let [x, y] = stack.pop()
-            let idx = (y * w + x) * 4
+        const visited = new Uint8Array(totalPixels)
 
-            if (visited[y * w + x]) continue
-            if (!match(idx)) continue
+        while (stackPtr > 0) {
+            stackPtr--
+            const x = stackX[stackPtr]
+            const y = stackY[stackPtr]
+            const vIdx = y * w + x
+
+            if (visited[vIdx]) continue
+            if (!match(vIdx * 4)) continue
 
             // Find left edge
             let left = x
-            while (left > 0 && match(((y * w) + left - 1) * 4) && !visited[y * w + left - 1]) {
+            while (left > 0 && !visited[y * w + left - 1] && match((y * w + left - 1) * 4)) {
                 left--
             }
 
             // Fill rightward
+            const yOff = y * w
             let right = left
-            while (right < w && match((y * w + right) * 4) && !visited[y * w + right]) {
-                const i = (y * w + right) * 4
+            while (right < w && !visited[yOff + right] && match((yOff + right) * 4)) {
+                const i = (yOff + right) * 4
                 data[i] = fillR
                 data[i + 1] = fillG
                 data[i + 2] = fillB
                 data[i + 3] = fillA
-                visited[y * w + right] = 1
+                visited[yOff + right] = 1
                 right++
             }
 
             // Check rows above and below
-            for (let scanX = left; scanX < right; scanX++) {
-                if (y > 0 && !visited[(y - 1) * w + scanX] && match(((y - 1) * w + scanX) * 4)) {
-                    stack.push([scanX, y - 1])
+            if (y > 0) {
+                const aboveOff = (y - 1) * w
+                for (let scanX = left; scanX < right; scanX++) {
+                    if (!visited[aboveOff + scanX] && match((aboveOff + scanX) * 4)) {
+                        stackX[stackPtr] = scanX
+                        stackY[stackPtr] = y - 1
+                        stackPtr++
+                    }
                 }
-                if (y < h - 1 && !visited[(y + 1) * w + scanX] && match(((y + 1) * w + scanX) * 4)) {
-                    stack.push([scanX, y + 1])
+            }
+            if (y < h - 1) {
+                const belowOff = (y + 1) * w
+                for (let scanX = left; scanX < right; scanX++) {
+                    if (!visited[belowOff + scanX] && match((belowOff + scanX) * 4)) {
+                        stackX[stackPtr] = scanX
+                        stackY[stackPtr] = y + 1
+                        stackPtr++
+                    }
                 }
             }
         }
