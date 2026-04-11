@@ -9,7 +9,7 @@
 import {registerNode} from '../registry.js'
 import {mainInput} from '../mainInput.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
-import {setupHistogramCanvas, drawHistogram} from '../audioHistogram.js'
+import {makeOscilloscopeOutput} from '../audioHistogram.js'
 
 registerNode({
     slug: 'maininput',
@@ -69,20 +69,6 @@ registerNode({
             }
         },
 
-        'bassExciter': {
-            label: 'Bass+',
-            type: 'float',
-            range: '[0, 1]',
-            genCode(cc, funcName, uniformName) {
-                return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
-            },
-            floatUniformUpdate(uniformName, gl, program) {
-                if (this.isDestroyed) return
-                const location = gl.getUniformLocation(program, uniformName)
-                gl.uniform1f(location, mainInput.getAudioValues().bassExciter)
-            }
-        },
-
         'mid': {
             label: 'Mid',
             type: 'float',
@@ -111,61 +97,7 @@ registerNode({
             }
         },
 
-        'oscilloscope': {
-            label: 'Oscilloscope',
-            type: 'color',
-            genCode(cc, funcName, uniformName) {
-                return `vec4 ${funcName}(vec2 uv) {
-    vec2 coord = uv;
-    vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
-
-    float x = (coord.x + 1.0) * 0.5;
-    float sampleIndex = x * 1024.0;
-    int idx = int(sampleIndex);
-
-    float waveValue = (texture(${uniformName}, vec2(float(idx) / 1024.0, 0.5)).r - 0.5) * 2.0;
-
-    float lineY = waveValue * 0.95;
-    float distance = abs(coord.y - lineY);
-    float lineThickness = 0.02;
-
-    if (distance < lineThickness) {
-        color = vec4(1.0, 1.0, 1.0, 1.0);
-    }
-
-    return color;
-}`
-            },
-            textureUniformUpdate(uniformName, gl, program, textureUnit, textureMap) {
-                if (this.isDestroyed) return
-
-                let entry = textureMap.get(this.output.oscilloscope)
-                if (!entry) {
-                    const tex = gl.createTexture()
-                    entry = {tex, init: false}
-                    textureMap.set(this.output.oscilloscope, entry)
-                    gl.bindTexture(gl.TEXTURE_2D, tex)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-                }
-
-                gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                gl.bindTexture(gl.TEXTURE_2D, entry.tex)
-
-                const waveformData = mainInput.getWaveformData()
-                if(entry.init){
-                    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 1024, 1, gl.RED, gl.UNSIGNED_BYTE, waveformData)
-                } else {
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1024, 1, 0, gl.RED, gl.UNSIGNED_BYTE, waveformData)
-                    entry.init = true
-                }
-
-                const location = gl.getUniformLocation(program, uniformName)
-                gl.uniform1i(location, textureUnit)
-            }
-        },
+        'oscilloscope': makeOscilloscopeOutput(function(){ return mainInput.getWaveformData() }),
 
         ...THRESHOLD_ACTION_OUTPUTS
     },
@@ -227,14 +159,9 @@ registerNode({
                 const values = mainInput.getAudioValues()
                 const now = performance.now()
                 updateMeterAndCheckThreshold(this, 'bass', values.bass, now)
-                updateMeterAndCheckThreshold(this, 'bassExciter', values.bassExciter, now, 'bass+')
                 updateMeterAndCheckThreshold(this, 'mid', values.mid, now)
                 updateMeterAndCheckThreshold(this, 'high', values.high, now)
 
-                // Draw histogram if analyzer is available
-                if (this.elements.histogramCanvas && mainInput.audioAnalyzer) {
-                    drawHistogram(this.elements.histogramCanvas, mainInput.audioAnalyzer)
-                }
             }
 
             this.runtimeState.uiUpdateFrameId = requestAnimationFrame(updateStatus)

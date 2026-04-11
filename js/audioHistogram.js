@@ -1,18 +1,7 @@
 // audioHistogram.js - Shared histogram visualization for audio nodes
 
 import {autowire, StringToFragment} from './utils.js'
-
-/**
- * Sets up histogram canvas resolution
- * @param {HTMLCanvasElement} canvas - The canvas element
- */
-export function setupHistogramCanvas(canvas) {
-    if(!canvas) return
-
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width
-    canvas.height = 80
-}
+import {AudioScope, setupScopeCanvas} from './audioScope.js'
 
 /**
  * Calculates bin range from center frequency and Q factor
@@ -21,8 +10,7 @@ export function setupHistogramCanvas(canvas) {
  * @param {number} sampleRate - Sample rate (default 48000)
  * @returns {Array} - [startBin, endBin]
  */
-export function getBinRange(centerFreq, q, sampleRate = 48000) {
-    const fftSize = 1024
+export function getBinRange(centerFreq, q, sampleRate = 48000, fftSize = 512) {
     const binWidth = sampleRate / fftSize
 
     const bandwidth = centerFreq / q
@@ -32,132 +20,98 @@ export function getBinRange(centerFreq, q, sampleRate = 48000) {
     const startBin = Math.round(startFreq / binWidth)
     const endBin = Math.round(endFreq / binWidth)
 
-    return [Math.max(1, startBin), Math.min(endBin, 511)]
+    return [Math.max(1, startBin), Math.min(endBin, fftSize / 2 - 1)]
 }
 
 /**
- * Draws frequency histogram with color-coded bands
- * @param {HTMLCanvasElement} canvas - The canvas element
- * @param {Object} analyzer - AudioAnalyzer instance
+ * Generates HTML for the scope canvas (replaces old EQ controls)
  */
-export function drawHistogram(canvas, analyzer) {
-    if(!canvas || !analyzer) return
-
-    const ctx = canvas.getContext('2d')
-    const width = canvas.width
-    const height = canvas.height
-    const frequencyData = analyzer.frequencyData
-    const binCount = frequencyData.length // 512 bins
-
-    ctx.clearRect(0, 0, width, height)
-
-    // Get bin ranges for each band
-    const bassBins = analyzer.bandConfig.bass ?
-        getBinRange(analyzer.bandConfig.bass.freq, analyzer.bandConfig.bass.q) : [0, 0]
-    const midBins = analyzer.bandConfig.mid ?
-        getBinRange(analyzer.bandConfig.mid.freq, analyzer.bandConfig.mid.q) : [0, 0]
-    const highBins = analyzer.bandConfig.high ?
-        getBinRange(analyzer.bandConfig.high.freq, analyzer.bandConfig.high.q) : [0, 0]
-
-    // Draw bars with logarithmic x-axis mapping
-    let prevX = 0
-    for(let i = 0; i < binCount; i++) {
-        const value = frequencyData[i] / 255 // Normalize to 0-1
-        const barHeight = value * height
-
-        // Logarithmic x position mapping
-        const logPosition = Math.log(i + 1) / Math.log(binCount)
-        const x = logPosition * width
-        const barWidth = x - prevX
-
-        // Determine RGB channels based on band membership
-        let r = 0, g = 0, b = 0
-        const intensity = 255
-
-        if(i >= bassBins[0] && i <= bassBins[1]) r = intensity // Bass - red
-        if(i >= midBins[0] && i <= midBins[1]) g = intensity // Mid - green
-        if(i >= highBins[0] && i <= highBins[1]) b = intensity // High - blue
-
-        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`
-        ctx.fillRect(prevX, height - barHeight, barWidth, barHeight)
-
-        // White peak line at top of each bar
-        if(barHeight > 0) {
-            ctx.fillStyle = 'white'
-            ctx.fillRect(prevX, height - barHeight, barWidth, 1)
-        }
-
-        prevX = x
-    }
-}
-
-/**
- * Generates HTML for band EQ controls
- * @param {Object} bandConfig - Band configuration object {bass: {freq, q}, mid: {freq, q}, high: {freq, q}}
- * @returns {string} - HTML string
- */
-export function createBandEQControlsHTML(bandConfig) {
+export function createScopeHTML(bandConfig) {
     return `
-        <details style="margin: 0.5rem; border-top: 1px solid #444; padding-top: 0.5rem;">
-            <summary style="cursor: pointer; color: #ccc; font-size: 11px; user-select: none;">Spectrum & EQ</summary>
-            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                <canvas data-el="histogramCanvas" style="width: 100%; height: 80px; background: rgba(0,0,0,0.3); border-radius: 4px; display: none; margin-bottom: 0.5rem;"></canvas>
-
-                <div style="color: #ff6666; font-size: 11px; font-weight: bold; margin-bottom: 0.25rem;">Bass</div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <label style="color: #ccc; font-size: 11px; min-width: 60px;">Freq:</label>
-                    <s-number data-el="bassFreqControl" value="${bandConfig.bass.freq}" default="100" min="20" max="22000" step="1" unit="Hz" log-scale style="flex: 1;"></s-number>
+        <div class="audio-scope">
+            <canvas data-el="scopeCanvas" class="scope-canvas"></canvas>
+            <div class="band-controls">
+                <div class="band-col">
+                    <span class="band-col-label">Gain</span>
+                    <s-number data-el="bassGainControl" value="${bandConfig.bass.gain ?? 1}" default="1" min="0" max="3" step="0.1"></s-number>
+                    <s-number data-el="midGainControl" value="${bandConfig.mid.gain ?? 1}" default="1" min="0" max="3" step="0.1"></s-number>
+                    <s-number data-el="highGainControl" value="${bandConfig.high.gain ?? 1}" default="1" min="0" max="3" step="0.1"></s-number>
                 </div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <label style="color: #ccc; font-size: 11px; min-width: 60px;">Q:</label>
-                    <s-number data-el="bassQControl" value="${bandConfig.bass.q}" default="1.0" min="0.5" max="10" step="0.1" log-scale style="flex: 1;"></s-number>
+                <div class="band-col">
+                    <span class="band-col-label">Expand</span>
+                    <s-number data-el="bassReactControl" value="${bandConfig.bass.react ?? 2}" default="2" min="1" max="10" step="0.1"></s-number>
+                    <s-number data-el="midReactControl" value="${bandConfig.mid.react ?? 2}" default="2" min="1" max="10" step="0.1"></s-number>
+                    <s-number data-el="highReactControl" value="${bandConfig.high.react ?? 2}" default="2" min="1" max="10" step="0.1"></s-number>
                 </div>
-
-                <div style="color: #66ff66; font-size: 11px; font-weight: bold; margin-bottom: 0.25rem; margin-top: 0.5rem;">Mid</div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <label style="color: #ccc; font-size: 11px; min-width: 60px;">Freq:</label>
-                    <s-number data-el="midFreqControl" value="${bandConfig.mid.freq}" default="1000" min="20" max="22000" step="1" unit="Hz" log-scale style="flex: 1;"></s-number>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <label style="color: #ccc; font-size: 11px; min-width: 60px;">Q:</label>
-                    <s-number data-el="midQControl" value="${bandConfig.mid.q}" default="1.0" min="0.5" max="10" step="0.1" log-scale style="flex: 1;"></s-number>
-                </div>
-
-                <div style="color: #6666ff; font-size: 11px; font-weight: bold; margin-bottom: 0.25rem; margin-top: 0.5rem;">High</div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <label style="color: #ccc; font-size: 11px; min-width: 60px;">Freq:</label>
-                    <s-number data-el="highFreqControl" value="${bandConfig.high.freq}" default="8000" min="20" max="22000" step="1" unit="Hz" log-scale style="flex: 1;"></s-number>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <label style="color: #ccc; font-size: 11px; min-width: 60px;">Q:</label>
-                    <s-number data-el="highQControl" value="${bandConfig.high.q}" default="1.0" min="0.5" max="10" step="0.1" log-scale style="flex: 1;"></s-number>
+                <div class="band-col">
+                    <span class="band-col-label">Smooth</span>
+                    <s-number data-el="bassSmoothControl" class="band-dot-bass" value="${bandConfig.bass.smooth ?? 0.3}" default="0.3" min="0" max="0.95" step="0.05"></s-number>
+                    <s-number data-el="midSmoothControl" class="band-dot-mid" value="${bandConfig.mid.smooth ?? 0.3}" default="0.3" min="0" max="0.95" step="0.05"></s-number>
+                    <s-number data-el="highSmoothControl" class="band-dot-high" value="${bandConfig.high.smooth ?? 0.3}" default="0.3" min="0" max="0.95" step="0.05"></s-number>
                 </div>
             </div>
-        </details>
+        </div>
     `
 }
 
 /**
- * Attaches event listeners to band EQ controls
+ * Creates scope UI for a node, wires up AudioScope with change propagation.
+ * Stores the AudioScope instance on node.runtimeState.scope.
  * @param {Object} node - The node instance
+ * @param {HTMLElement} container - Container element to append to
  */
-export function attachBandEQListeners(node) {
-    const bandControls = [
-        ['bassFreqControl', 'bass', 'freq'],
-        ['bassQControl', 'bass', 'q'],
-        ['midFreqControl', 'mid', 'freq'],
-        ['midQControl', 'mid', 'q'],
-        ['highFreqControl', 'high', 'freq'],
-        ['highQControl', 'high', 'q']
-    ]
+export function createBandEQUI(node, container) {
+    const html = createScopeHTML(node.values.bandConfig)
+    const fragment = StringToFragment(html)
+    Object.assign(node.elements, autowire(fragment))
+    container.appendChild(fragment)
+    attachBandEQListeners(node)
 
-    bandControls.forEach(([elementName, band, param]) => {
-        if(node.elements[elementName]) {
-            node.elements[elementName].addEventListener('input', (e) => {
+    node.runtimeState.scope = null
+}
+
+/**
+ * Ensures AudioScope is initialized and draws a frame.
+ * @param {Object} node - The node instance
+ * @param {Object} analyzer - AudioAnalyzer instance
+ */
+export function drawScope(node, analyzer) {
+    const canvas = node.elements.scopeCanvas
+    if(!canvas || !analyzer) return
+
+    // Lazy-init the scope once the canvas has layout dimensions
+    if(!node.runtimeState.scope) {
+        setupScopeCanvas(canvas)
+        node.runtimeState.scope = new AudioScope(canvas, node.values.bandConfig, (band, param, value) => {
+            node.values.bandConfig[band][param] = value
+            if(node.runtimeState.analyzer) {
+                node.runtimeState.analyzer.bandConfig[band][param] = value
+            }
+        })
+    }
+
+    node.runtimeState.scope.draw(analyzer)
+}
+
+// Aliases used by nodes that build their own HTML layout
+export function createBandEQControlsHTML(bandConfig) { return createScopeHTML(bandConfig) }
+export function attachBandEQListeners(node) {
+    const controls = [
+        ['bassGainControl', 'bass', 'gain'],
+        ['bassSmoothControl', 'bass', 'smooth'],
+        ['bassReactControl', 'bass', 'react'],
+        ['midGainControl', 'mid', 'gain'],
+        ['midSmoothControl', 'mid', 'smooth'],
+        ['midReactControl', 'mid', 'react'],
+        ['highGainControl', 'high', 'gain'],
+        ['highSmoothControl', 'high', 'smooth'],
+        ['highReactControl', 'high', 'react']
+    ]
+    controls.forEach(([elName, band, param]) => {
+        if(node.elements[elName]) {
+            node.elements[elName].addEventListener('input', (e) => {
                 const value = parseFloat(e.target.value)
-                // Save to values for persistence
                 node.values.bandConfig[band][param] = value
-                // Update analyzer if it exists
                 if(node.runtimeState.analyzer) {
                     node.runtimeState.analyzer.bandConfig[band][param] = value
                 }
@@ -167,25 +121,12 @@ export function attachBandEQListeners(node) {
 }
 
 /**
- * Creates complete band EQ UI and attaches listeners
- * @param {Object} node - The node instance
- * @param {HTMLElement} container - Container element to append to
- */
-export function createBandEQUI(node, container) {
-    const html = createBandEQControlsHTML(node.values.bandConfig)
-    const fragment = StringToFragment(html)
-    Object.assign(node.elements, autowire(fragment))
-    container.appendChild(fragment)
-    attachBandEQListeners(node)
-}
-
-/**
  * Default band configuration
  */
 export const DEFAULT_BAND_CONFIG = {
-    bass: {freq: 100, q: 1.0},
-    mid: {freq: 1000, q: 1.0},
-    high: {freq: 8000, q: 1.0}
+    bass: {freq: 100, q: 1.0, gain: 1, smooth: 0.3, react: 2},
+    mid: {freq: 1000, q: 1.0, gain: 1, smooth: 0.3, react: 2},
+    high: {freq: 8000, q: 1.0, gain: 1, smooth: 0.3, react: 2}
 }
 
 /**
@@ -198,6 +139,76 @@ export function ensureBandConfig(node) {
             bass: {...DEFAULT_BAND_CONFIG.bass},
             mid: {...DEFAULT_BAND_CONFIG.mid},
             high: {...DEFAULT_BAND_CONFIG.high}
+        }
+    }
+    // Migrate: ensure each band has smooth and react
+    for(const band of ['bass', 'mid', 'high']) {
+        if(node.values.bandConfig[band]) {
+            if(node.values.bandConfig[band].gain === undefined) node.values.bandConfig[band].gain = 1
+            if(node.values.bandConfig[band].smooth === undefined) node.values.bandConfig[band].smooth = 0.3
+            if(node.values.bandConfig[band].react === undefined) node.values.bandConfig[band].react = 2
+        }
+    }
+}
+
+/**
+ * Creates an oscilloscope output port definition.
+ * @param {Function} getWaveformData - Called with `this` bound to the node, returns Uint8Array
+ */
+export function makeOscilloscopeOutput(getWaveformData) {
+    return {
+        label: 'Oscilloscope',
+        type: 'color',
+        genCode(cc, funcName, uniformName){
+            return `vec4 ${funcName}(vec2 uv) {
+    vec2 coord = uv;
+    vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
+
+    float x = (coord.x + 1.0) * 0.5;
+    float sampleIndex = x * 512.0;
+    int idx = int(sampleIndex);
+
+    float waveValue = (texture(${uniformName}, vec2(float(idx) / 512.0, 0.5)).r - 0.5) * 2.0;
+
+    float lineY = waveValue * 0.95;
+    float distance = abs(coord.y - lineY);
+    float lineThickness = 0.02;
+
+    if (distance < lineThickness) {
+        color = vec4(1.0, 1.0, 1.0, 1.0);
+    }
+
+    return color;
+}`
+        },
+        textureUniformUpdate(uniformName, gl, program, textureUnit, textureMap){
+            const waveformData = getWaveformData.call(this)
+            if(!waveformData) return
+
+            let entry = textureMap.get(this.output.oscilloscope)
+            if(!entry){
+                const tex = gl.createTexture()
+                entry = {tex, init: false}
+                textureMap.set(this.output.oscilloscope, entry)
+                gl.bindTexture(gl.TEXTURE_2D, tex)
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+            }
+
+            gl.activeTexture(gl.TEXTURE0 + textureUnit)
+            gl.bindTexture(gl.TEXTURE_2D, entry.tex)
+
+            if(entry.init){
+                gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 512, 1, gl.RED, gl.UNSIGNED_BYTE, waveformData)
+            } else {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 512, 1, 0, gl.RED, gl.UNSIGNED_BYTE, waveformData)
+                entry.init = true
+            }
+
+            const location = gl.getUniformLocation(program, uniformName)
+            gl.uniform1i(location, textureUnit)
         }
     }
 }

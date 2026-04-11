@@ -7,7 +7,8 @@
 
 import {mainInput} from './mainInput.js'
 import {AssetManager} from './assetManager.js'
-import {setupHistogramCanvas, drawHistogram, DEFAULT_BAND_CONFIG} from './audioHistogram.js'
+import {DEFAULT_BAND_CONFIG} from './audioHistogram.js'
+import {AudioScope, setupScopeCanvas} from './audioScope.js'
 import {iconHtml, setIcon} from './icons.js'
 import {expandWorkspaceToViewport} from './editor.js'
 
@@ -102,74 +103,27 @@ export class MainInputUI {
                 <div id="audio-analyzer-section" class="input-section" style="display: none;">
                     <h4>Audio Analyzer</h4>
 
-                    <!-- Histogram Canvas -->
-                    <canvas id="main-input-histogram" class="histogram-canvas"></canvas>
-
-                    <!-- Audio Meters -->
-                    <div class="meters-section">
-                        <div class="meter-row">
-                            <span class="meter-label" style="color: #ff6666;">Bass</span>
-                            <span id="meter-bass" class="meter-value">0.00</span>
+                    <canvas id="main-input-scope" class="scope-canvas"></canvas>
+                    <div class="band-controls">
+                        <div class="band-col">
+                            <span class="band-col-label">Gain</span>
+                            <s-number id="eq-bass-gain" value="1" min="0" max="3" step="0.1"></s-number>
+                            <s-number id="eq-mid-gain" value="1" min="0" max="3" step="0.1"></s-number>
+                            <s-number id="eq-high-gain" value="1" min="0" max="3" step="0.1"></s-number>
                         </div>
-                        <div class="meter-row">
-                            <span class="meter-label" style="color: #ff9966;">Bass+</span>
-                            <span id="meter-bass-exciter" class="meter-value">0.00</span>
+                        <div class="band-col">
+                            <span class="band-col-label">Expand</span>
+                            <s-number id="eq-bass-react" value="2" min="1" max="10" step="0.1"></s-number>
+                            <s-number id="eq-mid-react" value="2" min="1" max="10" step="0.1"></s-number>
+                            <s-number id="eq-high-react" value="2" min="1" max="10" step="0.1"></s-number>
                         </div>
-                        <div class="meter-row">
-                            <span class="meter-label" style="color: #66ff66;">Mid</span>
-                            <span id="meter-mid" class="meter-value">0.00</span>
-                        </div>
-                        <div class="meter-row">
-                            <span class="meter-label" style="color: #6666ff;">High</span>
-                            <span id="meter-high" class="meter-value">0.00</span>
+                        <div class="band-col">
+                            <span class="band-col-label">Smooth</span>
+                            <s-number id="eq-bass-smooth" class="band-dot-bass" value="0.3" min="0" max="0.95" step="0.05"></s-number>
+                            <s-number id="eq-mid-smooth" class="band-dot-mid" value="0.3" min="0" max="0.95" step="0.05"></s-number>
+                            <s-number id="eq-high-smooth" class="band-dot-high" value="0.3" min="0" max="0.95" step="0.05"></s-number>
                         </div>
                     </div>
-
-                    <!-- Gain Control -->
-                    <div class="control-row">
-                        <label>Gain</label>
-                        <s-number id="main-input-gain" value="1" min="0.1" max="5" step="0.1"></s-number>
-                    </div>
-
-                    <!-- EQ Controls (collapsible) -->
-                    <details class="eq-details">
-                        <summary>Spectrum EQ</summary>
-                        <div class="eq-controls">
-                            <div class="eq-band">
-                                <span class="eq-label" style="color: #ff6666;">Bass</span>
-                                <div class="control-row">
-                                    <label>Freq</label>
-                                    <s-number id="eq-bass-freq" value="${DEFAULT_BAND_CONFIG.bass.freq}" min="20" max="500" step="1" unit="Hz"></s-number>
-                                </div>
-                                <div class="control-row">
-                                    <label>Q</label>
-                                    <s-number id="eq-bass-q" value="${DEFAULT_BAND_CONFIG.bass.q}" min="0.5" max="10" step="0.1"></s-number>
-                                </div>
-                            </div>
-                            <div class="eq-band">
-                                <span class="eq-label" style="color: #66ff66;">Mid</span>
-                                <div class="control-row">
-                                    <label>Freq</label>
-                                    <s-number id="eq-mid-freq" value="${DEFAULT_BAND_CONFIG.mid.freq}" min="200" max="5000" step="10" unit="Hz"></s-number>
-                                </div>
-                                <div class="control-row">
-                                    <label>Q</label>
-                                    <s-number id="eq-mid-q" value="${DEFAULT_BAND_CONFIG.mid.q}" min="0.5" max="10" step="0.1"></s-number>
-                                </div>
-                            </div>
-                            <div class="eq-band">
-                                <span class="eq-label" style="color: #6666ff;">High</span>
-                                <div class="control-row">
-                                    <label>Freq</label>
-                                    <s-number id="eq-high-freq" value="${DEFAULT_BAND_CONFIG.high.freq}" min="2000" max="20000" step="100" unit="Hz"></s-number>
-                                </div>
-                                <div class="control-row">
-                                    <label>Q</label>
-                                    <s-number id="eq-high-q" value="${DEFAULT_BAND_CONFIG.high.q}" min="0.5" max="10" step="0.1"></s-number>
-                                </div>
-                            </div>
-                        </div>
-                    </details>
                 </div>
             </div>
         `
@@ -196,19 +150,17 @@ export class MainInputUI {
             audioControls: panel.querySelector('#audio-controls'),
             audioStatus: panel.querySelector('#audio-status'),
             audioAnalyzerSection: panel.querySelector('#audio-analyzer-section'),
-            histogramCanvas: panel.querySelector('#main-input-histogram'),
-            gainControl: panel.querySelector('#main-input-gain'),
-            meterBass: panel.querySelector('#meter-bass'),
-            meterBassExciter: panel.querySelector('#meter-bass-exciter'),
-            meterMid: panel.querySelector('#meter-mid'),
-            meterHigh: panel.querySelector('#meter-high'),
-            // EQ controls
-            eqBassFreq: panel.querySelector('#eq-bass-freq'),
-            eqBassQ: panel.querySelector('#eq-bass-q'),
-            eqMidFreq: panel.querySelector('#eq-mid-freq'),
-            eqMidQ: panel.querySelector('#eq-mid-q'),
-            eqHighFreq: panel.querySelector('#eq-high-freq'),
-            eqHighQ: panel.querySelector('#eq-high-q'),
+            scopeCanvas: panel.querySelector('#main-input-scope'),
+            // Gain/Expand/Smooth controls
+            eqBassGain: panel.querySelector('#eq-bass-gain'),
+            eqBassSmooth: panel.querySelector('#eq-bass-smooth'),
+            eqBassReact: panel.querySelector('#eq-bass-react'),
+            eqMidGain: panel.querySelector('#eq-mid-gain'),
+            eqMidSmooth: panel.querySelector('#eq-mid-smooth'),
+            eqMidReact: panel.querySelector('#eq-mid-react'),
+            eqHighGain: panel.querySelector('#eq-high-gain'),
+            eqHighSmooth: panel.querySelector('#eq-high-smooth'),
+            eqHighReact: panel.querySelector('#eq-high-react'),
             // Video overlay + file input
             videoOverlayButtons: panel.querySelector('#video-overlay-buttons'),
             videoReplaceBtn: panel.querySelector('#video-replace-btn'),
@@ -256,39 +208,33 @@ export class MainInputUI {
         // Video preview overlay buttons
         this._setupVideoPreviewOverlay()
 
-        // Gain control
-        this.elements.gainControl.addEventListener('input', (e) => {
-            mainInput.setGain(parseFloat(e.target.value))
-        })
-
-        // EQ controls
-        this._setupEQListeners()
-
-        // Start combined update loop (meters + video preview + playback state)
-        this._startUpdateLoop()
-    }
-
-    _setupEQListeners() {
+        // Gain/Expand/Smooth controls
         const eqControls = [
-            ['eqBassFreq', 'bass', 'freq'],
-            ['eqBassQ', 'bass', 'q'],
-            ['eqMidFreq', 'mid', 'freq'],
-            ['eqMidQ', 'mid', 'q'],
-            ['eqHighFreq', 'high', 'freq'],
-            ['eqHighQ', 'high', 'q']
+            ['eqBassGain', 'bass', 'gain'],
+            ['eqBassSmooth', 'bass', 'smooth'],
+            ['eqBassReact', 'bass', 'react'],
+            ['eqMidGain', 'mid', 'gain'],
+            ['eqMidSmooth', 'mid', 'smooth'],
+            ['eqMidReact', 'mid', 'react'],
+            ['eqHighGain', 'high', 'gain'],
+            ['eqHighSmooth', 'high', 'smooth'],
+            ['eqHighReact', 'high', 'react']
         ]
-
-        eqControls.forEach(([elementName, band, param]) => {
-            const element = this.elements[elementName]
-            if (element) {
-                element.addEventListener('input', (e) => {
-                    const value = parseFloat(e.target.value)
+        eqControls.forEach(([elName, band, param]) => {
+            const el = this.elements[elName]
+            if(el) {
+                el.value = mainInput.bandConfig[band]?.[param] ?? el.value
+                el.addEventListener('input', (e) => {
                     const config = {...mainInput.bandConfig}
-                    config[band] = {...config[band], [param]: value}
+                    config[band] = {...config[band], [param]: parseFloat(e.target.value)}
                     mainInput.setBandConfig(config)
                 })
             }
         })
+
+        // Start combined update loop (meters + video preview + playback state)
+        this._startUpdateLoop()
+
     }
 
     _setupVideoPreviewOverlay() {
@@ -628,10 +574,6 @@ export class MainInputUI {
         const hasAudio = mainInput.hasAudio()
         this.elements.audioAnalyzerSection.style.display = hasAudio ? 'block' : 'none'
 
-        // Setup histogram canvas when audio becomes active
-        if (hasAudio && this.elements.histogramCanvas) {
-            setupHistogramCanvas(this.elements.histogramCanvas)
-        }
 
         // Sync dropdown selections with actual state and re-render controls
         if (this.elements.videoTypeSelect.value !== mainInput.videoSourceType) {
@@ -652,18 +594,18 @@ export class MainInputUI {
         const update = () => {
             if (!this.isInitialized) return
 
-            // --- Audio meters ---
-            if (mainInput.hasAudio()) {
-                const values = mainInput.getAudioValues()
-                this.elements.meterBass.textContent = values.bass.toFixed(2)
-                this.elements.meterBassExciter.textContent = values.bassExciter.toFixed(2)
-                this.elements.meterMid.textContent = values.mid.toFixed(2)
-                this.elements.meterHigh.textContent = values.high.toFixed(2)
-
-                // Draw histogram
-                if (this.elements.histogramCanvas && mainInput.audioAnalyzer) {
-                    drawHistogram(this.elements.histogramCanvas, mainInput.audioAnalyzer)
+            // --- Audio scope ---
+            if (mainInput.hasAudio() && mainInput.audioAnalyzer && this.elements.scopeCanvas) {
+                if (!this._scope) {
+                    setupScopeCanvas(this.elements.scopeCanvas)
+                    this._scope = new AudioScope(this.elements.scopeCanvas, mainInput.bandConfig, (band, param, value) => {
+                        const config = {...mainInput.bandConfig}
+                        config[band] = {...config[band], [param]: value}
+                        mainInput.setBandConfig(config)
+                    })
                 }
+                this._scope.bandConfig = mainInput.bandConfig
+                this._scope.draw(mainInput.audioAnalyzer)
             }
 
             this._updateLoopId = requestAnimationFrame(update)

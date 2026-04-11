@@ -169,8 +169,8 @@ class SNumber extends HTMLElement{
         const numericVal = parseFloat(val)
         if(isNaN(numericVal)){return}
 
-        // Only clamp, don't round - preserve exact values set programmatically
-        const clampedVal = clamp(numericVal, this._min, this._max)
+        // Round to step, then clamp
+        const clampedVal = clamp(this._roundToStep(numericVal), this._min, this._max)
 
         // Use a tolerance for float comparison to prevent re-renders
         if(Math.abs(this._value - clampedVal) < 1e-9){return}

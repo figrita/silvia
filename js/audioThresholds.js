@@ -6,7 +6,7 @@ import {Connection} from './connections.js'
 /**
  * Creates threshold slider UI for audio meters
  * @param {Object} node - The node instance
- * @param {string} label - Display label (e.g., "Bass", "Bass+")  
+ * @param {string} label - Display label (e.g., "Bass", "Mid")  
  * @param {Object} meterContainer - Container to append meter to
  */
 export function createAudioMeter(node, label, meterContainer) {
@@ -27,7 +27,7 @@ export function createAudioMeter(node, label, meterContainer) {
     
     // Create threshold slider that looks like an action port
     const thresholdSlider = document.createElement('div')
-    const bandKey = label.toLowerCase().replace('+', 'Exciter')
+    const bandKey = label.toLowerCase()
     const thresholdValue = node.values.thresholds[bandKey] || 0.5
     
     thresholdSlider.className = 'threshold-slider action'
@@ -75,7 +75,7 @@ export function createAudioMeter(node, label, meterContainer) {
 
     meterBg.appendChild(meterBar)
     meterBg.appendChild(thresholdSlider)
-    
+
     meterWrapper.appendChild(meterLabel)
     meterWrapper.appendChild(meterBg)
 
@@ -113,7 +113,6 @@ export function createAudioMetersUI(node, includeVolume = false, defaultVisibili
     meterContainer.innerHTML = ''
 
     createAudioMeter(node, 'Bass', meterContainer)
-    createAudioMeter(node, 'Bass+', meterContainer)
     createAudioMeter(node, 'Mid', meterContainer)
     createAudioMeter(node, 'High', meterContainer)
     
@@ -217,10 +216,10 @@ export function createAudioVisibilityToggles(node, defaultVisibility = {numbers:
  * @param {boolean} visible - Whether to show or hide
  */
 export function toggleAudioOutputs(node, type, visible) {
-    const audioOutputs = ['bass', 'bassExciter', 'mid', 'high']
+    const audioOutputs = ['bass', 'mid', 'high']
     if(node.output.volume) audioOutputs.push('volume') // For mic node
     
-    const triggerOutputs = ['bassThreshold', 'bassExciterThreshold', 'midThreshold', 'highThreshold']
+    const triggerOutputs = ['bassThreshold', 'midThreshold', 'highThreshold']
     if(node.output.volumeThreshold) triggerOutputs.push('volumeThreshold') // For mic node
     
     const outputsToToggle = type === 'number' ? audioOutputs : triggerOutputs
@@ -293,25 +292,27 @@ export function overrideUpdatePortPoints(node) {
 /**
  * Updates meter display and checks thresholds
  * @param {Object} node - The node instance
- * @param {string} bandKey - The band key (e.g., 'bass', 'bassExciter')
+ * @param {string} bandKey - The band key (e.g., 'bass', 'mid', 'high')
  * @param {number} currentValue - The current audio value
  * @param {number} now - Current timestamp
- * @param {string} meterKey - Optional override for meter key (e.g., 'bass+')
+ * @param {string} meterKey - Optional override for meter key
  */
 export function updateMeterAndCheckThreshold(node, bandKey, currentValue, now, meterKey = null) {
-    // Update meter display
+    // Scale by inverse gain so meter and threshold operate in 0-1 range
+    const gain = node.values?.bandConfig?.[bandKey]?.gain ?? 1
+    const displayValue = gain > 0 ? Math.min(1, currentValue / gain) : 0
+
     const displayKey = meterKey || bandKey.toLowerCase()
     if(node.elements.meters[displayKey]) {
-        node.elements.meters[displayKey].style.width = `${currentValue * 100}%`
+        node.elements.meters[displayKey].style.width = `${displayValue * 100}%`
     }
-    
-    // Check threshold with the EXACT same value
+
+    // Check threshold against the display-scaled value (matches slider position)
     const threshold = node.values.thresholds[bandKey]
     const state = node.runtimeState.thresholdState[bandKey]
-    const actionKey = bandKey === 'bassExciter' ? 'bassExciterThreshold' : `${bandKey}Threshold`
-    
-    // Check if we've crossed the threshold upward and enough time has passed
-    if(currentValue >= threshold && !state.triggered) {
+    const actionKey = `${bandKey}Threshold`
+
+    if(displayValue >= threshold && !state.triggered) {
         if(now - state.lastTriggerTime >= node.values.debounceMs) {
             node.triggerAction(actionKey, 'down')
             state.triggered = true
@@ -330,7 +331,7 @@ export function updateMeterAndCheckThreshold(node, bandKey, currentValue, now, m
         }
     }
     // Reset trigger state when value drops below threshold
-    else if(currentValue < threshold && state.triggered) {
+    else if(displayValue < threshold && state.triggered) {
         node.triggerAction(actionKey, 'up')
         state.triggered = false
     }
@@ -341,7 +342,6 @@ export function updateMeterAndCheckThreshold(node, bandKey, currentValue, now, m
  */
 export const DEFAULT_THRESHOLDS = {
     bass: 1.0,
-    bassExciter: 1.0,
     mid: 1.0,
     high: 1.0
 }
@@ -351,7 +351,6 @@ export const DEFAULT_THRESHOLDS = {
  */
 export const DEFAULT_THRESHOLDS_WITH_VOLUME = {
     bass: 1.0,
-    bassExciter: 1.0,
     mid: 1.0,
     high: 1.0,
     volume: 1.0
@@ -362,7 +361,6 @@ export const DEFAULT_THRESHOLDS_WITH_VOLUME = {
  */
 export const DEFAULT_THRESHOLD_STATE = {
     bass: {triggered: false, lastTriggerTime: 0},
-    bassExciter: {triggered: false, lastTriggerTime: 0},
     mid: {triggered: false, lastTriggerTime: 0},
     high: {triggered: false, lastTriggerTime: 0}
 }
@@ -372,7 +370,6 @@ export const DEFAULT_THRESHOLD_STATE = {
  */
 export const DEFAULT_THRESHOLD_STATE_WITH_VOLUME = {
     bass: {triggered: false, lastTriggerTime: 0},
-    bassExciter: {triggered: false, lastTriggerTime: 0},
     mid: {triggered: false, lastTriggerTime: 0},
     high: {triggered: false, lastTriggerTime: 0},
     volume: {triggered: false, lastTriggerTime: 0}
@@ -383,7 +380,6 @@ export const DEFAULT_THRESHOLD_STATE_WITH_VOLUME = {
  */
 export const THRESHOLD_ACTION_OUTPUTS = {
     'bassThreshold': {label: 'Bass Event', type: 'action'},
-    'bassExciterThreshold': {label: 'Bass+ Event', type: 'action'},
     'midThreshold': {label: 'Mid Event', type: 'action'},
     'highThreshold': {label: 'High Event', type: 'action'}
 }
@@ -393,7 +389,6 @@ export const THRESHOLD_ACTION_OUTPUTS = {
  */
 export const THRESHOLD_ACTION_OUTPUTS_WITH_VOLUME = {
     'bassThreshold': {label: 'Bass Event', type: 'action'},
-    'bassExciterThreshold': {label: 'Bass+ Event', type: 'action'},
     'midThreshold': {label: 'Mid Event', type: 'action'},
     'highThreshold': {label: 'High Event', type: 'action'},
     'volumeThreshold': {label: 'Volume Event', type: 'action'}

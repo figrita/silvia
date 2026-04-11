@@ -1,35 +1,34 @@
 // audioAnalyzer.js
 
-// With fftSize = 1024, sample rate is typically 48000Hz
-// Each bin is sampleRate / fftSize = 48000 / 1024 = ~46.875Hz wide
-// Default bands (can be overridden):
-// Bass: ~43Hz - ~258Hz
-// Mids: ~301Hz - ~4.3kHz
-// Highs: ~4.3kHz - ~12.9kHz
-const DEFAULT_BASS_BINS = [1, 6]
-const DEFAULT_MID_BINS = [7, 100]
-const DEFAULT_HIGH_BINS = [101, 300]
-
 /**
  * A reusable class for performing frequency analysis on audio from
  * HTMLMediaElements or MediaStreams.
  */
 export class AudioAnalyzer{
     // Public state that nodes can read from.
-    audioValues = {bass: 0, mid: 0, high: 0, bassExciter: 0}
-    waveformData = new Uint8Array(1024) // Time domain data for oscilloscope
-    frequencyData = new Uint8Array(512) // Frequency bin data for histogram
+    audioValues = {bass: 0, mid: 0, high: 0}
+    // Per-band diagnostic state for scope visualization
+    bandState = {
+        bass:  {raw: 0, excited: 0, output: 0},
+        mid:   {raw: 0, excited: 0, output: 0},
+        high:  {raw: 0, excited: 0, output: 0}
+    }
+    waveformData = new Uint8Array(512) // Time domain data for oscilloscope
+    frequencyData = new Uint8Array(256) // Frequency bin data for histogram
 
-    // Band configuration (center frequency in Hz and Q factor)
+    // Band configuration (center frequency in Hz, Q factor, and per-band exciter smoothing)
     bandConfig = {
-        bass: {freq: 100, q: 1.0},
-        mid: {freq: 1000, q: 1.0},
-        high: {freq: 8000, q: 1.0}
+        bass: {freq: 100, q: 1.0, gain: 1, smooth: 0.3, react: 2},
+        mid: {freq: 1000, q: 1.0, gain: 1, smooth: 0.3, react: 2},
+        high: {freq: 8000, q: 1.0, gain: 1, smooth: 0.3, react: 2}
     }
 
-    // Running median tracking for exciter
-    #bassHistory = new Array(30).fill(0)
-    #historyIndex = 0
+    // Per-band exciter state: rolling median via maintained sorted array
+    #exciterState = {
+        bass:  {history: new Array(30).fill(0), sorted: new Array(30).fill(0), index: 0, smoothed: 0, median: 0, excited: 0},
+        mid:   {history: new Array(30).fill(0), sorted: new Array(30).fill(0), index: 0, smoothed: 0, median: 0, excited: 0},
+        high:  {history: new Array(30).fill(0), sorted: new Array(30).fill(0), index: 0, smoothed: 0, median: 0, excited: 0}
+    }
 
     // --- Private state members ---
     #audioCtx = null
@@ -54,7 +53,7 @@ export class AudioAnalyzer{
      */
     #freqToBin(freq){
         const sampleRate = this.#audioCtx?.sampleRate || 48000
-        const binWidth = sampleRate / (this.#analyser?.fftSize || 1024)
+        const binWidth = sampleRate / (this.#analyser?.fftSize || 512)
         return Math.round(freq / binWidth)
     }
 
@@ -72,7 +71,8 @@ export class AudioAnalyzer{
         const startBin = this.#freqToBin(startFreq)
         const endBin = this.#freqToBin(endFreq)
 
-        return [Math.max(1, startBin), Math.min(endBin, 511)]
+        const maxBin = (this.#analyser?.frequencyBinCount || 256) - 1
+        return [Math.max(1, startBin), Math.min(endBin, maxBin)]
     }
 
     /**
@@ -201,9 +201,9 @@ export class AudioAnalyzer{
     // --- Private Methods ---
 
     #configureAnalyser(){
-        this.#analyser.fftSize = 1024
-        this.#analyser.smoothingTimeConstant = 0.7
-        const bufferLength = this.#analyser.frequencyBinCount
+        this.#analyser.fftSize = 512
+        this.#analyser.smoothingTimeConstant = 0.3
+        const bufferLength = this.#analyser.frequencyBinCount // 256
         this.#dataArray = new Uint8Array(bufferLength)
         this.#timeDomainArray = new Uint8Array(this.#analyser.fftSize)
     }
@@ -285,28 +285,61 @@ export class AudioAnalyzer{
                 sum += this.#dataArray[i] * weight
                 weightSum += weight
             }
+            if(weightSum === 0) return 0
             const rawAvg = (sum / weightSum) / 255 // Normalize to 0-1
             return Math.pow(rawAvg, powerCurve)
         }
 
-        // Calculate bin ranges based on current band configuration
-        const bassBins = this.#getBinRange(this.bandConfig.bass.freq, this.bandConfig.bass.q)
-        const midBins = this.#getBinRange(this.bandConfig.mid.freq, this.bandConfig.mid.q)
-        const highBins = this.#getBinRange(this.bandConfig.high.freq, this.bandConfig.high.q)
+        // Calculate bin ranges and excite each band
+        const bands = [
+            ['bass', 0.5],
+            ['mid',  0.6],
+            ['high', 0.7]
+        ]
 
-        this.audioValues.bass = getWeightedAverage(...bassBins, 0.5)
-        this.audioValues.mid = getWeightedAverage(...midBins, 0.6)
-        this.audioValues.high = getWeightedAverage(...highBins, 0.7)
-        
-        // Bass exciter - harsh S-curve around running median
-        this.#bassHistory[this.#historyIndex] = this.audioValues.bass
-        this.#historyIndex = (this.#historyIndex + 1) % this.#bassHistory.length
-        
-        const sortedHistory = [...this.#bassHistory].sort((a, b) => a - b)
-        const median = sortedHistory[Math.floor(sortedHistory.length / 2)]
-        
-        const deviation = this.audioValues.bass - median
-        const normalized = Math.tanh(deviation * 8)
-        this.audioValues.bassExciter = ((normalized + 1) / 2) * this.audioValues.bass
+        for(const [band, powerCurve] of bands){
+            const cfg = this.bandConfig[band]
+            const bins = this.#getBinRange(cfg.freq, cfg.q)
+            const raw = getWeightedAverage(...bins, powerCurve) * (cfg.gain ?? 1)
+            this.audioValues[band] = this.#excite(raw, this.#exciterState[band], cfg.smooth ?? 0.3, cfg.react ?? 2)
+            const st = this.#exciterState[band]
+            this.bandState[band].raw = raw
+            this.bandState[band].excited = st.excited
+            this.bandState[band].output = this.audioValues[band]
+        }
+    }
+
+    /**
+     * Expander: pushes values away from running median, then EMA smoothing.
+     * react 1 = passthrough, >1 = expand, <1 = compress.
+     * tanh soft-clips the expansion to avoid blowout.
+     */
+    #excite(raw, state, smoothFactor, react){
+        if(!isFinite(raw)) raw = 0
+
+        // Remove outgoing value from sorted array
+        const old = state.history[state.index]
+        state.sorted.splice(state.sorted.indexOf(old), 1)
+
+        // Insert incoming value in sorted order
+        let i = 0
+        while(i < state.sorted.length && state.sorted[i] < raw) i++
+        state.sorted.splice(i, 0, raw)
+
+        state.history[state.index] = raw
+        state.index = (state.index + 1) % state.history.length
+
+        state.median = state.sorted[15]
+
+        const deviation = raw - state.median
+        const expanded = deviation * react
+        const softened = Math.tanh(expanded) * 0.5
+        const excited = Math.max(0, state.median + softened)
+        state.excited = excited
+
+        // Post-expander EMA: smoothFactor 0 = no smoothing, 1 = frozen
+        state.smoothed += (excited - state.smoothed) * (1 - smoothFactor)
+        if(!isFinite(state.smoothed)) state.smoothed = 0
+        return state.smoothed
     }
 }

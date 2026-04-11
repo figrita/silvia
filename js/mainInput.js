@@ -202,7 +202,7 @@ class MainInputManager {
         try {
             this.videoStream = await navigator.mediaDevices.getDisplayMedia({
                 video: true,
-                audio: false
+                audio: true
             })
             this.videoElement.srcObject = this.videoStream
 
@@ -368,20 +368,26 @@ class MainInputManager {
     }
 
     _initAudioFromVideo() {
-        if (this.videoSourceType === 'none' || this.videoSourceType === 'webcam' || this.videoSourceType === 'screencapture') {
-            // No audio track available from these sources
-            return
+        // Always close previous analyzer when re-initializing
+        if (this.audioAnalyzer) {
+            this.audioAnalyzer.close()
+            this.audioAnalyzer = null
         }
 
         if ((this.videoSourceType === 'video' || this.videoSourceType === 'demo') && this.videoElement.src) {
-            // Close previous analyzer to avoid leaked AudioContext / duplicate MediaElementSource
-            if (this.audioAnalyzer) {
-                this.audioAnalyzer.close()
-                this.audioAnalyzer = null
-            }
+            // File-based: use shadow player approach
             this.audioAnalyzer = new AudioAnalyzer()
             applyBandConfig(this.audioAnalyzer, this.bandConfig)
             this.audioAnalyzer.initFromFile(this.videoElement)
+        } else if (this.videoSourceType === 'screencapture' && this.videoStream) {
+            // Stream-based: analyze audio tracks directly if present
+            const audioTracks = this.videoStream.getAudioTracks()
+            if (audioTracks.length > 0) {
+                const audioStream = new MediaStream(audioTracks)
+                this.audioAnalyzer = new AudioAnalyzer()
+                applyBandConfig(this.audioAnalyzer, this.bandConfig)
+                this.audioAnalyzer.initFromStream(audioStream)
+            }
         }
     }
 
@@ -449,19 +455,18 @@ class MainInputManager {
             const values = this.audioAnalyzer.audioValues
             return {
                 bass: Math.min(1.0, values.bass * this.gain),
-                bassExciter: Math.min(1.0, values.bassExciter * this.gain),
                 mid: Math.min(1.0, values.mid * this.gain),
                 high: Math.min(1.0, values.high * this.gain)
             }
         }
-        return {bass: 0, bassExciter: 0, mid: 0, high: 0}
+        return {bass: 0, mid: 0, high: 0}
     }
 
     getWaveformData() {
         if (this.audioAnalyzer) {
             return this.audioAnalyzer.waveformData
         }
-        return new Uint8Array(1024).fill(128) // Flat line at center
+        return new Uint8Array(512).fill(128) // Flat line at center
     }
 
     getAspect() {

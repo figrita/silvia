@@ -500,7 +500,6 @@ export const defaultPatches = [
                     "gain": 1,
                     "thresholds": {
                         "bass": 1,
-                        "bassExciter": 1,
                         "mid": 1,
                         "high": 1,
                         "volume": 1
@@ -637,7 +636,7 @@ export const defaultPatches = [
             },
             {
                 "fromNode": 208,
-                "fromPort": "bassExciter",
+                "fromPort": "bass",
                 "toNode": 188,
                 "toPort": "input"
             },
@@ -913,7 +912,6 @@ export const defaultPatches = [
                     "gain": 1,
                     "thresholds": {
                         "bass": 1,
-                        "bassExciter": 1,
                         "mid": 1,
                         "high": 1,
                         "volume": 1
@@ -1050,7 +1048,7 @@ export const defaultPatches = [
             },
             {
                 "fromNode": 109,
-                "fromPort": "bassExciter",
+                "fromPort": "bass",
                 "toNode": 102,
                 "toPort": "distance"
             }
@@ -1283,7 +1281,6 @@ export const defaultPatches = [
                     "gain": 1,
                     "thresholds": {
                         "bass": 1,
-                        "bassExciter": 1,
                         "mid": 1,
                         "high": 1,
                         "volume": 1
@@ -1463,7 +1460,7 @@ export const defaultPatches = [
             },
             {
                 "fromNode": 23,
-                "fromPort": "bassExciter",
+                "fromPort": "bass",
                 "toNode": 26,
                 "toPort": "input"
             },
@@ -1851,7 +1848,6 @@ export const defaultPatches = [
                     "gain": 1,
                     "thresholds": {
                         "bass": 1,
-                        "bassExciter": 1,
                         "mid": 1,
                         "high": 1,
                         "volume": 1
@@ -2018,7 +2014,7 @@ export const defaultPatches = [
             },
             {
                 "fromNode": 139,
-                "fromPort": "bassExciter",
+                "fromPort": "bass",
                 "toNode": 135,
                 "toPort": "input"
             },
@@ -2030,7 +2026,7 @@ export const defaultPatches = [
             },
             {
                 "fromNode": 139,
-                "fromPort": "bassExciter",
+                "fromPort": "bass",
                 "toNode": 137,
                 "toPort": "input"
             },
@@ -2067,7 +2063,6 @@ export const defaultPatches = [
                     "playbackRate": 1,
                     "thresholds": {
                         "bass": 1,
-                        "bassExciter": 1,
                         "mid": 1,
                         "high": 1
                     },
@@ -2270,7 +2265,7 @@ export const defaultPatches = [
                 "y": 55,
                 "controls": {},
                 "values": {
-                    "thresholds": {"bass": 1, "bassExciter": 1, "mid": 1, "high": 1},
+                    "thresholds": {"bass": 1, "mid": 1, "high": 1},
                     "debounceMs": 100,
                     "audioVisibility": {"numbers": true, "events": true}
                 }

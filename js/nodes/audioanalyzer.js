@@ -2,7 +2,7 @@ import {registerNode} from '../registry.js'
 import {AudioAnalyzer} from '../audioAnalyzer.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
 import {AssetManager} from '../assetManager.js'
-import {ensureBandConfig, createBandEQUI, setupHistogramCanvas, drawHistogram, applyBandConfig, DEFAULT_BAND_CONFIG} from '../audioHistogram.js'
+import {ensureBandConfig, createBandEQUI, drawScope, applyBandConfig, makeOscilloscopeOutput, DEFAULT_BAND_CONFIG} from '../audioHistogram.js'
 import {setIconLabel} from '../icons.js'
 
 registerNode({
@@ -49,19 +49,6 @@ registerNode({
                 gl.uniform1f(location, this.runtimeState.analyzer.audioValues.bass)
             }
         },
-        'bassExciter': {
-            label: 'Bass+',
-            type: 'float',
-            range: '[0, 1]',
-            genCode(cc, funcName, uniformName){
-                return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
-            },
-            floatUniformUpdate(uniformName, gl, program){
-                if(this.isDestroyed || !this.runtimeState.analyzer){return}
-                const location = gl.getUniformLocation(program, uniformName)
-                gl.uniform1f(location, this.runtimeState.analyzer.audioValues.bassExciter)
-            }
-        },
         'mid': {
             label: 'Mid',
             type: 'float',
@@ -88,69 +75,7 @@ registerNode({
                 gl.uniform1f(location, this.runtimeState.analyzer.audioValues.high)
             }
         },
-        'oscilloscope': {
-            label: 'Oscilloscope',
-            type: 'color',
-            genCode(cc, funcName, uniformName){
-                return `vec4 ${funcName}(vec2 uv) {
-    // Square aspect ratio, centered
-    vec2 coord = uv;
-
-    // Transparent background
-    vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
-
-    // Sample the waveform at current x position using full resolution
-    float x = (coord.x + 1.0) * 0.5; // [-1,1] to [0,1]
-
-    float sampleIndex = x * 1024.0; // Use full 1024 samples across width
-    int idx = int(sampleIndex);
-
-    // Get waveform value and normalize from [0,255] to [-1,1]
-    float waveValue = (texture(${uniformName}, vec2(float(idx) / 1024.0, 0.5)).r - 0.5) * 2.0;
-
-    // Draw waveform line - taller, using 95% of height
-    float lineY = waveValue * 0.95; // Scale to 95% of height for taller waveform
-    float distance = abs(coord.y - lineY);
-    float lineThickness = 0.02;
-
-    if (distance < lineThickness) {
-        color = vec4(1.0, 1.0, 1.0, 1.0); // White line
-    }
-
-    return color;
-}`
-            },
-            textureUniformUpdate(uniformName, gl, program, textureUnit, textureMap){
-                if(this.isDestroyed || !this.runtimeState.analyzer){return}
-
-                let entry = textureMap.get(this.output.oscilloscope)
-                if(!entry){
-                    const tex = gl.createTexture()
-                    entry = {tex, init: false}
-                    textureMap.set(this.output.oscilloscope, entry)
-                    gl.bindTexture(gl.TEXTURE_2D, tex)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-                }
-
-                gl.activeTexture(gl.TEXTURE0 + textureUnit)
-                gl.bindTexture(gl.TEXTURE_2D, entry.tex)
-
-                // Upload waveform data as a 1D texture (1024x1)
-                const waveformData = this.runtimeState.analyzer.waveformData
-                if(entry.init){
-                    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 1024, 1, gl.RED, gl.UNSIGNED_BYTE, waveformData)
-                } else {
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1024, 1, 0, gl.RED, gl.UNSIGNED_BYTE, waveformData)
-                    entry.init = true
-                }
-
-                const location = gl.getUniformLocation(program, uniformName)
-                gl.uniform1i(location, textureUnit)
-            }
-        },
+        'oscilloscope': makeOscilloscopeOutput(function(){ return this.runtimeState.analyzer?.waveformData }),
         ...THRESHOLD_ACTION_OUTPUTS
     },
 
@@ -333,17 +258,16 @@ registerNode({
 
             // Get the latest values from the analyzer instance - use SAME values for both display and threshold checking
             const audioValues = this.runtimeState.analyzer.audioValues
-            const {bass, mid, high, bassExciter} = audioValues
+            const {bass, mid, high} = audioValues
             const now = performance.now()
 
             // Update meters and check thresholds using the EXACT same values
             updateMeterAndCheckThreshold(this, 'bass', bass, now)
-            updateMeterAndCheckThreshold(this, 'bassExciter', bassExciter, now, 'bass+')
             updateMeterAndCheckThreshold(this, 'mid', mid, now)
             updateMeterAndCheckThreshold(this, 'high', high, now)
 
-            // Draw histogram
-            drawHistogram(this.elements.histogramCanvas, this.runtimeState.analyzer)
+            // Draw scope
+            drawScope(this, this.runtimeState.analyzer)
 
             this.runtimeState.uiUpdateFrameId = requestAnimationFrame(updateMeters)
         }
@@ -411,8 +335,6 @@ registerNode({
                 this.runtimeState.analyzer.initFromFile(this.elements.audio)
                 this.elements.uploadBtn.style.display = 'none'
                 this.elements.replaceBtn.style.display = 'block'
-                this.elements.histogramCanvas.style.display = 'block'
-                setupHistogramCanvas(this.elements.histogramCanvas)
 
                 this.elements.audio.play()
                 this._startUiUpdateLoop()
@@ -440,8 +362,6 @@ registerNode({
         this.runtimeState.analyzer.initFromFile(this.elements.audio)
         this.elements.uploadBtn.style.display = 'none'
         this.elements.replaceBtn.style.display = 'block'
-        this.elements.histogramCanvas.style.display = 'block'
-        setupHistogramCanvas(this.elements.histogramCanvas)
 
         this.elements.audio.play()
         this._startUiUpdateLoop()
