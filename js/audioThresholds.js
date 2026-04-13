@@ -379,17 +379,17 @@ export const DEFAULT_THRESHOLD_STATE_WITH_VOLUME = {
  * Standard threshold action outputs
  */
 export const THRESHOLD_ACTION_OUTPUTS = {
-    'bassThreshold': {label: 'Bass Event', type: 'action'},
-    'midThreshold': {label: 'Mid Event', type: 'action'},
-    'highThreshold': {label: 'High Event', type: 'action'}
+    'bassThreshold': {label: 'Red Band Event', type: 'action'},
+    'midThreshold': {label: 'Green Band Event', type: 'action'},
+    'highThreshold': {label: 'Blue Band Event', type: 'action'}
 }
 
 /**
  * Threshold action outputs with volume (for mic node)
  */
 export const THRESHOLD_ACTION_OUTPUTS_WITH_VOLUME = {
-    'bassThreshold': {label: 'Bass Event', type: 'action'},
-    'midThreshold': {label: 'Mid Event', type: 'action'},
-    'highThreshold': {label: 'High Event', type: 'action'},
+    'bassThreshold': {label: 'Red Band Event', type: 'action'},
+    'midThreshold': {label: 'Green Band Event', type: 'action'},
+    'highThreshold': {label: 'Blue Band Event', type: 'action'},
     'volumeThreshold': {label: 'Volume Event', type: 'action'}
 }

@@ -56,7 +56,7 @@ registerNode({
         },
 
         'bass': {
-            label: 'Bass',
+            label: 'Red Band',
             type: 'float',
             range: '[0, 1]',
             genCode(cc, funcName, uniformName) {
@@ -70,7 +70,7 @@ registerNode({
         },
 
         'mid': {
-            label: 'Mid',
+            label: 'Green Band',
             type: 'float',
             range: '[0, 1]',
             genCode(cc, funcName, uniformName) {
@@ -84,7 +84,7 @@ registerNode({
         },
 
         'high': {
-            label: 'High',
+            label: 'Blue Band',
             type: 'float',
             range: '[0, 1]',
             genCode(cc, funcName, uniformName) {
