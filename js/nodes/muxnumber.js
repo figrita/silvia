@@ -19,11 +19,38 @@ registerNode({
         }
     },
 
+    options: {
+        'mode': {
+            label: 'Mode',
+            type: 'select',
+            default: 'switch',
+            choices: [
+                {value: 'switch', name: 'Switch'},
+                {value: 'crossfade', name: 'Crossfade'}
+            ]
+        }
+    },
+
     output: {
         'output': {
             label: 'Output',
             type: 'color',
             genCode(cc, funcName) {
+                const mode = this.getOption('mode')
+                if(mode === 'crossfade'){
+                    return `vec4 ${funcName}(vec2 uv) {
+    vec4 c0 = ${this.getInput('input0', cc)};
+    vec4 c1 = ${this.getInput('input1', cc)};
+    vec4 c2 = ${this.getInput('input2', cc)};
+    vec4 c3 = ${this.getInput('input3', cc)};
+    float s = clamp(${this.getInput('select', cc)}, 0.0, 3.0);
+    float t = fract(s);
+    int i = int(floor(s));
+    vec4 a = (i == 0) ? c0 : (i == 1) ? c1 : (i == 2) ? c2 : c3;
+    vec4 b = (i == 0) ? c1 : (i == 1) ? c2 : (i == 2) ? c3 : c3;
+    return mix(a, b, t);
+}`
+                }
                 return `vec4 ${funcName}(vec2 uv) {
     int channel = int(mod(floor(${this.getInput('select', cc)}), 4.0));
     if (channel == 0) return ${this.getInput('input0', cc)};
