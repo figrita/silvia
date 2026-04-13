@@ -109,11 +109,14 @@ export class AudioScope {
             const barWidth = x - prevX
 
             let r = 40, g = 40, b = 40
-            if(i >= bandBins.bass[0] && i <= bandBins.bass[1]) r = BAND_COLORS.bass.r
-            if(i >= bandBins.mid[0] && i <= bandBins.mid[1]) g = BAND_COLORS.mid.g
-            if(i >= bandBins.high[0] && i <= bandBins.high[1]) b = BAND_COLORS.high.b
+            for(const band of BANDS) {
+                if(i >= bandBins[band][0] && i <= bandBins[band][1]) {
+                    const c = BAND_COLORS[band]
+                    r = Math.max(r, c.r >> 1); g = Math.max(g, c.g >> 1); b = Math.max(b, c.b >> 1)
+                }
+            }
 
-            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.3 + value * 0.7})`
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.4)`
             ctx.fillRect(prevX, spectrumH - barHeight, barWidth, barHeight)
             prevX = x
         }
@@ -128,17 +131,15 @@ export class AudioScope {
             const x = this._freqToX(cfg.freq, w)
             const y = this._qToY(cfg.q, spectrumH)
             const isActive = this._dragging?.band === band
-            const radius = isActive ? 7 : 5
+            const radius = isActive ? 8 : 6
 
             ctx.beginPath()
             ctx.arc(x, y, radius, 0, Math.PI * 2)
             ctx.fillStyle = `rgb(${c.r}, ${c.g}, ${c.b})`
             ctx.fill()
-            if(isActive) {
-                ctx.strokeStyle = 'white'
-                ctx.lineWidth = 1.5
-                ctx.stroke()
-            }
+            ctx.strokeStyle = isActive ? 'white' : 'black'
+            ctx.lineWidth = isActive ? 2 : 2
+            ctx.stroke()
         }
     }
 
@@ -251,6 +252,7 @@ export class AudioScope {
 
             e.preventDefault()
             canvas.setPointerCapture(e.pointerId)
+            canvas.style.cursor = 'grabbing'
             this._dragging = hit
         })
 
@@ -274,7 +276,11 @@ export class AudioScope {
             this.onChange(this._dragging.band, 'q', this.bandConfig[this._dragging.band].q)
         })
 
-        const endDrag = () => { this._dragging = null }
+        const endDrag = (e) => {
+            this._dragging = null
+            const {x, y} = this._canvasCoords(e)
+            canvas.style.cursor = this._hitTest(x, y) ? 'grab' : 'default'
+        }
         canvas.addEventListener('pointerup', endDrag)
         canvas.addEventListener('pointercancel', endDrag)
     }
