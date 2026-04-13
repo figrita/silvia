@@ -4,3 +4,4 @@ Autumn https://github.com/foreignb0dy
 Jason Carr https://github.com/jasoncarr0
 Caleb Radike
 Tim Haskins https://github.com/Oeathus
+Will Hofferbert https://github.com/whofferbert
