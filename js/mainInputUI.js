@@ -101,27 +101,34 @@ export class MainInputUI {
 
                 <!-- Audio Analyzer Section -->
                 <div id="audio-analyzer-section" class="input-section" style="display: none;">
-                    <h4>Audio Analyzer</h4>
-
-                    <canvas id="main-input-scope" class="scope-canvas"></canvas>
-                    <div class="band-controls">
-                        <div class="band-col">
-                            <span class="band-col-label">Gain</span>
-                            <s-number id="eq-bass-gain" value="1" min="0" max="3" step="0.1"></s-number>
-                            <s-number id="eq-mid-gain" value="1" min="0" max="3" step="0.1"></s-number>
-                            <s-number id="eq-high-gain" value="1" min="0" max="3" step="0.1"></s-number>
-                        </div>
-                        <div class="band-col">
-                            <span class="band-col-label">Expand</span>
-                            <s-number id="eq-bass-react" value="2" min="1" max="10" step="0.1"></s-number>
-                            <s-number id="eq-mid-react" value="2" min="1" max="10" step="0.1"></s-number>
-                            <s-number id="eq-high-react" value="2" min="1" max="10" step="0.1"></s-number>
-                        </div>
-                        <div class="band-col">
-                            <span class="band-col-label">Smooth</span>
-                            <s-number id="eq-bass-smooth" class="band-dot-bass" value="0.3" min="0" max="0.95" step="0.05"></s-number>
-                            <s-number id="eq-mid-smooth" class="band-dot-mid" value="0.3" min="0" max="0.95" step="0.05"></s-number>
-                            <s-number id="eq-high-smooth" class="band-dot-high" value="0.3" min="0" max="0.95" step="0.05"></s-number>
+                    <label id="main-input-scope-toggle" class="scope-toggle-header">
+                        <h4>Audio Analyzer</h4>
+                        <span class="scope-toggle-control">
+                            <input type="checkbox" checked>
+                            <span>Scope</span>
+                        </span>
+                    </label>
+                    <div id="main-input-scope-wrapper" class="scope-wrapper">
+                        <canvas id="main-input-scope" class="scope-canvas"></canvas>
+                        <div class="band-controls">
+                            <div class="band-col">
+                                <span class="band-col-label">Gain</span>
+                                <s-number id="eq-bass-gain" value="1" min="0" max="3" step="0.1"></s-number>
+                                <s-number id="eq-mid-gain" value="1" min="0" max="3" step="0.1"></s-number>
+                                <s-number id="eq-high-gain" value="1" min="0" max="3" step="0.1"></s-number>
+                            </div>
+                            <div class="band-col">
+                                <span class="band-col-label">Expand</span>
+                                <s-number id="eq-bass-react" value="2" min="1" max="10" step="0.1"></s-number>
+                                <s-number id="eq-mid-react" value="2" min="1" max="10" step="0.1"></s-number>
+                                <s-number id="eq-high-react" value="2" min="1" max="10" step="0.1"></s-number>
+                            </div>
+                            <div class="band-col">
+                                <span class="band-col-label">Smooth</span>
+                                <s-number id="eq-bass-smooth" class="band-dot-bass" value="0.3" min="0" max="0.95" step="0.05"></s-number>
+                                <s-number id="eq-mid-smooth" class="band-dot-mid" value="0.3" min="0" max="0.95" step="0.05"></s-number>
+                                <s-number id="eq-high-smooth" class="band-dot-high" value="0.3" min="0" max="0.95" step="0.05"></s-number>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -151,6 +158,8 @@ export class MainInputUI {
             audioStatus: panel.querySelector('#audio-status'),
             audioAnalyzerSection: panel.querySelector('#audio-analyzer-section'),
             scopeCanvas: panel.querySelector('#main-input-scope'),
+            scopeWrapper: panel.querySelector('#main-input-scope-wrapper'),
+            scopeToggle: panel.querySelector('#main-input-scope-toggle'),
             // Gain/Expand/Smooth controls
             eqBassGain: panel.querySelector('#eq-bass-gain'),
             eqBassSmooth: panel.querySelector('#eq-bass-smooth'),
@@ -230,6 +239,11 @@ export class MainInputUI {
                     mainInput.setBandConfig(config)
                 })
             }
+        })
+
+        // Scope toggle
+        this.elements.scopeToggle.querySelector('input').addEventListener('change', (e) => {
+            this.elements.scopeWrapper.style.display = e.target.checked ? '' : 'none'
         })
 
         // Start combined update loop (meters + video preview + playback state)

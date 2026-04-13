@@ -14,20 +14,21 @@ export function createAudioMeter(node, label, meterContainer) {
     meterWrapper.className = 'meter-wrapper'
     meterWrapper.style.position = 'relative'
 
+    const bandKey = label.toLowerCase()
+
     const meterLabel = document.createElement('div')
     meterLabel.className = 'meter-label'
-    meterLabel.textContent = label
+    meterLabel.innerHTML = `<span class="meter-dot ${bandKey}"></span>`
 
     const meterBg = document.createElement('div')
     meterBg.className = 'meter-bar-bg'
     meterBg.style.position = 'relative'
-    
+
     const meterBar = document.createElement('div')
     meterBar.className = 'meter-bar'
-    
+
     // Create threshold slider that looks like an action port
     const thresholdSlider = document.createElement('div')
-    const bandKey = label.toLowerCase()
     const thresholdValue = node.values.thresholds[bandKey] || 0.5
     
     thresholdSlider.className = 'threshold-slider action'
@@ -100,11 +101,6 @@ export function createAudioMetersUI(node, includeVolume = false, defaultVisibili
     if(!meterContainer) {
         meterContainer = document.createElement('div')
         meterContainer.className = 'meter-container'
-        meterContainer.style.cssText = `
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            border-top: 1px solid #444;
-        `
         node.elements.meterContainer = meterContainer
         node.customArea.appendChild(meterContainer)
     }
@@ -130,6 +126,9 @@ export function createAudioMetersUI(node, includeVolume = false, defaultVisibili
     if(!currentVisibility.events) {
         toggleAudioOutputs(node, 'trigger', false)
     }
+    if(currentVisibility.scope === false) {
+        toggleScope(node, false)
+    }
 }
 
 /**
@@ -142,10 +141,12 @@ export function createAudioVisibilityToggles(node, defaultVisibility = {numbers:
     if(!node.values.audioVisibility) {
         node.values.audioVisibility = {
             numbers: defaultVisibility.numbers,
-            events: defaultVisibility.events
+            events: defaultVisibility.events,
+            scope: true
         }
     }
-    
+    if(node.values.audioVisibility.scope === undefined) node.values.audioVisibility.scope = true
+
     // Use saved values instead of defaults
     const currentVisibility = node.values.audioVisibility
     const toggleContainer = document.createElement('div')
@@ -159,59 +160,70 @@ export function createAudioVisibilityToggles(node, defaultVisibility = {numbers:
         background: rgba(0,0,0,0.2);
         justify-content: space-around;
     `
-    
+
+    const toggleStyle = `display:flex;align-items:center;gap:0.3rem;color:#aaa;cursor:pointer;`
+
     // Number outputs toggle
     const numberToggle = document.createElement('label')
-    numberToggle.style.cssText = `
-        display: flex;
-        align-items: center;
-        gap: 0.3rem;
-        color: #aaa;
-        cursor: pointer;
-    `
+    numberToggle.style.cssText = toggleStyle
     numberToggle.innerHTML = `
         <input type="checkbox" ${currentVisibility.numbers ? 'checked' : ''} class="audio-number-toggle" style="margin: 0;">
         <span>Numbers</span>
     `
-    
-    // Trigger outputs toggle  
+
+    // Trigger outputs toggle
     const triggerToggle = document.createElement('label')
-    triggerToggle.style.cssText = `
-        display: flex;
-        align-items: center;
-        gap: 0.3rem;
-        color: #aaa;
-        cursor: pointer;
-    `
+    triggerToggle.style.cssText = toggleStyle
     triggerToggle.innerHTML = `
         <input type="checkbox" ${currentVisibility.events ? 'checked' : ''} class="audio-trigger-toggle" style="margin: 0;">
         <span>Events</span>
     `
-    
+
     toggleContainer.appendChild(numberToggle)
     toggleContainer.appendChild(triggerToggle)
-    
+
+    // Only show scope toggle if the node actually has a scope
+    const hasScope = !!node.nodeEl?.querySelector('.audio-scope')
+    if(hasScope) {
+        const scopeToggle = document.createElement('label')
+        scopeToggle.style.cssText = toggleStyle
+        scopeToggle.innerHTML = `
+            <input type="checkbox" ${currentVisibility.scope ? 'checked' : ''} class="audio-scope-toggle" style="margin: 0;">
+            <span>Scope</span>
+        `
+        toggleContainer.appendChild(scopeToggle)
+        scopeToggle.querySelector('.audio-scope-toggle').addEventListener('change', (e) => {
+            node.values.audioVisibility.scope = e.target.checked
+            toggleScope(node, e.target.checked)
+        })
+    }
+
     // Add event listeners
-    const numberCheckbox = numberToggle.querySelector('.audio-number-toggle')
-    const triggerCheckbox = triggerToggle.querySelector('.audio-trigger-toggle')
-    
-    numberCheckbox.addEventListener('change', (e) => {
+    numberToggle.querySelector('.audio-number-toggle').addEventListener('change', (e) => {
         node.values.audioVisibility.numbers = e.target.checked
         toggleAudioOutputs(node, 'number', e.target.checked)
     })
-    
-    triggerCheckbox.addEventListener('change', (e) => {
+
+    triggerToggle.querySelector('.audio-trigger-toggle').addEventListener('change', (e) => {
         node.values.audioVisibility.events = e.target.checked
         toggleAudioOutputs(node, 'trigger', e.target.checked)
     })
-    
+
     node.elements.meterContainer.appendChild(toggleContainer)
-    
+
+}
+
+/**
+ * Toggles visibility of the audio scope widget
+ */
+export function toggleScope(node, visible) {
+    const scope = node.nodeEl?.querySelector('.audio-scope')
+    if(scope) scope.style.display = visible ? '' : 'none'
 }
 
 /**
  * Toggles visibility of audio outputs and updates port positions
- * @param {Object} node - The node instance  
+ * @param {Object} node - The node instance
  * @param {string} type - 'number' or 'trigger'
  * @param {boolean} visible - Whether to show or hide
  */

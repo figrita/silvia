@@ -6,6 +6,9 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
+    width: 320px;
+    margin-left: 8px;
+    margin-right: 8px;
 }
 
 .node .node-custom .meter-wrapper {
@@ -15,12 +18,21 @@
 }
 
 .node .node-custom .meter-label {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.9rem;
-    width: 3rem;
-    text-align: right;
-    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
 }
+
+.meter-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-left: 0.5rem;
+}
+.meter-dot.bass { background: #ff6666; }
+.meter-dot.mid { background: #66ff66; }
+.meter-dot.high { background: #6666ff; }
 
 .node .node-custom .meter-bar-bg {
     flex-grow: 1;
@@ -52,6 +64,28 @@
     height: 160px;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 4px;
+}
+
+.scope-toggle-header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.scope-toggle-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+
+    input { margin: 0; }
+}
+
+.scope-wrapper {
+    padding: 0 8px 8px;
 }
 
 /* ===== BAND CONTROLS (gain / expand / smooth grid) ===== */
