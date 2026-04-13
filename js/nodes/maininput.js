@@ -138,6 +138,7 @@ registerNode({
 
             if (mainInput.hasVideo()) {
                 switch (mainInput.videoSourceType) {
+                    case 'demo': videoStatus = '📼 Demo'; break
                     case 'video': videoStatus = '📼 Video'; break
                     case 'webcam': videoStatus = '📹 Webcam'; break
                     case 'screencapture': videoStatus = '🖥️ Screen'; break

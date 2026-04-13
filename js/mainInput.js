@@ -103,7 +103,7 @@ class MainInputManager {
                 break
 
             case 'demo':
-                await this._loadVideoFile(null, 'assets/demo/demo.mp4')
+                await this._loadVideoFile(null, 'assets/demo/gumbasia.webm')
                 break
 
             case 'video':
