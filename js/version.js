@@ -16,8 +16,9 @@
  * - 0.7: Flat workspace system with multi-workspace node visibility
  * - 0.7.1: Version-aware About dialog
  * - 0.7.2:
+ * - 0.8:
  */
-export const PATCH_VERSION = '0.7.2'
+export const PATCH_VERSION = '0.8'
 
 /**
  * Get the current patch format version
