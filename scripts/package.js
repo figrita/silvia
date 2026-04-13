@@ -75,6 +75,15 @@ function zipDir(dirPath, zipPath, { preserveMacOS = false } = {}) {
     console.log(`  -> ${path.relative(ROOT, zipPath)}`)
 }
 
+function tarGzDir(dirPath, tarPath) {
+    if (fs.existsSync(tarPath)) fs.unlinkSync(tarPath)
+    const dirName = path.basename(dirPath)
+    const parentDir = path.dirname(dirPath)
+    normalizeTimestamps(dirPath)
+    execSync(`tar czf "${tarPath}" -C "${parentDir}" "${dirName}"`, { stdio: 'inherit' })
+    console.log(`  -> ${path.relative(ROOT, tarPath)}`)
+}
+
 // --- Linux ---
 function packageLinux() {
     const src = path.join(DIST, 'linux-unpacked')
@@ -109,20 +118,27 @@ if [ -f "$SANDBOX" ]; then
     OWNER=$(stat -c '%u' "$SANDBOX" 2>/dev/null)
     PERMS=$(stat -c '%a' "$SANDBOX" 2>/dev/null)
     if [ "$OWNER" != "0" ] || [ "$PERMS" != "4755" ]; then
-        echo "Silvia needs to set up sandbox permissions (one-time setup)."
-        echo "This requires sudo to set ownership on lib/chrome-sandbox."
-        read -p "Fix now? [Y/n] " answer
-        case "$answer" in
-            [nN]*) echo "Aborted. You can run ./install.sh later to fix this."; exit 1 ;;
-            *)
-                sudo chown root:root "$SANDBOX" && sudo chmod 4755 "$SANDBOX"
-                if [ $? -ne 0 ]; then
-                    echo "Failed to set permissions. Try running: ./install.sh"
-                    exit 1
-                fi
-                echo "Sandbox permissions set."
-                ;;
-        esac
+        if [ -t 0 ]; then
+            echo "Silvia needs to set up sandbox permissions (one-time setup)."
+            echo "This requires sudo to set ownership on lib/chrome-sandbox."
+            read -p "Fix now? [Y/n] " answer
+            case "$answer" in
+                [nN]*) echo "Aborted. You can run ./install.sh later to fix this."; exit 1 ;;
+                *)
+                    sudo chown root:root "$SANDBOX" && sudo chmod 4755 "$SANDBOX"
+                    if [ $? -ne 0 ]; then
+                        echo "Failed to set permissions. Try running: ./install.sh"
+                        exit 1
+                    fi
+                    echo "Sandbox permissions set."
+                    ;;
+            esac
+        else
+            pkexec sh -c 'chown root:root "$1" && chmod 4755 "$1"' _ "$SANDBOX"
+            if [ $? -ne 0 ]; then
+                exit 1
+            fi
+        fi
     fi
 fi
 
@@ -152,13 +168,14 @@ echo "Done. You can now run ./Silvia"
     // Write quickstart
     const quickstart = `QUICKSTART -- Linux
 
-Run ./Silvia from a terminal.
+Double-click Silvia.desktop, or run ./Silvia from a terminal.
 
-If it fails with a sandbox error, run ./install.sh first (one-time, needs
-sudo). This sets ownership and SUID permissions on lib/chrome-sandbox, which
-Chromium's security sandbox requires on some Linux configurations. It isolates
-the renderer process from the rest of your system. Not every distro needs this
--- it depends on your kernel's user namespace settings.
+If it needs sandbox permissions (one-time, needs sudo), it will prompt you
+automatically -- either a graphical password dialog or a terminal prompt,
+depending on how you launched it. You can also run ./install.sh manually.
+This sets ownership and SUID permissions on lib/chrome-sandbox, which
+Chromium's security sandbox requires on some Linux configurations. Not every
+distro needs this -- it depends on your kernel's user namespace settings.
 
 This folder is your workspace. Patches save to saves/, imported media goes
 in assets/. Both are created automatically on first run.
@@ -184,8 +201,22 @@ Troubleshooting
         copyRecursive(loopbackDir, path.join(dest, 'loopback'))
     }
 
-    // Zip
-    zipDir(dest, path.join(DIST, `${destName}.zip`))
+    // Create .desktop launcher for double-click on Linux desktops
+    const desktop = `[Desktop Entry]
+Type=Application
+Name=Silvia
+Comment=Visual patching / VJ application
+Exec=bash -c 'cd "$(dirname "$(readlink -f "%k")")" && exec ./Silvia'
+Terminal=false
+Icon=silvia
+StartupWMClass=silvia
+StartupNotify=true
+Categories=AudioVideo;Audio;Video;
+`
+    fs.writeFileSync(path.join(dest, 'Silvia.desktop'), desktop, { mode: 0o755 })
+
+    // Archive
+    tarGzDir(dest, path.join(DIST, `${destName}.tar.gz`))
 
     console.log('  Linux done.')
 }
