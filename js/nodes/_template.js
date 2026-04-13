@@ -1,129 +1,214 @@
 import {registerNode} from '../registry.js'
-// Import other utilities like autowire, shaderUtils if needed
+// import {autowire, StringToFragment} from '../utils.js'  // Custom UI
+// import {shaderUtils} from '../shaderUtils.js'            // GLSL helpers
+// import {SNode} from '../snode.js'                        // refreshDownstreamOutputs
+// import {PhaseAccumulator} from '../phaseAccumulator.js'  // Framerate-independent phase
+// import {RealtimeGraph} from '../realtimeGraph.js'        // Waveform canvas widget
 
 registerNode({
-    // --- Basic Node Information ---
-    slug: 'template', // A unique, machine-readable identifier.
-    icon: '🧩', // The emoji icon for the node.
-    label: 'Template Node', // The user-facing name of the node.
+    slug: 'template',
+    icon: '🧩',
+    label: 'Template Node',
+    tooltip: 'Short description for menus',
 
-    // --- Port Definitions (Optional) ---
-    // CRITICAL: WebGL cannot efficiently read values back from GPU!
-    // - No glReadPixels for float textures (Apple blocked EXT_color_buffer_float)
-    // - RGBA readback is a massive performance bottleneck
-    // - GPU→CPU readback stalls the entire pipeline
+    // =====================================================================
+    //  INPUTS
+    // =====================================================================
     //
-    // Input ports should ONLY be used for values that:
-    //   1. Need to be passed to shaders as uniforms (used in genCode)
-    //   2. Accept connections from other nodes
-    //   3. Stay entirely on the GPU (never influence CPU logic)
-    // 
-    // CPU-only parameters (BPM, grid size, animation settings, anything that
-    // controls program flow) MUST use custom UI in onCreate() and store values
-    // in the 'values' object. They cannot be shader inputs!
+    //  type: 'float'  — becomes a GLSL uniform. Use getInput() in genCode.
+    //  type: 'color'  — same, but vec4. Default is '#rrggbbaa' hex string.
+    //  type: 'action' — event trigger, no GLSL uniform. JS-only.
+    //
+    //  control: {default, min, max, step}  — inline slider/picker
+    //  control: {default: '#ff0000ff'}     — color swatch
+    //  control: {}                         — action button (for action type)
+    //  control: null                       — no inline control, must connect
+    //
+    //  Optional properties on float controls:
+    //    unit: '°'|'π'|'s'|'⬓'|'/⬓'  — display unit
+    //    log-scale: true               — logarithmic slider behaviour
+    //    samplingCost: '9'             — perf hint (multi-sample kernels)
+    //
+    //  IMPORTANT: Inputs create shader uniforms. They stay on the GPU —
+    //  you CANNOT read their values from JS (no glReadPixels). Anything
+    //  that must influence JS logic (BPM, grid size, animation settings)
+    //  belongs in `values` with custom UI built in onCreate().
+    //
     input: {
-        // SHADER INPUT: This creates a uniform and allows connections
-        'someInput': {label: 'Some Input', type: 'float', control: {default: 0.5, min: 0, max: 1, step: 0.01}},
-        
-        // ACTION INPUT: For event triggers (supports downCallback/upCallback for gate events)
-        'trigger': {label: 'Trigger Me', type: 'action', control: {}, 
-            downCallback(){this._myActionHandler()},  // Called on trigger/gate-on
-            upCallback(){this._myActionHandler()}     // Optional: Called on gate-off
-        }
+        input:   {label: 'Input',  type: 'color', control: null},
+        amount:  {label: 'Amount', type: 'float', control: {default: 0.5, min: 0, max: 1, step: 0.01}},
     },
+
+    // =====================================================================
+    //  OUTPUTS
+    // =====================================================================
+    //
+    //  --- Pure GLSL output (most common) ---
+    //  genCode(cc, funcName) must return a GLSL function:
+    //    color:  vec4 funcName(vec2 uv) { ... }
+    //    float:  float funcName(vec2 uv) { ... }
+    //
+    //  Use this.getInput('key', cc) to get a GLSL expression for an input.
+    //  Use this.getInput('key', cc, 'expr') to sample at a different UV.
+    //  Use this.getOption('key') to read an option at compile time.
+    //
+    //  --- CPU-driven float output ---
+    //  genCode returns `float funcName(vec2 uv) { return uniformName; }`
+    //  floatUniformUpdate uploads the JS value every frame.
+    //
+    //  --- Texture output (canvas/video → GPU) ---
+    //  genCode reads from the texture sampler via uniformName.
+    //  textureUniformUpdate uploads pixel data every frame.
+    //
+    //  --- Action output (no GLSL) ---
+    //  Just {label, type: 'action'}. Fire with this.triggerAction(key, 'down'|'up').
+    //
     output: {
-        'someOutput': {label: 'Some Output', type: 'float', genCode(cc, funcName){return ''}}
+        // Pure GLSL — apply an effect to an input image
+        output: {label: 'Output', type: 'color',
+            genCode(cc, funcName){
+                const input  = this.getInput('input', cc)
+                const amount = this.getInput('amount', cc)
+                return `vec4 ${funcName}(vec2 uv) {
+                    vec4 col = ${input};
+                    return mix(col, 1.0 - col, ${amount});
+                }`
+            }
+        },
+
+        // Float mask companion (common pattern for dual-output nodes)
+        // mask: {label: 'Mask', type: 'float',
+        //     genCode(cc, funcName){
+        //         const input = this.getInput('input', cc)
+        //         return `float ${funcName}(vec2 uv) {
+        //             return dot(${input}.rgb, vec3(0.299, 0.587, 0.114));
+        //         }`
+        //     }
+        // },
+
+        // CPU-driven float (JS value → uniform each frame)
+        // value: {label: 'Value', type: 'float',
+        //     genCode(cc, funcName, uniformName){
+        //         return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
+        //     },
+        //     floatUniformUpdate(uniformName, gl, program){
+        //         gl.uniform1f(gl.getUniformLocation(program, uniformName), this.values.current)
+        //     }
+        // },
+
+        // Texture from a canvas/video element
+        // frame: {label: 'Frame', type: 'color',
+        //     genCode(cc, funcName, uniformName){
+        //         return `vec4 ${funcName}(vec2 uv) {
+        //             return texture(${uniformName}, uv);
+        //         }`
+        //     },
+        //     textureUniformUpdate(uniformName, gl, program, textureUnit, textureMap){
+        //         const source = this.elements.canvas
+        //         if(!source) return
+        //         gl.activeTexture(gl.TEXTURE0 + textureUnit)
+        //         let entry = textureMap.get(this)
+        //         if(!entry){
+        //             const tex = gl.createTexture()
+        //             gl.bindTexture(gl.TEXTURE_2D, tex)
+        //             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+        //             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+        //             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+        //             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+        //             entry = {tex, w: 0, h: 0}
+        //             textureMap.set(this, entry)
+        //         } else {
+        //             gl.bindTexture(gl.TEXTURE_2D, entry.tex)
+        //         }
+        //         const w = source.width, h = source.height
+        //         if(w !== entry.w || h !== entry.h){
+        //             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
+        //             entry.w = w; entry.h = h
+        //         } else {
+        //             gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source)
+        //         }
+        //         gl.uniform1i(gl.getUniformLocation(program, uniformName), textureUnit)
+        //     }
+        // },
+
+        // Action output (fire with this.triggerAction('fire', 'down'))
+        // fire: {label: 'Fire', type: 'action'},
     },
 
-    // --- Node Options (Optional) ---
-    options: {
-        'mode': {label: 'Mode', type: 'select', default: 'A', choices: [{value: 'A', name: 'Mode A'}]}
-    },
+    // =====================================================================
+    //  OPTIONS — select dropdowns, read at compile time via getOption()
+    // =====================================================================
+    //  Changing an option triggers a shader recompile. Use inside genCode
+    //  to emit different GLSL (JS-time branching, not GLSL-time).
+    //
+    // options: {
+    //     mode: {label: 'Mode', type: 'select', default: 'a',
+    //         choices: [{value: 'a', name: 'Mode A'}, {value: 'b', name: 'Mode B'}]
+    //     }
+    // },
 
-    // --- Required GLSL Utilities (Optional) ---
-    shaderUtils: [/* HSV2RGB, etc. */],
+    // =====================================================================
+    //  SHADER UTILS — GLSL helpers injected at top of compiled shader
+    // =====================================================================
+    //  Import shaderUtils and reference named constants:
+    //    shaderUtils: [shaderUtils.RGB2HSV, shaderUtils.HSV2RGB]
+    //  Or inline raw GLSL strings for node-specific helpers.
+    //
+    // shaderUtils: [],
 
-    // --- Standardized State Properties (All Optional) ---
+    // =====================================================================
+    //  STATE
+    // =====================================================================
 
-    // DOM element references created in onCreate
-    // Populated by autowire using data-el attributes
-    elements: {
-        myButton: null
-    },
+    // DOM refs — populated by autowire(fragment) in onCreate via data-el attrs.
+    // elements: {},
 
-    // Holds references to file input elements.
-    fileSelectors: {
-        myFileInput: null
-    },
+    // File inputs — <input type="file"> refs for asset loading.
+    // fileSelectors: {},
 
-    // Serializable state directly controlled by the user (e.g., from custom UI).
-    // Should contain only primitive serializable values.
-    // IMPORTANT: Use this for CPU-only parameters that don't need shader uniforms!
-    // Examples: BPM, grid dimensions, animation durations, threshold values
-    values: {
-        customSetting: true,
-        // Example CPU-only parameters:
-        // bpm: 120,           // Sequencer tempo
-        // gridSize: 64,       // Cellular automata dimensions  
-        // duration: 1.0,      // Animation length
-        // threshold: 0.5      // Processing threshold
-    },
+    // Serializable user state — saved/restored with patches.
+    // Use for CPU-only parameters that don't need shader uniforms.
+    // values: {},
 
-    // Non-serializable state, like WebGL contexts, stream objects, intervals, etc.
-    runtimeState: {
-        myInterval: null,
-        isDirty: false
-    },
+    // Transient runtime state — NOT saved. WebGL contexts, streams,
+    // animation frame IDs, intervals, typed arrays, phase accumulators.
+    // runtimeState: {},
 
-    // --- Lifecycle Hooks (Optional) ---
+    // =====================================================================
+    //  LIFECYCLE
+    // =====================================================================
 
-    /**
-     * Called after the node's DOM is created and added to the document.
-     * Ideal for setting up event listeners and creating custom UI.
-     * `this` is the node instance.
-     */
-    onCreate(){
-        if(!this.customArea){return}
-        // Create custom UI for CPU-only parameters using s-number/s-color components
-        // This avoids creating unnecessary shader uniforms
-        
-        /* Example custom UI for CPU-only parameters:
-        const html = `
-            <div style="padding: 0.5rem;">
-                <div style="display:flex; justify-content: space-between; align-items: center;">
-                    <label style="font-size:0.9rem; color:#ccc;">BPM</label>
-                    <s-number value="${this.values.bpm}" min="20" max="300" step="1" data-el="bpmControl"></s-number>
-                </div>
-            </div>
-        `
-        const fragment = StringToFragment(html)
-        this.elements = autowire(fragment)
-        this.customArea.appendChild(fragment)
-        
-        // Listen for changes and update values (not shader uniforms!)
-        this.elements.bpmControl.addEventListener('input', (e) => {
-            this.values.bpm = parseFloat(e.target.value)
-        })
-        */
-    },
+    // onCreate(){
+    //     if(!this.customArea) return
+    //
+    //     // Build custom UI for CPU-only parameters
+    //     const html = `
+    //         <div style="padding: 4px;">
+    //             <div style="display:flex; justify-content:space-between; align-items:center;">
+    //                 <label>Speed</label>
+    //                 <s-number value="${this.values.speed}" min="0" max="10" step="0.1"
+    //                     data-el="speedControl"></s-number>
+    //             </div>
+    //         </div>
+    //     `
+    //     const fragment = StringToFragment(html)
+    //     this.elements = autowire(fragment)
+    //     this.customArea.appendChild(fragment)
+    //
+    //     this.elements.speedControl.addEventListener('input', (e) => {
+    //         this.values.speed = parseFloat(e.target.value)
+    //     })
+    // },
 
-    /**
-     * Called just before the node is removed.
-     * Ideal for cleaning up resources like event listeners, intervals, or object URLs.
-     * `this` is the node instance.
-     */
-    onDestroy(){
-        // ex: clearInterval(this.runtimeState.myInterval)
-    },
+    // onDestroy(){
+    //     // Cancel animation frames, intervals, revoke URLs, stop streams
+    //     // cancelAnimationFrame(this.runtimeState.frameId)
+    //     // clearInterval(this.runtimeState.intervalId)
+    // },
 
-    // --- Internal Methods (Optional) ---
+    // =====================================================================
+    //  INTERNAL METHODS — prefix with underscore, auto-bound to `this`
+    // =====================================================================
 
-    /**
-     * All internal helper methods should be prefixed with an underscore.
-     * The `SNode` constructor automatically binds `this` to all methods,
-     * so they can be used directly as event callbacks.
-     */
-    _myActionHandler(){
-        // TODO: implement action
-    }
+    // _myHelper(){},
 })
