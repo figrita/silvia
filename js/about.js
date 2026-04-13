@@ -39,7 +39,7 @@ function createAboutModal(){
             </div>
 
             <div class="about-section">
-                <p>AGPL-3.0. Third-party: Lucide icons (ISC), gifler.js (Apache-2.0), modern-normalize (MIT), Shadertoy code (WTFPL/CC0).</p>
+                <p>AGPL-3.0. Third-party: Lucide icons (ISC), gifler.js (Apache-2.0), modern-normalize (MIT), Shadertoy code (WTFPL/CC0), demo clip from "Gumbasia" by Art Clokey (public domain).</p>
             </div>
 
             <div class="about-section">

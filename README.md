@@ -72,6 +72,7 @@ Third-party licenses are in [`licenses/`](licenses/):
 - [gifler.js](licenses/gifler.txt) (Apache 2.0)
 - [modern-normalize](licenses/modern-normalize.txt) (MIT)
 - [Shadertoy code](licenses/shadertoy.txt) (WTFPL / CC0)
+- [Demo clip from "Gumbasia" by Art Clokey](licenses/gumbasia.txt) (public domain)
 
 ---
 

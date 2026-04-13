@@ -1,0 +1,8 @@
+Demo clip
+=========
+
+The bundled demo clip (assets/demo/gumbasia.webm) is an excerpt from
+"Gumbasia" (1955), a clay animation short film by Art Clokey.
+
+The original film is in the public domain in the United States.
+No rights are claimed by the Silvia project over the clip itself.
