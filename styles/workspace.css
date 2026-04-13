@@ -152,7 +152,8 @@
     align-items: flex-end;
     gap: 4px;
     overflow-x: auto;
-    flex: 1;
+    flex: 0 1 auto;
+    min-width: 0;
     scrollbar-width: thin;
     scrollbar-color: var(--border-normal) transparent;
 }
@@ -258,8 +259,8 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    margin-left: auto;
     margin-bottom: 4px;
+    margin-top: 4px;
     align-self: center;
     overflow: hidden;
     white-space: nowrap;
