@@ -6,6 +6,7 @@ import {showHowto} from './howto.js'
 let aboutModal
 let closeBtn
 let howtoBtn
+let photosensitivityWarning
 
 function getPlatform() {
     return (typeof window !== 'undefined' && window.electronAPI) ? 'electron' : 'web'
@@ -21,6 +22,10 @@ function createAboutModal(){
         <div class="modal-content" style="align-items: center; width: 65rem;">
             <img src="./assets/icons/silvia_logo_name.png" style="height: 10rem;">
             <p style="margin: 0.5rem 0 1rem 0; font-style: italic; color: var(--text-secondary);">${getVersionString()}</p>
+
+            <div class="about-section photosensitivity-warning" data-el="photosensitivityWarning" style="display: none;">
+                <p><strong>Photosensitivity warning:</strong> Silvia can produce rapidly flashing, strobing, and high-contrast images that may trigger seizures in people with photosensitive epilepsy. Use with care, and stop immediately if you feel unwell.</p>
+            </div>
 
             <div class="about-section">
                 <p>Free modular video synthesizer for live performance and creative coding.</p>
@@ -56,19 +61,21 @@ function createAboutModal(){
 }
 
 /**
- * Shows the about modal
+ * Shows the about modal. Pass {firstVisit: true} on the first load of a
+ * version to fully occlude the app and surface the photosensitivity warning.
  */
-export function showAbout(){
-    if(aboutModal){
-        aboutModal.style.display = 'flex'
-    }
+export function showAbout({firstVisit = false} = {}){
+    if(!aboutModal){ return }
+    aboutModal.classList.toggle('opaque', firstVisit)
+    photosensitivityWarning.style.display = firstVisit ? '' : 'none'
+    aboutModal.style.display = 'flex'
 }
 
 /**
  * Initializes the "About" guide system.
  */
 export function initAbout(){
-    ({aboutModal, closeBtn, howtoBtn} = createAboutModal())
+    ({aboutModal, closeBtn, howtoBtn, photosensitivityWarning} = createAboutModal())
 
     const openBtn = document.getElementById('about-btn')
     if(!openBtn){
@@ -105,14 +112,14 @@ export function initAbout(){
     })
 
     aboutModal.addEventListener('click', (e) => {
-        if(e.target === aboutModal){
+        if(e.target === aboutModal && !aboutModal.classList.contains('opaque')){
             aboutModal.style.display = 'none'
         }
     })
-    
-    // Close on escape
+
+    // Close on escape (not during first-visit photosensitivity gate)
     document.addEventListener('escape-pressed', () => {
-        if(aboutModal.style.display === 'flex'){
+        if(aboutModal.style.display === 'flex' && !aboutModal.classList.contains('opaque')){
             aboutModal.style.display = 'none'
         }
     })

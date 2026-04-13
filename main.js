@@ -313,8 +313,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 6. Show About on first visit or when the version changes
     const lastSeenVersion = localStorage.getItem('silvia_last_seen_version')
     if (lastSeenVersion !== getCurrentVersion()) {
+        const firstVisit = lastSeenVersion === null
         localStorage.setItem('silvia_last_seen_version', getCurrentVersion())
-        showAbout()
+        showAbout({firstVisit})
     }
 
     // 7. Try to restore saved workspaces, or create default nodes for a new session
