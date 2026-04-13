@@ -108,6 +108,7 @@ class WorkspaceTabBar {
 
     createNewWorkspace() {
         const workspace = WorkspaceManager.create()
+        WorkspaceManager.setActive(workspace.id)
         SNode.updateVisibility()
         this.render()
         const tab = this.tabBarEl.querySelector(`[data-workspace-id="${workspace.id}"]`)
