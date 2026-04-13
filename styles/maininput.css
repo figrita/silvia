@@ -93,6 +93,10 @@
     color: var(--text-primary);
 }
 
+.main-input-panel .collapse-btn.flipped {
+    transform: scaleX(-1);
+}
+
 .main-input-panel .panel-collapsed-label {
     display: none;
     writing-mode: vertical-lr;
@@ -102,11 +106,10 @@
     justify-content: center;
     flex: 1;
     color: var(--text-muted);
-    font-size: 1.25rem;
+    font-size: 1rem;
     font-weight: bold;
     cursor: pointer;
     user-select: none;
-    letter-spacing: 1px;
     padding: 12px 0;
     width: 100%;
 }
@@ -136,6 +139,33 @@
     font-size: 0.8rem;
     font-weight: bold;
     letter-spacing: 0.5px;
+}
+
+.input-section .section-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.input-section .section-arrow {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+}
+
+.input-section[data-expanded="true"] .section-arrow {
+    transform: rotate(90deg);
+}
+
+.input-section[data-expanded="false"] .section-toggle {
+    margin-bottom: 0;
+}
+
+.input-section[data-expanded="false"] .section-body {
+    display: none;
 }
 
 /* ===== SOURCE SELECT ===== */

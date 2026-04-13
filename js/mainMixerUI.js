@@ -2,7 +2,7 @@ import {mainMixer} from './mainMixer.js'
 import {WorkspaceManager} from './workspaceManager.js'
 import {SNode} from './snode.js'
 import {BackgroundRenderer} from './nodes/_background.js'
-import {iconHtml, setIcon} from './icons.js'
+import {iconHtml} from './icons.js'
 import {expandWorkspaceToViewport} from './editor.js'
 
 export class MainMixerUI {
@@ -42,72 +42,87 @@ export class MainMixerUI {
             <div class="mixer-header">
                 <div class="header-spacer"></div>
                 <h3>Main Mixer</h3>
-                <button class="collapse-btn" id="mixer-collapse-btn" title="Collapse panel">${iconHtml('chevron-right', 14)}</button>
+                <button class="collapse-btn flipped" id="mixer-collapse-btn" title="Collapse panel">${iconHtml('chevron-left', 14)}</button>
             </div>
             <div class="panel-collapsed-label" id="mixer-collapsed-label">Main Mixer</div>
             <div class="mixer-content">
-                <div class="channel-section">
-                    <h4>Channel A</h4>
-                    <div class="channel-preview" id="preview-a"></div>
-                    <div class="channel-status" id="status-a">No Assignment</div>
-                </div>
-                <div class="channel-section">
-                    <h4>Channel B</h4>
-                    <div class="channel-preview" id="preview-b"></div>
-                    <div class="channel-status" id="status-b">No Assignment</div>
-                </div>
-                <div class="mix-controls">
-                    <label>Mix</label>
-                    <div class="mix-slider-container">
-                        <span>A</span>
-                        <s-number value="-1" min="-1" max="1" step="0.01" id="mix-slider"></s-number>
-                        <span>B</span>
+                <!-- Channel A -->
+                <div class="mixer-section" data-expanded="true">
+                    <h4 class="section-toggle"><span class="section-arrow">${iconHtml('chevron-right', 12)}</span>Channel A</h4>
+                    <div class="section-body">
+                        <div class="channel-preview" id="preview-a"></div>
+                        <div class="channel-status" id="status-a">No Assignment</div>
                     </div>
                 </div>
-                <div class="crossfade-controls">
-                    <label>Crossfade Method</label>
-                    <div class="crossfade-select-container">
-                        <select id="crossfade-select">
-                            <option value="0" selected>Simple Mix</option>
-                            <option value="1">Horizontal Wipe</option>
-                            <option value="2">Vertical Wipe</option>
-                            <option value="3">Radial Wipe</option>
-                            <option value="4">Dark Fade First</option>
-                            <option value="5">Light Fade First</option>
-                            <option value="6">Checkerboard</option>
-                            <option value="7">Horizontal Lines</option>
-                        </select>
+
+                <!-- Channel B -->
+                <div class="mixer-section" data-expanded="true">
+                    <h4 class="section-toggle"><span class="section-arrow">${iconHtml('chevron-right', 12)}</span>Channel B</h4>
+                    <div class="section-body">
+                        <div class="channel-preview" id="preview-b"></div>
+                        <div class="channel-status" id="status-b">No Assignment</div>
                     </div>
                 </div>
-                <div class="projection-section">
-                    <div class="projection-header">
-                        <h4>Projection</h4>
-                        <button class="projection-info-btn" id="projection-info-btn" title="About projection">${iconHtml('circle-help', 14)}</button>
+
+                <!-- Mix -->
+                <div class="mixer-section" data-expanded="true">
+                    <h4 class="section-toggle"><span class="section-arrow">${iconHtml('chevron-right', 12)}</span>Mix</h4>
+                    <div class="section-body">
+                        <div class="mix-field">
+                            <label>A / B Balance</label>
+                            <div class="mix-slider-container">
+                                <span>A</span>
+                                <s-number value="-1" min="-1" max="1" step="0.01" id="mix-slider"></s-number>
+                                <span>B</span>
+                            </div>
+                        </div>
+                        <div class="mix-field">
+                            <label>Crossfade Method</label>
+                            <select id="crossfade-select">
+                                <option value="0" selected>Simple Mix</option>
+                                <option value="1">Horizontal Wipe</option>
+                                <option value="2">Vertical Wipe</option>
+                                <option value="3">Radial Wipe</option>
+                                <option value="4">Dark Fade First</option>
+                                <option value="5">Light Fade First</option>
+                                <option value="6">Checkerboard</option>
+                                <option value="7">Horizontal Lines</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="projection-info" id="projection-info" style="display: none;">
-                        <p>The projector opens a separate browser window that displays the final mixed output fullscreen. Place it on a second monitor or projector display.</p>
-                        <p>Resolution controls the render size of the mix canvas. Match Viewport tracks the editor area; fixed presets let you target specific displays.</p>
-                        <p>The projector streams directly from the mix canvas — no re-encoding, minimal latency.</p>
-                    </div>
-                    <div class="resolution-controls">
-                        <label>Resolution</label>
-                        <select id="resolution-select">
-                            <option value="viewport" selected>Match Viewport</option>
-                            <option value="1280x720">16:9 (1280x720)</option>
-                            <option value="1920x1080">16:9 (1920x1080)</option>
-                            <option value="3440x1440">21:9 (3440x1440)</option>
-                            <option value="1024x768">4:3 (1024x768)</option>
-                            <option value="1080x1080">1:1 (1080x1080)</option>
-                            <option value="720x1280">9:16 (720x1280)</option>
-                            <option value="1080x1920">9:16 (1080x1920)</option>
-                        </select>
-                    </div>
-                    <div class="background-controls">
-                        <label>
-                            <input type="checkbox" checked id="bg-toggle"> Project to Background
-                        </label>
-                    </div>
-                    <div class="projector-controls">
+                </div>
+
+                <!-- Projection -->
+                <div class="mixer-section" data-expanded="true">
+                    <h4 class="section-toggle">
+                        <span class="section-arrow">${iconHtml('chevron-right', 12)}</span>
+                        <span class="section-title">Projection</span>
+                        <button class="projection-info-btn section-body" id="projection-info-btn" title="About projection">${iconHtml('circle-help', 14)}</button>
+                    </h4>
+                    <div class="section-body">
+                        <div class="projection-info" id="projection-info" style="display: none;">
+                            <p>The projector opens a separate browser window that displays the final mixed output fullscreen. Place it on a second monitor or projector display.</p>
+                            <p>Resolution controls the render size of the mix canvas. Match Viewport tracks the editor area; fixed presets let you target specific displays.</p>
+                            <p>The projector streams directly from the mix canvas — no re-encoding, minimal latency.</p>
+                        </div>
+                        <div class="mix-field">
+                            <label>Resolution</label>
+                            <select id="resolution-select">
+                                <option value="viewport" selected>Match Viewport</option>
+                                <option value="1280x720">16:9 (1280x720)</option>
+                                <option value="1920x1080">16:9 (1920x1080)</option>
+                                <option value="3440x1440">21:9 (3440x1440)</option>
+                                <option value="1024x768">4:3 (1024x768)</option>
+                                <option value="1080x1080">1:1 (1080x1080)</option>
+                                <option value="720x1280">9:16 (720x1280)</option>
+                                <option value="1080x1920">9:16 (1080x1920)</option>
+                            </select>
+                        </div>
+                        <div class="background-controls">
+                            <label>
+                                <input type="checkbox" checked id="bg-toggle"> Project to Background
+                            </label>
+                        </div>
                         <button class="projector-btn" id="projector-open-btn">
                             <span class="projector-status-dot" id="projector-status-dot"></span>
                             Open Projector
@@ -168,13 +183,23 @@ export class MainMixerUI {
             BackgroundRenderer.openProjector()
         })
 
-        // Info toggle
+        // Info toggle (stop propagation so it doesn't collapse the section)
         const infoBtn = panel.querySelector('#projection-info-btn')
         const infoPanel = panel.querySelector('#projection-info')
-        infoBtn.addEventListener('click', () => {
+        infoBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
             const visible = infoPanel.style.display !== 'none'
             infoPanel.style.display = visible ? 'none' : 'block'
             infoBtn.classList.toggle('active', !visible)
+        })
+
+        // Collapsible section headers
+        panel.querySelectorAll('.mixer-section .section-toggle').forEach(header => {
+            header.addEventListener('click', () => {
+                const section = header.closest('.mixer-section')
+                const expanded = section.dataset.expanded === 'true'
+                section.dataset.expanded = expanded ? 'false' : 'true'
+            })
         })
 
         // Poll projector status
@@ -316,15 +341,10 @@ export class MainMixerUI {
 
         const collapseBtn = this.panel.querySelector('#mixer-collapse-btn')
 
-        if (this.isCollapsed) {
-            this.panel.classList.add('collapsed')
-            setIcon(collapseBtn, 'chevron-left', 14)
-            collapseBtn.title = 'Expand panel'
-        } else {
-            this.panel.classList.remove('collapsed')
-            setIcon(collapseBtn, 'chevron-right', 14)
-            collapseBtn.title = 'Collapse panel'
-        }
+        this.panel.classList.toggle('collapsed', this.isCollapsed)
+        // Expanded state points right (flipped); collapsed points left (unflipped)
+        collapseBtn.classList.toggle('flipped', !this.isCollapsed)
+        collapseBtn.title = this.isCollapsed ? 'Expand panel' : 'Collapse panel'
 
         this._adjustBodyLayout()
         expandWorkspaceToViewport()

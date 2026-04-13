@@ -9,7 +9,7 @@ import {mainInput} from './mainInput.js'
 import {AssetManager} from './assetManager.js'
 import {DEFAULT_BAND_CONFIG} from './audioHistogram.js'
 import {AudioScope, setupScopeCanvas} from './audioScope.js'
-import {iconHtml, setIcon} from './icons.js'
+import {iconHtml} from './icons.js'
 import {expandWorkspaceToViewport} from './editor.js'
 
 // Use the global isElectronMode set in index.html, with fallback
@@ -66,49 +66,47 @@ export class MainInputUI {
             <div class="panel-collapsed-label" id="input-collapsed-label">Main Input</div>
             <div class="main-input-content">
                 <!-- Video Source Section -->
-                <div class="input-section">
-                    <h4>Video Source</h4>
-                    <select id="main-input-video-type" class="source-select">
-                        <option value="demo">Demo Video</option>
-                        <option value="none">None</option>
-                        <option value="video">Video File</option>
-                        <option value="webcam">Webcam</option>
-                        <option value="screencapture">Screen Capture</option>
-                    </select>
-                    <div id="video-preview-container" class="video-preview-container" style="display: none;">
-                        <div id="video-overlay-buttons" class="video-overlay-buttons">
-                            <button class="btn btn-overlay" id="video-replace-btn">${iconHtml('upload', 11)} Upload</button>
-                            ${isElectronMode ? `<button class="btn btn-overlay" id="video-overlay-assets-btn">${iconHtml('folder-open', 11)} Assets</button>` : ''}
+                <div class="input-section" data-expanded="true">
+                    <h4 class="section-toggle"><span class="section-arrow">${iconHtml('chevron-right', 12)}</span>Video Source</h4>
+                    <div class="section-body">
+                        <select id="main-input-video-type" class="source-select">
+                            <option value="demo">Demo Video</option>
+                            <option value="none">None</option>
+                            <option value="video">Video File</option>
+                            <option value="webcam">Webcam</option>
+                            <option value="screencapture">Screen Capture</option>
+                        </select>
+                        <div id="video-preview-container" class="video-preview-container" style="display: none;">
+                            <div id="video-overlay-buttons" class="video-overlay-buttons">
+                                <button class="btn btn-overlay" id="video-replace-btn">${iconHtml('upload', 11)} Upload</button>
+                                ${isElectronMode ? `<button class="btn btn-overlay" id="video-overlay-assets-btn">${iconHtml('folder-open', 11)} Assets</button>` : ''}
+                            </div>
                         </div>
+                        <div id="video-controls" class="source-controls"></div>
+                        <div id="video-status" class="source-status">No video source</div>
+                        <input type="file" id="video-file-input" accept="video/*" style="display: none;">
                     </div>
-                    <div id="video-controls" class="source-controls"></div>
-                    <div id="video-status" class="source-status">No video source</div>
-                    <input type="file" id="video-file-input" accept="video/*" style="display: none;">
                 </div>
 
                 <!-- Audio Source Section -->
-                <div class="input-section">
-                    <h4>Audio Source</h4>
-                    <select id="main-input-audio-type" class="source-select">
-                        <option value="none">None</option>
-                        <option value="audio">Audio File</option>
-                        <option value="mic">Mic/Line In</option>
-                        <option value="video">Video Audio</option>
-                    </select>
-                    <div id="audio-controls" class="source-controls"></div>
-                    <div id="audio-status" class="source-status">No audio source</div>
+                <div class="input-section" data-expanded="true">
+                    <h4 class="section-toggle"><span class="section-arrow">${iconHtml('chevron-right', 12)}</span>Audio Source</h4>
+                    <div class="section-body">
+                        <select id="main-input-audio-type" class="source-select">
+                            <option value="none">None</option>
+                            <option value="audio">Audio File</option>
+                            <option value="mic">Mic/Line In</option>
+                            <option value="video">Video Audio</option>
+                        </select>
+                        <div id="audio-controls" class="source-controls"></div>
+                        <div id="audio-status" class="source-status">No audio source</div>
+                    </div>
                 </div>
 
                 <!-- Audio Analyzer Section -->
-                <div id="audio-analyzer-section" class="input-section" style="display: none;">
-                    <label id="main-input-scope-toggle" class="scope-toggle-header">
-                        <h4>Audio Analyzer</h4>
-                        <span class="scope-toggle-control">
-                            <input type="checkbox" checked>
-                            <span>Scope</span>
-                        </span>
-                    </label>
-                    <div id="main-input-scope-wrapper" class="scope-wrapper">
+                <div id="audio-analyzer-section" class="input-section" data-expanded="true" style="display: none;">
+                    <h4 class="section-toggle"><span class="section-arrow">${iconHtml('chevron-right', 12)}</span>Audio Analyzer</h4>
+                    <div class="section-body">
                         <canvas id="main-input-scope" class="scope-canvas"></canvas>
                         <div class="band-controls">
                             <div class="band-col">
@@ -158,8 +156,6 @@ export class MainInputUI {
             audioStatus: panel.querySelector('#audio-status'),
             audioAnalyzerSection: panel.querySelector('#audio-analyzer-section'),
             scopeCanvas: panel.querySelector('#main-input-scope'),
-            scopeWrapper: panel.querySelector('#main-input-scope-wrapper'),
-            scopeToggle: panel.querySelector('#main-input-scope-toggle'),
             // Gain/Expand/Smooth controls
             eqBassGain: panel.querySelector('#eq-bass-gain'),
             eqBassSmooth: panel.querySelector('#eq-bass-smooth'),
@@ -241,9 +237,13 @@ export class MainInputUI {
             }
         })
 
-        // Scope toggle
-        this.elements.scopeToggle.querySelector('input').addEventListener('change', (e) => {
-            this.elements.scopeWrapper.style.display = e.target.checked ? '' : 'none'
+        // Collapsible section headers
+        panel.querySelectorAll('.input-section .section-toggle').forEach(header => {
+            header.addEventListener('click', () => {
+                const section = header.closest('.input-section')
+                const expanded = section.dataset.expanded === 'true'
+                section.dataset.expanded = expanded ? 'false' : 'true'
+            })
         })
 
         // Start combined update loop (meters + video preview + playback state)
@@ -631,15 +631,9 @@ export class MainInputUI {
     _toggleCollapse() {
         this.isCollapsed = !this.isCollapsed
 
-        if (this.isCollapsed) {
-            this.panel.classList.add('collapsed')
-            setIcon(this.elements.collapseBtn, 'chevron-right', 14)
-            this.elements.collapseBtn.title = 'Expand panel'
-        } else {
-            this.panel.classList.remove('collapsed')
-            setIcon(this.elements.collapseBtn, 'chevron-left', 14)
-            this.elements.collapseBtn.title = 'Collapse panel'
-        }
+        this.panel.classList.toggle('collapsed', this.isCollapsed)
+        this.elements.collapseBtn.classList.toggle('flipped', this.isCollapsed)
+        this.elements.collapseBtn.title = this.isCollapsed ? 'Expand panel' : 'Collapse panel'
 
         this._adjustBodyLayout()
         expandWorkspaceToViewport()

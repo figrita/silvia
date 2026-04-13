@@ -84,10 +84,6 @@
     input { margin: 0; }
 }
 
-.scope-wrapper {
-    padding: 0 8px 8px;
-}
-
 /* ===== BAND CONTROLS (gain / expand / smooth grid) ===== */
 
 .band-controls {
