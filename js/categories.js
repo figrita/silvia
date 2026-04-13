@@ -65,7 +65,7 @@ const categoryStructure = [
     {
         name: 'Time',
         icon: '⏰',
-        nodes: ['animation', 'automation', 'adsrenvelope', 'oscillator', 'counter', 'clock', 'bpmclock', 'stepsequencer', 'euclideanrhythm', 'clockdivider', 'button']
+        nodes: ['animation', 'automation', 'adsrenvelope', 'oscillator', 'counter', 'smoothcounter', 'clock', 'bpmclock', 'stepsequencer', 'euclideanrhythm', 'clockdivider', 'button']
     },
     {
         name: 'Games',
