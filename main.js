@@ -321,7 +321,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 7. Try to restore saved workspaces, or create default nodes for a new session
     const restoredWorkspaces = await loadAllWorkspaces()
     if (!restoredWorkspaces) {
-        // Load the "Camcorder Cemetery Feedback" default patch
+        // Load the last entry in defaultPatches as the initial workspace
         const patch = {
             ...defaultPatches[defaultPatches.length - 1],
             workspaceTree: {
