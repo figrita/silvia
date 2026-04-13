@@ -15,32 +15,32 @@ registerNode({
         'flowSpeed': {
             label: 'Flow Speed',
             type: 'float',
-            control: {default: 0.5, min: 0.0, max: 2.0, step: 0.01}
+            control: {default: 0.4, min: 0.0, max: 2.0, step: 0.01}
         },
         'flowScale': {
             label: 'Flow Scale',
             type: 'float',
-            control: {default: 5.0, min: 0.1, max: 20.0, step: 0.1}
+            control: {default: 3.5, min: 0.1, max: 20.0, step: 0.1}
         },
         'distortionAmount': {
             label: 'Distortion',
             type: 'float',
-            control: {default: 0.02, min: 0.0, max: 0.1, step: 0.001}
+            control: {default: 0.015, min: 0.0, max: 0.1, step: 0.001}
         },
         'feedbackAmount': {
             label: 'Feedback',
             type: 'float',
-            control: {default: 0.95, min: 0.0, max: 1.0, step: 0.01}
+            control: {default: 0.5, min: 0.0, max: 1.0, step: 0.01}
         },
         'fadeAmount': {
             label: 'Fade',
             type: 'float',
-            control: {default: 0.98, min: 0.8, max: 1.0, step: 0.01}
+            control: {default: 0.9, min: 0.8, max: 1.0, step: 0.01}
         },
         'swirl': {
             label: 'Swirl',
             type: 'float',
-            control: {default: 1.0, min: -3.0, max: 3.0, step: 0.01}
+            control: {default: 1.1, min: -3.0, max: 3.0, step: 0.01}
         }
     },
 
