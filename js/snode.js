@@ -1138,7 +1138,7 @@ export class SNode{
                     <span>${output.label}</span>
                     ${(output.type === 'float' && output.range) ? `<span class="output-range">${output.range}</span>` : ''}
                 </div>
-                <div class="port ${output.type}" data-out-port="${key}"></div>
+                <div class="port ${output.type}${output.offlineBlocked ? ' offline-blocked' : ''}" data-out-port="${key}"></div>
             </div>`
     )}
         </div>

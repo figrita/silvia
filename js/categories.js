@@ -80,7 +80,7 @@ const categoryStructure = [
     {
         name: 'Output',
         icon: '📺',
-        nodes: ['output']
+        nodes: ['output', 'offlineoutput']
     }
 ]
 

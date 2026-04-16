@@ -81,6 +81,7 @@ registerNode({
         'frame': {
             label: 'Frame Out',
             type: 'color',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName){
                 return `vec4 ${funcName}(vec2 uv) {
     ivec2 texSize = textureSize(${uniformName}, 0);

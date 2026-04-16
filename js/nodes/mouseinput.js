@@ -19,6 +19,7 @@ registerNode({
         'x': {
             label: 'X Position',
             type: 'float',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName) { return `float ${funcName}(vec2 uv) { return ${uniformName}; }` },
             floatUniformUpdate(uniformName, gl, program) {
                 gl.uniform1f(gl.getUniformLocation(program, uniformName), this.runtimeState.x)
@@ -27,6 +28,7 @@ registerNode({
         'y': {
             label: 'Y Position',
             type: 'float',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName) { return `float ${funcName}(vec2 uv) { return ${uniformName}; }` },
             floatUniformUpdate(uniformName, gl, program) {
                 gl.uniform1f(gl.getUniformLocation(program, uniformName), this.runtimeState.y)
@@ -35,6 +37,7 @@ registerNode({
         'leftButton': {
             label: 'Left Button',
             type: 'float',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName) { return `float ${funcName}(vec2 uv) { return ${uniformName}; }` },
             floatUniformUpdate(uniformName, gl, program) {
                 gl.uniform1f(gl.getUniformLocation(program, uniformName), this.runtimeState.leftButton)
@@ -43,6 +46,7 @@ registerNode({
         'rightButton': {
             label: 'Right Button',
             type: 'float',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName) { return `float ${funcName}(vec2 uv) { return ${uniformName}; }` },
             floatUniformUpdate(uniformName, gl, program) {
                 gl.uniform1f(gl.getUniformLocation(program, uniformName), this.runtimeState.rightButton)

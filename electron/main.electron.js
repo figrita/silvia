@@ -748,6 +748,21 @@ ipcMain.handle('load-patch-from-path', async (event, filePath) => {
     }
 })
 
+ipcMain.handle('write-frame-file', async (event, dirPath, filename, arrayBuffer) => {
+    // Validate filename to prevent path traversal
+    const sanitized = path.basename(filename)
+    if(sanitized !== filename){
+        throw new Error('Invalid filename')
+    }
+    const filePath = path.join(dirPath, sanitized)
+    // Ensure the resolved path is within the target directory
+    if(!path.normalize(filePath).startsWith(path.normalize(dirPath))){
+        throw new Error('Path traversal detected')
+    }
+    const buffer = Buffer.from(arrayBuffer)
+    await fs.writeFile(filePath, buffer)
+})
+
 ipcMain.handle('show-open-dialog', async (event, options) => {
     const result = await dialog.showOpenDialog(options)
     return result

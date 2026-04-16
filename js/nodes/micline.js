@@ -1,7 +1,7 @@
 import {registerNode} from '../registry.js'
 import {autowire, StringToFragment} from '../utils.js'
 import {AudioAnalyzer} from '../audioAnalyzer.js'
-import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS_WITH_VOLUME, DEFAULT_THRESHOLD_STATE_WITH_VOLUME, THRESHOLD_ACTION_OUTPUTS_WITH_VOLUME} from '../audioThresholds.js'
+import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS_WITH_VOLUME, DEFAULT_THRESHOLD_STATE_WITH_VOLUME} from '../audioThresholds.js'
 import {ensureBandConfig, createBandEQControlsHTML, attachBandEQListeners, drawScope, applyBandConfig, makeOscilloscopeOutput, DEFAULT_BAND_CONFIG} from '../audioHistogram.js'
 
 registerNode({
@@ -45,6 +45,7 @@ registerNode({
             label: 'Red Band',
             type: 'float',
             range: '[0, 1]',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName){
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -59,6 +60,7 @@ registerNode({
             label: 'Green Band',
             type: 'float',
             range: '[0, 1]',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName){
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -73,6 +75,7 @@ registerNode({
             label: 'Blue Band',
             type: 'float',
             range: '[0, 1]',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName){
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -87,6 +90,7 @@ registerNode({
             label: 'Volume',
             type: 'float',
             range: '[0, 1]',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName){
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -98,8 +102,11 @@ registerNode({
                 gl.uniform1f(location, Math.min(1.0, avg))
             }
         },
-        'oscilloscope': makeOscilloscopeOutput(function(){ return this.runtimeState.analyzer?.waveformData }),
-        ...THRESHOLD_ACTION_OUTPUTS_WITH_VOLUME
+        'oscilloscope': {...makeOscilloscopeOutput(function(){ return this.runtimeState.analyzer?.waveformData }), offlineBlocked: true},
+        'bassThreshold': {label: 'Red Band Event', type: 'action', offlineBlocked: true},
+        'midThreshold': {label: 'Green Band Event', type: 'action', offlineBlocked: true},
+        'highThreshold': {label: 'Blue Band Event', type: 'action', offlineBlocked: true},
+        'volumeThreshold': {label: 'Volume Event', type: 'action', offlineBlocked: true}
     },
 
     async onCreate(){

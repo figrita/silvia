@@ -599,6 +599,18 @@ function managePortVisibility(startPort, shouldHide){
     const descendants = getDescendants(startNode)
     descendants.add(startNode) // Add self
 
+    // Offline boundary enforcement (graph-level, analogous to DAG cycle detection):
+    // Prevent any path from an offlineBlocked output to an offlineoutput input.
+    // "Tainted" nodes = nodes that receive data from any offlineBlocked port (transitively).
+    const offlineAncestorNodes = getOfflineOutputAncestors()
+    const taintedNodes = offlineAncestorNodes.size > 0 ? getTaintedNodes() : null
+
+    // Dragging from output: block if the start node is tainted and target feeds into offline
+    const startIsTainted = isDraggingFromOutput && taintedNodes?.has(startNode)
+
+    // Dragging from input: block tainted sources if start feeds into an offline output
+    const startFeedsOffline = !isDraggingFromOutput && hasOfflineOutputDescendant(startNode, descendants)
+
     // Iterate over every node and every port to determine its validity
     for(const targetNode of SNode.nodes){
         // Check targetNode's INPUT ports
@@ -632,12 +644,17 @@ function managePortVisibility(startPort, shouldHide){
                         isConvertible = true
                     }
                 }
+                // Offline boundary: block tainted nodes from connecting into offline output graphs
+                if(!isIllegal && startIsTainted && offlineAncestorNodes.has(targetNode)){
+                    isIllegal = true
+                    isConvertible = false
+                }
             } else {
                 // Dragging FROM AN INPUT, this port must be a valid output target.
                 // Action inputs can't start a connection drag (only outputs can trigger).
                 isIllegal = true
             }
-            
+
             portEl.classList.toggle('hidden', isIllegal)
             portEl.classList.toggle('convertible', isConvertible)
         }
@@ -673,14 +690,78 @@ function managePortVisibility(startPort, shouldHide){
                         isConvertible = true
                     }
                 }
+                // Offline boundary: block tainted sources from feeding into offline output graphs
+                if(!isIllegal && startFeedsOffline && taintedNodes?.has(targetNode)){
+                    isIllegal = true
+                    isConvertible = false
+                }
             } else {
                 isIllegal = true
             }
-            
+
             portEl.classList.toggle('hidden', isIllegal)
             portEl.classList.toggle('convertible', isConvertible)
         }
     }
+}
+
+/**
+ * Collects all nodes that are ancestors of any offlineoutput node.
+ * A connection from an offlineBlocked port to any of these nodes would
+ * create a path into an offline render graph.
+ * @returns {Set<SNode>}
+ */
+function getOfflineOutputAncestors(){
+    const result = new Set()
+    for(const node of SNode.nodes){
+        if(node.slug === 'offlineoutput'){
+            result.add(node)
+            for(const ancestor of getAncestors(node)){
+                result.add(ancestor)
+            }
+        }
+    }
+    return result
+}
+
+/**
+ * Checks whether any descendant of `startNode` (or itself) is an offlineoutput node.
+ * @param {SNode} startNode
+ * @param {Set<SNode>} descendants Pre-computed descendants set (should include startNode)
+ * @returns {boolean}
+ */
+function hasOfflineOutputDescendant(startNode, descendants){
+    if(startNode.slug === 'offlineoutput') return true
+    for(const node of descendants){
+        if(node.slug === 'offlineoutput') return true
+    }
+    return false
+}
+
+/**
+ * Computes the set of all nodes "tainted" by offlineBlocked data.
+ * A node is tainted if it has offlineBlocked outputs, or any of its
+ * ancestors do (i.e., offlineBlocked data flows through it transitively).
+ * @returns {Set<SNode>}
+ */
+function getTaintedNodes(){
+    const tainted = new Set()
+    for(const node of SNode.nodes){
+        let hasBlocked = false
+        for(const key in node.output){
+            if(node.output[key].offlineBlocked){
+                hasBlocked = true
+                break
+            }
+        }
+        if(hasBlocked){
+            tainted.add(node)
+            for(const desc of getDescendants(node)){
+                tainted.add(desc)
+            }
+        }
+    }
+    return tainted
 }
 
 /**

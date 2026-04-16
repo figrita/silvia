@@ -8,7 +8,7 @@
 
 import {registerNode} from '../registry.js'
 import {mainInput} from '../mainInput.js'
-import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
+import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE} from '../audioThresholds.js'
 import {makeOscilloscopeOutput} from '../audioHistogram.js'
 
 registerNode({
@@ -39,6 +39,7 @@ registerNode({
         'output': {
             label: 'Video',
             type: 'color',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName) {
                 return `vec4 ${funcName}(vec2 uv) {
     ivec2 texSize = textureSize(${uniformName}, 0);
@@ -59,6 +60,7 @@ registerNode({
             label: 'Red Band',
             type: 'float',
             range: '[0, 1]',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName) {
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -73,6 +75,7 @@ registerNode({
             label: 'Green Band',
             type: 'float',
             range: '[0, 1]',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName) {
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -87,6 +90,7 @@ registerNode({
             label: 'Blue Band',
             type: 'float',
             range: '[0, 1]',
+            offlineBlocked: true,
             genCode(cc, funcName, uniformName) {
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -97,9 +101,11 @@ registerNode({
             }
         },
 
-        'oscilloscope': makeOscilloscopeOutput(function(){ return mainInput.getWaveformData() }),
+        'oscilloscope': {...makeOscilloscopeOutput(function(){ return mainInput.getWaveformData() }), offlineBlocked: true},
 
-        ...THRESHOLD_ACTION_OUTPUTS
+        'bassThreshold': {label: 'Red Band Event', type: 'action', offlineBlocked: true},
+        'midThreshold': {label: 'Green Band Event', type: 'action', offlineBlocked: true},
+        'highThreshold': {label: 'Blue Band Event', type: 'action', offlineBlocked: true}
     },
 
     onCreate() {
