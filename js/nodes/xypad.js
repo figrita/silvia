@@ -297,6 +297,10 @@ registerNode({
 
     _prepareForTime(virtualTime, fps){
         this._step(1 / fps)
+        if(this.elements.canvas){
+            this._draw(this.elements.canvas, this.elements.canvas.getContext('2d'))
+            this._updateDisplays()
+        }
     },
 
     _suspendRealtimeLoops(){
@@ -304,6 +308,7 @@ registerNode({
             cancelAnimationFrame(this.runtimeState.animationFrameId)
             this.runtimeState.animationFrameId = null
         }
+        this.runtimeState.isPointerDown = false
     },
 
     _resumeRealtimeLoops(){

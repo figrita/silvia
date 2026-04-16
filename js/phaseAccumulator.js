@@ -80,6 +80,7 @@ export class PhaseAccumulator {
             this.transitionStartTime = -1
         }
         this.phase += dt * this.speed
+        this.lastUpdateTime = performance.now() / 1000
         return this.phase
     }
 

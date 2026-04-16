@@ -203,7 +203,9 @@ export class OfflineAudioAnalyzer {
         if (!isFinite(raw)) raw = 0
 
         const old = state.history[state.index]
-        state.sorted.splice(state.sorted.indexOf(old), 1)
+        const sortedIdx = state.sorted.indexOf(old)
+        if(sortedIdx >= 0) state.sorted.splice(sortedIdx, 1)
+        else state.sorted.pop()
 
         let i = 0
         while (i < state.sorted.length && state.sorted[i] < raw) i++

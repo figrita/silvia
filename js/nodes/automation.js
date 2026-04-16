@@ -447,12 +447,14 @@ registerNode({
     },
 
     _suspendRealtimeLoops(){
-        if(this.runtimeState.graph){
-            this.runtimeState.graph.stopAnimation()
-        }
+        if(this.runtimeState.graph){ this.runtimeState.graph.stopAnimation() }
+        this.runtimeState._wasRunning = this.values.isPlaying
+        this.values.isPlaying = true
+        if(this.runtimeState.phaseAccumulator){ this.runtimeState.phaseAccumulator.resetPhase(0) }
     },
 
     _resumeRealtimeLoops(){
+        this.values.isPlaying = this.runtimeState._wasRunning ?? this.values.isPlaying
         if(this.runtimeState.graph){
             this.runtimeState.graph.startAnimation(() => this._getCurrentValue())
         }

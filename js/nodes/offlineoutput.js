@@ -265,6 +265,7 @@ registerNode({
 
         this.runtimeState.isRendering = true
         this.runtimeState.cancelled = false
+        let renderCompleted = false
 
         try {
         // UI state
@@ -394,7 +395,13 @@ registerNode({
             if(i % 4 === 0 || i === totalFrames - 1){
                 previewCtx.drawImage(encodeCanvas, 0, 0, outW, outH)
             }
-            const blob = await encodeCanvas.convertToBlob({type: 'image/png'})
+            let blob
+            try {
+                blob = await encodeCanvas.convertToBlob({type: 'image/png'})
+            } catch(e) {
+                this.elements.progressText.textContent = `Encode failed on frame ${i + 1}: ${e.message}`
+                throw e
+            }
 
             // Save frame
             const frameName = `frame_${String(i + 1).padStart(6, '0')}.png`
@@ -413,6 +420,11 @@ registerNode({
                 // Web fallback: accumulate blobs for zip
                 frameBlobs.push({name: frameName, blob})
                 frameBlobBytes += blob.size
+                if(frameBlobBytes > 3900 * 1024 * 1024){
+                    this.elements.progressText.textContent = 'Web zip limit reached (~4GB). Use File System Access API or Electron.'
+                    this.runtimeState.cancelled = true
+                    continue
+                }
             }
 
             // Progress
@@ -448,6 +460,7 @@ registerNode({
         } else {
             this.elements.progressText.textContent = 'Cancelled'
         }
+        renderCompleted = true
 
         } finally {
             // Restore renderer to output resolution if supersampled
@@ -462,6 +475,13 @@ registerNode({
             this.runtimeState.isRendering = false
             this.elements.startBtn.style.display = 'block'
             this.elements.cancelBtn.style.display = 'none'
+            // On unhandled error: reset progress UI so partial state doesn't persist.
+            // Normal completion (done / cancelled) leaves the final message visible.
+            if(!renderCompleted){
+                this.elements.progressBar.style.display = 'none'
+                this.elements.progressText.style.display = 'none'
+                this.elements.progressFill.style.width = '0%'
+            }
         }
     },
 

@@ -63,19 +63,55 @@ registerNode({
 
         const bpm = this.values.bpm
         const timePerStep = 60 / bpm / 4
+        const gateLength = this.values.gateLength
+        const hasGate = gateLength < 0.99
         const absoluteStep = Math.floor(virtualTime / timePerStep)
 
-        // Track absolute step count to detect skipped steps
-        if(this.runtimeState._lastAbsoluteStep === undefined){
-            this.runtimeState._lastAbsoluteStep = -1
+        if(this.runtimeState._lastAbsoluteStep === undefined) this.runtimeState._lastAbsoluteStep = -1
+        if(this.runtimeState._lastGateUpStep === undefined) this.runtimeState._lastGateUpStep = -1
+
+        // Carry-over: fire gate-up for the previous frame's step if its time has now passed
+        if(hasGate && this.runtimeState._lastAbsoluteStep >= 0 &&
+           this.runtimeState._lastGateUpStep < this.runtimeState._lastAbsoluteStep){
+            const gateUpTime = this.runtimeState._lastAbsoluteStep * timePerStep + gateLength * timePerStep
+            if(virtualTime >= gateUpTime){
+                for(let lane = 0; lane < 4; lane++){
+                    if(this.runtimeState._laneActive?.[lane]) this.triggerAction(`lane${lane + 1}`, 'up')
+                }
+                this.runtimeState._lastGateUpStep = this.runtimeState._lastAbsoluteStep
+            }
         }
 
-        // Fire all intermediate steps that were skipped between frames
         if(absoluteStep > this.runtimeState._lastAbsoluteStep){
             const from = this.runtimeState._lastAbsoluteStep + 1
             for(let s = from; s <= absoluteStep; s++){
+                // Before executing step s, _laneActive reflects step s-1.
+                // Close gate for s-1 if not yet done.
+                if(hasGate && this.runtimeState._lastGateUpStep < s - 1){
+                    for(let lane = 0; lane < 4; lane++){
+                        if(this.runtimeState._laneActive?.[lane]) this.triggerAction(`lane${lane + 1}`, 'up')
+                    }
+                    this.runtimeState._lastGateUpStep = s - 1
+                }
                 this.runtimeState.currentStep = s % 16
-                this._executeCurrentStep()
+                this._executeCurrentStep() // updates _laneActive to step s
+                // Close gate for step s if it's a fully-past step
+                if(hasGate && s < absoluteStep){
+                    for(let lane = 0; lane < 4; lane++){
+                        if(this.runtimeState._laneActive?.[lane]) this.triggerAction(`lane${lane + 1}`, 'up')
+                    }
+                    this.runtimeState._lastGateUpStep = s
+                }
+            }
+            // Close gate for absoluteStep if its gate-up time is before virtualTime
+            if(hasGate && this.runtimeState._lastGateUpStep < absoluteStep){
+                const gateUpTime = absoluteStep * timePerStep + gateLength * timePerStep
+                if(virtualTime >= gateUpTime){
+                    for(let lane = 0; lane < 4; lane++){
+                        if(this.runtimeState._laneActive?.[lane]) this.triggerAction(`lane${lane + 1}`, 'up')
+                    }
+                    this.runtimeState._lastGateUpStep = absoluteStep
+                }
             }
             this.runtimeState._lastAbsoluteStep = absoluteStep
             this.runtimeState.lastStepIndex = this.runtimeState.currentStep
@@ -95,6 +131,7 @@ registerNode({
         this.runtimeState.currentStep = -1
         this.runtimeState.lastStepIndex = -1
         this.runtimeState._lastAbsoluteStep = -1
+        this.runtimeState._lastGateUpStep = -1
         this.runtimeState._laneActive = [false, false, false, false]
     },
 

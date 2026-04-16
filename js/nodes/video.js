@@ -658,24 +658,24 @@ registerNode({
         const video = this.elements.video
         if(!video || !video.duration || video.duration === 0) return
 
-        // Compute target time, handling looping
+        // Compute target time, handling looping. Double-modulo handles negative virtualTime (warmup).
         const targetTime = video.loop
-            ? virtualTime % video.duration
-            : Math.min(virtualTime, video.duration)
+            ? ((virtualTime % video.duration) + video.duration) % video.duration
+            : Math.max(0, Math.min(virtualTime, video.duration))
 
         // Skip seek if already at the right time (within half a frame)
         if(Math.abs(video.currentTime - targetTime) < 0.001) {
             this._drawVideoToCanvas()
         } else {
-            // Seek and wait
+            // Seek and wait, with 5s timeout guard
             video.currentTime = targetTime
-            await new Promise(resolve => {
-                const onSeeked = () => {
-                    video.removeEventListener('seeked', onSeeked)
-                    resolve()
-                }
-                video.addEventListener('seeked', onSeeked)
-            })
+            await Promise.race([
+                new Promise(resolve => {
+                    const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve() }
+                    video.addEventListener('seeked', onSeeked)
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Video seek timeout')), 5000))
+            ])
             this._drawVideoToCanvas()
         }
 
