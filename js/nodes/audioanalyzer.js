@@ -1,5 +1,6 @@
 import {registerNode} from '../registry.js'
 import {AudioAnalyzer} from '../audioAnalyzer.js'
+import {OfflineAudioAnalyzer} from '../offlineAudioAnalyzer.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
 import {AssetManager} from '../assetManager.js'
 import {ensureBandConfig, createBandEQUI, drawScope, applyBandConfig, makeOscilloscopeOutput, DEFAULT_BAND_CONFIG} from '../audioHistogram.js'
@@ -229,6 +230,31 @@ registerNode({
         }
     },
 
+    async _prepareForTime(virtualTime, fps){
+        // Lazily initialize offline analyzer on first call
+        if(!this.runtimeState.offlineAnalyzer){
+            const src = this.elements.audio?.src
+            if(!src) return
+            const oa = new OfflineAudioAnalyzer()
+            applyBandConfig(oa, this.values.bandConfig)
+            await oa.initFromURL(src)
+            oa.reset()
+            this.runtimeState.offlineAnalyzer = oa
+        }
+
+        const oa = this.runtimeState.offlineAnalyzer
+        oa.analyzeAtTime(virtualTime)
+
+        // Write results to the realtime analyzer's public state so uniform updates read them
+        if(this.runtimeState.analyzer){
+            this.runtimeState.analyzer.audioValues.bass = oa.audioValues.bass
+            this.runtimeState.analyzer.audioValues.mid = oa.audioValues.mid
+            this.runtimeState.analyzer.audioValues.high = oa.audioValues.high
+            this.runtimeState.analyzer.waveformData.set(oa.waveformData)
+            this.runtimeState.analyzer.frequencyData.set(oa.frequencyData)
+        }
+    },
+
     _suspendRealtimeLoops(){
         if(this.runtimeState.uiUpdateFrameId){
             cancelAnimationFrame(this.runtimeState.uiUpdateFrameId)
@@ -239,6 +265,9 @@ registerNode({
     },
 
     _resumeRealtimeLoops(){
+        // Clean up offline analyzer
+        this.runtimeState.offlineAnalyzer = null
+
         this.runtimeState.analyzer?.start()
         this.elements.audio?.play()
         this._startUiUpdateLoop()

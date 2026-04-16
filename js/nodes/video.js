@@ -2,6 +2,7 @@ import {registerNode} from '../registry.js'
 import {Connection} from '../connections.js'
 import {autowire, StringToFragment} from '../utils.js'
 import {AudioAnalyzer} from '../audioAnalyzer.js'
+import {OfflineAudioAnalyzer} from '../offlineAudioAnalyzer.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
 import {AssetManager} from '../assetManager.js'
 import {ensureBandConfig, createBandEQControlsHTML, attachBandEQListeners, drawScope, applyBandConfig, makeOscilloscopeOutput, DEFAULT_BAND_CONFIG} from '../audioHistogram.js'
@@ -653,7 +654,7 @@ registerNode({
         updateMeters()
     },
 
-    async _prepareForTime(virtualTime){
+    async _prepareForTime(virtualTime, fps){
         const video = this.elements.video
         if(!video || !video.duration || video.duration === 0) return
 
@@ -664,23 +665,42 @@ registerNode({
 
         // Skip seek if already at the right time (within half a frame)
         if(Math.abs(video.currentTime - targetTime) < 0.001) {
-            // Still draw the current frame to canvas
             this._drawVideoToCanvas()
-            return
+        } else {
+            // Seek and wait
+            video.currentTime = targetTime
+            await new Promise(resolve => {
+                const onSeeked = () => {
+                    video.removeEventListener('seeked', onSeeked)
+                    resolve()
+                }
+                video.addEventListener('seeked', onSeeked)
+            })
+            this._drawVideoToCanvas()
         }
 
-        // Seek and wait
-        video.currentTime = targetTime
-        await new Promise(resolve => {
-            const onSeeked = () => {
-                video.removeEventListener('seeked', onSeeked)
-                resolve()
+        // Offline audio analysis
+        if(this.runtimeState.analyzer){
+            if(!this.runtimeState.offlineAnalyzer){
+                const src = video.src
+                if(src){
+                    const oa = new OfflineAudioAnalyzer()
+                    applyBandConfig(oa, this.values.bandConfig)
+                    await oa.initFromURL(src)
+                    oa.reset()
+                    this.runtimeState.offlineAnalyzer = oa
+                }
             }
-            video.addEventListener('seeked', onSeeked)
-        })
-
-        // Draw the seeked frame to canvas
-        this._drawVideoToCanvas()
+            if(this.runtimeState.offlineAnalyzer){
+                this.runtimeState.offlineAnalyzer.analyzeAtTime(virtualTime)
+                const oa = this.runtimeState.offlineAnalyzer
+                this.runtimeState.analyzer.audioValues.bass = oa.audioValues.bass
+                this.runtimeState.analyzer.audioValues.mid = oa.audioValues.mid
+                this.runtimeState.analyzer.audioValues.high = oa.audioValues.high
+                this.runtimeState.analyzer.waveformData.set(oa.waveformData)
+                this.runtimeState.analyzer.frequencyData.set(oa.frequencyData)
+            }
+        }
     },
 
     _drawVideoToCanvas(){
@@ -706,6 +726,7 @@ registerNode({
     },
 
     _resumeRealtimeLoops(){
+        this.runtimeState.offlineAnalyzer = null
         this._startCanvasRenderLoop()
         this._startUiUpdateLoop()
         this.elements.video?.play().catch(e => console.warn('Video play interrupted:', e))

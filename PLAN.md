@@ -36,11 +36,18 @@ The connection system enforces this at the **graph level**, not just direct conn
 - try/finally ensures realtime loops resume even on cancel or error
 - Audio analyzer gets suspend/resume stubs (actual offline FFT is Phase 4)
 
-### Phase 4: Offline Audio Analysis
-- `OfflineAudioAnalyzer` class — operates on decoded `AudioBuffer` instead of live `AnalyserNode`
-- FFT windowing + band extraction matching realtime `AudioAnalyzer` behavior
-- Smoothing/exciter state advances per-frame, adjusted for target FPS
-- Used by audioanalyzer and video nodes during offline render
+### Phase 4: Offline Audio Analysis (done)
+- `OfflineAudioAnalyzer` class in `offlineAudioAnalyzer.js`:
+  - Decodes full audio via `fetch` + `AudioContext.decodeAudioData`
+  - Radix-2 Cooley-Tukey FFT with Hann windowing (fftSize=512)
+  - Byte frequency data conversion matching AnalyserNode dB mapping [-100, -30] → [0, 255]
+  - Temporal smoothing matching `smoothingTimeConstant=0.3`
+  - Band extraction (log-weighted average, power curve) identical to AudioAnalyzer
+  - Exciter (rolling median, tanh expansion, EMA smoothing) identical to AudioAnalyzer
+  - `reset()` for clean state at render start, `analyzeAtTime(t)` for sequential frames
+- audioanalyzer node: lazy `_prepareForTime` creates OfflineAudioAnalyzer, writes results to realtime analyzer's public state
+- video node: `_prepareForTime` extended with offline audio analysis alongside video seeking
+- Both nodes clean up offline analyzer in `_resumeRealtimeLoops`
 
 ### Phase 5: Timing Node Determinism
 - `_prepareForTime(t)` on step sequencer, BPM clock, clock divider, euclidean rhythm, random fire, ADSR envelope, smooth counter, automation
