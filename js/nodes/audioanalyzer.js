@@ -229,6 +229,21 @@ registerNode({
         }
     },
 
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.uiUpdateFrameId){
+            cancelAnimationFrame(this.runtimeState.uiUpdateFrameId)
+            this.runtimeState.uiUpdateFrameId = null
+        }
+        this.runtimeState.analyzer?.stop()
+        this.elements.audio?.pause()
+    },
+
+    _resumeRealtimeLoops(){
+        this.runtimeState.analyzer?.start()
+        this.elements.audio?.play()
+        this._startUiUpdateLoop()
+    },
+
     onDestroy(){
         if(this.runtimeState.uiUpdateFrameId){cancelAnimationFrame(this.runtimeState.uiUpdateFrameId)}
         this.runtimeState.analyzer?.close()

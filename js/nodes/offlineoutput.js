@@ -1,6 +1,7 @@
 import {registerNode} from '../registry.js'
 import {compile} from '../compiler.js'
 import {SNode} from '../snode.js'
+import {Connection} from '../connections.js'
 import {WebGLRenderer} from '../webgl.js'
 import {mainMixer} from '../mainMixer.js'
 import {autowire, StringToFragment} from '../utils.js'
@@ -178,6 +179,40 @@ registerNode({
     // Called by the main render loop — offline output does NOT render in realtime
     updateOutput(time){},
 
+    /**
+     * Collect all upstream nodes that support offline time preparation.
+     * Returns them in topological order (sources first) so upstream nodes
+     * prepare before downstream nodes that depend on their output.
+     */
+    _collectTimeDrivenNodes(){
+        const visited = new Set()
+        const ordered = []
+
+        const visit = (node) => {
+            if(visited.has(node)) return
+            visited.add(node)
+            // Visit upstream nodes first (depth-first, post-order)
+            for(const key in node.input){
+                const port = node.input[key]
+                if(port.connection){
+                    visit(port.connection.parent)
+                }
+            }
+            // Also follow action connections (step sequencer → triggered nodes)
+            for(const conn of Connection.connections){
+                if(conn.destination.parent === node && conn.source.parent !== node){
+                    visit(conn.source.parent)
+                }
+            }
+            if(node._prepareForTime){
+                ordered.push(node)
+            }
+        }
+
+        visit(this)
+        return ordered
+    },
+
     async _startRender(){
         if(this.runtimeState.isRendering) return
 
@@ -204,9 +239,18 @@ registerNode({
             this.elements.canvas.height = h
         }
 
+        // Discover upstream nodes that need time-driven preparation
+        const timeNodes = this._collectTimeDrivenNodes()
+
+        // Suspend their realtime loops
+        for(const node of timeNodes){
+            node._suspendRealtimeLoops?.()
+        }
+
         this.runtimeState.isRendering = true
         this.runtimeState.cancelled = false
 
+        try {
         // UI state
         this.elements.startBtn.style.display = 'none'
         this.elements.cancelBtn.style.display = 'block'
@@ -271,6 +315,11 @@ registerNode({
                 virtualTime = (i - warmupFrames) / fps
             }
 
+            // Prepare upstream nodes for this time
+            for(const node of timeNodes){
+                await node._prepareForTime(virtualTime, fps)
+            }
+
             this._renderOneFrame(virtualTime, renderer, gl)
 
             // Update progress
@@ -287,7 +336,10 @@ registerNode({
 
             const virtualTime = i / fps
 
-            // TODO: Phase 3+ — call _prepareForTime on upstream nodes here
+            // Prepare upstream nodes for this time
+            for(const node of timeNodes){
+                await node._prepareForTime(virtualTime, fps)
+            }
 
             this._renderOneFrame(virtualTime, renderer, gl)
 
@@ -360,9 +412,16 @@ registerNode({
             this.elements.progressText.textContent = 'Cancelled'
         }
 
-        this.runtimeState.isRendering = false
-        this.elements.startBtn.style.display = 'block'
-        this.elements.cancelBtn.style.display = 'none'
+        } finally {
+            // Resume realtime loops on upstream nodes (even if cancelled or errored)
+            for(const node of timeNodes){
+                node._resumeRealtimeLoops?.()
+            }
+
+            this.runtimeState.isRendering = false
+            this.elements.startBtn.style.display = 'block'
+            this.elements.cancelBtn.style.display = 'none'
+        }
     },
 
     _renderOneFrame(virtualTime, renderer, gl){

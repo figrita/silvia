@@ -29,10 +29,12 @@ The connection system enforces this at the **graph level**, not just direct conn
 - Warm-up modes: black, hold first frame, run sequence
 - Progress bar with ETA, preview canvas, cancel button
 
-### Phase 3: Video Node Offline Support
-- `_prepareForTime(t)` on video node — pause, seek to `t % duration`, wait for `seeked`, draw to canvas
-- `_suspendRealtimeLoops()` / `_resumeRealtimeLoops()` to pause rAF loops during offline render
-- Offline output calls these on all upstream nodes before each frame
+### Phase 3: Video Node Offline Support (done)
+- `_prepareForTime(t)` on video node — seek to `t % duration`, wait for `seeked`, draw to canvas
+- `_suspendRealtimeLoops()` / `_resumeRealtimeLoops()` on video and audioanalyzer nodes
+- Offline output discovers upstream nodes via graph traversal (topological order, sources first)
+- try/finally ensures realtime loops resume even on cancel or error
+- Audio analyzer gets suspend/resume stubs (actual offline FFT is Phase 4)
 
 ### Phase 4: Offline Audio Analysis
 - `OfflineAudioAnalyzer` class — operates on decoded `AudioBuffer` instead of live `AnalyserNode`

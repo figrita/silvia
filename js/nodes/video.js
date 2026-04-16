@@ -653,6 +653,64 @@ registerNode({
         updateMeters()
     },
 
+    async _prepareForTime(virtualTime){
+        const video = this.elements.video
+        if(!video || !video.duration || video.duration === 0) return
+
+        // Compute target time, handling looping
+        const targetTime = video.loop
+            ? virtualTime % video.duration
+            : Math.min(virtualTime, video.duration)
+
+        // Skip seek if already at the right time (within half a frame)
+        if(Math.abs(video.currentTime - targetTime) < 0.001) {
+            // Still draw the current frame to canvas
+            this._drawVideoToCanvas()
+            return
+        }
+
+        // Seek and wait
+        video.currentTime = targetTime
+        await new Promise(resolve => {
+            const onSeeked = () => {
+                video.removeEventListener('seeked', onSeeked)
+                resolve()
+            }
+            video.addEventListener('seeked', onSeeked)
+        })
+
+        // Draw the seeked frame to canvas
+        this._drawVideoToCanvas()
+    },
+
+    _drawVideoToCanvas(){
+        const {video, canvas} = this.elements
+        if(!video || !canvas) return
+        if(video.readyState >= video.HAVE_CURRENT_DATA){
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            this.runtimeState.canvasHasData = true
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.renderLoop){
+            cancelAnimationFrame(this.runtimeState.renderLoop)
+            this.runtimeState.renderLoop = null
+        }
+        if(this.runtimeState.uiUpdateFrameId){
+            cancelAnimationFrame(this.runtimeState.uiUpdateFrameId)
+            this.runtimeState.uiUpdateFrameId = null
+        }
+        this.elements.video?.pause()
+    },
+
+    _resumeRealtimeLoops(){
+        this._startCanvasRenderLoop()
+        this._startUiUpdateLoop()
+        this.elements.video?.play().catch(e => console.warn('Video play interrupted:', e))
+    },
+
     onDestroy(){
         if(this.runtimeState.renderLoop){
             cancelAnimationFrame(this.runtimeState.renderLoop)
