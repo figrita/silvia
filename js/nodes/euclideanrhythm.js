@@ -120,26 +120,37 @@ registerNode({
         for(let i = 0; i < this.runtimeState.gateTimeouts.length; i++) clearTimeout(this.runtimeState.gateTimeouts[i])
         this.runtimeState.gateTimeouts.length = 0
 
-        for(let lane = 0; lane < 4; lane++){
-            this.triggerAction(`lane${lane + 1}`, 'up')
-        }
-
         const gateLength = this.values.gateLength
         const bpm = this.values.bpm
         const timePerStep = (60 / bpm / 4) * 1000
         const gateTime = timePerStep * gateLength
+        const step = this.runtimeState.currentStep
 
         for(let lane = 0; lane < 4; lane++){
-            if(this.runtimeState.patterns[lane][this.runtimeState.currentStep]){
-                this.triggerAction(`lane${lane + 1}`, 'down')
+            const wasActive = this.runtimeState._laneActive?.[lane] ?? false
+            const isActive = this.runtimeState.patterns[lane][step]
 
-                if(gateLength < 0.99){
-                    const timeout = setTimeout(() => {
-                        this.triggerAction(`lane${lane + 1}`, 'up')
-                    }, gateTime)
-                    this.runtimeState.gateTimeouts.push(timeout)
-                }
+            if(wasActive && !isActive){
+                this.triggerAction(`lane${lane + 1}`, 'up')
             }
+
+            if(isActive && !wasActive){
+                this.triggerAction(`lane${lane + 1}`, 'down')
+            }
+
+            if(isActive && gateLength < 0.99){
+                const timeout = setTimeout(() => {
+                    this.triggerAction(`lane${lane + 1}`, 'up')
+                }, gateTime)
+                this.runtimeState.gateTimeouts.push(timeout)
+            }
+        }
+
+        if(!this.runtimeState._laneActive){
+            this.runtimeState._laneActive = [false, false, false, false]
+        }
+        for(let lane = 0; lane < 4; lane++){
+            this.runtimeState._laneActive[lane] = this.runtimeState.patterns[lane][step]
         }
     },
 
@@ -393,6 +404,7 @@ registerNode({
         this.runtimeState.currentStep = -1
         this.runtimeState.lastStepIndex = -1
         this.runtimeState._lastAbsoluteStep = -1
+        this.runtimeState._laneActive = [false, false, false, false]
     },
 
     _resumeRealtimeLoops(){

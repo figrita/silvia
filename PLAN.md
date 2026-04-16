@@ -81,8 +81,8 @@ All timing-driven nodes now support offline rendering via `_prepareForTime` / `_
 - **Threshold debounce fix**: threshold state reset on suspend so lastTriggerTime (in performance.now() space) doesn't block triggers in virtual time space
 - **Graph visualization**: ADSR, animation, oscillator, automation graphs update live during offline render via updateValue() + draw() in _prepareForTime
 
-### Phase 6: Polish
-- Supersampling option (render at Nx, downsample before save)
-- Frame history warm-up count exposed in UI
-- Memory pressure management for long web-mode renders
-- Loop point handling for media shorter than clip duration
+### Phase 6: Polish (done)
+- **Supersampling**: 1x/2x/4x option. Renders at scaled resolution, reads back supersized pixels, downsamples to output resolution via OffscreenCanvas drawImage (bilinear filtering). Renderer restored to output resolution in finally block.
+- **Memory pressure**: web zip fallback tracks accumulated blob bytes, shows size warning in progress text when >500MB
+- **Loop points**: already handled — video node wraps `virtualTime % duration` when loop=true, OfflineAudioAnalyzer wraps with double-modulo for negative warm-up times
+- **Warm-up frames**: already exposed in UI from Phase 2

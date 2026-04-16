@@ -72,6 +72,16 @@ registerNode({
                 {value: 'hold', name: 'Hold First Frame'},
                 {value: 'sequence', name: 'Run Sequence'}
             ]
+        },
+        'supersampling': {
+            label: 'Supersampling',
+            type: 'select',
+            default: '1',
+            choices: [
+                {value: '1', name: '1x (off)'},
+                {value: '2', name: '2x'},
+                {value: '4', name: '4x'}
+            ]
         }
     },
 
@@ -228,15 +238,21 @@ registerNode({
         const totalFrames = Math.ceil(fps * duration)
         const warmupFrames = this.values.warmupFrames
         const warmupMode = this.getOption('warmupMode')
+        const ssScale = parseInt(this.getOption('supersampling'), 10)
         const renderer = this.runtimeState.renderer
         const gl = renderer.gl
-        const [w, h] = this.getOption('resolution').split('x').map(Number)
+        const [outW, outH] = this.getOption('resolution').split('x').map(Number)
+        const renderW = outW * ssScale
+        const renderH = outH * ssScale
 
-        // Ensure resolution matches
-        if(renderer._width !== w || renderer._height !== h){
-            renderer.onResize(w, h)
-            this.elements.canvas.width = w
-            this.elements.canvas.height = h
+        // Render at supersampled resolution
+        if(renderer._width !== renderW || renderer._height !== renderH){
+            renderer.onResize(renderW, renderH)
+        }
+        // Preview canvas stays at output resolution
+        if(this.elements.canvas.width !== outW || this.elements.canvas.height !== outH){
+            this.elements.canvas.width = outW
+            this.elements.canvas.height = outH
         }
 
         // Discover upstream nodes that need time-driven preparation
@@ -261,6 +277,7 @@ registerNode({
         let outputDir = null
         let fileHandle = null
         const frameBlobs = []
+        let frameBlobBytes = 0
 
         if(isElectronMode && window.electronAPI){
             const result = await window.electronAPI.showOpenDialog({
@@ -289,12 +306,16 @@ registerNode({
             }
         }
 
-        // Pixel buffer for readback
-        const pixelBuf = new Uint8Array(w * h * 4)
+        // Pixel buffer for readback (at render resolution)
+        const pixelBuf = new Uint8Array(renderW * renderH * 4)
 
-        // Offscreen canvas for PNG encoding
-        const encodeCanvas = new OffscreenCanvas(w, h)
+        // Offscreen canvas for PNG encoding (at output resolution)
+        const encodeCanvas = new OffscreenCanvas(outW, outH)
         const encodeCtx = encodeCanvas.getContext('2d')
+
+        // Supersampled source canvas (only needed if ssScale > 1)
+        const ssCanvas = ssScale > 1 ? new OffscreenCanvas(renderW, renderH) : null
+        const ssCtx = ssCanvas ? ssCanvas.getContext('2d') : null
 
         // Preview canvas 2d context
         const previewCtx = this.elements.canvas.getContext('2d')
@@ -343,25 +364,36 @@ registerNode({
 
             this._renderOneFrame(virtualTime, renderer, gl)
 
-            // Blocking readback
+            // Blocking readback at render resolution
             gl.bindFramebuffer(gl.READ_FRAMEBUFFER, renderer.tempFBO)
-            gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixelBuf)
+            gl.readPixels(0, 0, renderW, renderH, gl.RGBA, gl.UNSIGNED_BYTE, pixelBuf)
 
-            // Flip Y (GL is bottom-to-top)
-            const imageData = new ImageData(w, h)
-            const rowBytes = w * 4
-            for(let y = 0; y < h; y++){
-                const srcOffset = (h - 1 - y) * rowBytes
-                imageData.data.set(pixelBuf.subarray(srcOffset, srcOffset + rowBytes), y * rowBytes)
+            // Flip Y (GL is bottom-to-top) into the encode canvas
+            if(ssScale > 1){
+                // Flip into supersized canvas, then downsample to output resolution
+                const ssImageData = new ImageData(renderW, renderH)
+                const rowBytes = renderW * 4
+                for(let y = 0; y < renderH; y++){
+                    const srcOffset = (renderH - 1 - y) * rowBytes
+                    ssImageData.data.set(pixelBuf.subarray(srcOffset, srcOffset + rowBytes), y * rowBytes)
+                }
+                ssCtx.putImageData(ssImageData, 0, 0)
+                // Downsample via drawImage (bilinear filtering)
+                encodeCtx.drawImage(ssCanvas, 0, 0, outW, outH)
+            } else {
+                const imageData = new ImageData(outW, outH)
+                const rowBytes = outW * 4
+                for(let y = 0; y < outH; y++){
+                    const srcOffset = (outH - 1 - y) * rowBytes
+                    imageData.data.set(pixelBuf.subarray(srcOffset, srcOffset + rowBytes), y * rowBytes)
+                }
+                encodeCtx.putImageData(imageData, 0, 0)
             }
 
             // Update preview canvas (every 4th frame to save overhead)
             if(i % 4 === 0 || i === totalFrames - 1){
-                previewCtx.putImageData(imageData, 0, 0)
+                previewCtx.drawImage(encodeCanvas, 0, 0, outW, outH)
             }
-
-            // Encode to PNG
-            encodeCtx.putImageData(imageData, 0, 0)
             const blob = await encodeCanvas.convertToBlob({type: 'image/png'})
 
             // Save frame
@@ -380,6 +412,7 @@ registerNode({
             } else {
                 // Web fallback: accumulate blobs for zip
                 frameBlobs.push({name: frameName, blob})
+                frameBlobBytes += blob.size
             }
 
             // Progress
@@ -390,7 +423,11 @@ registerNode({
             const remaining = perFrame * (totalFrames - i - 1)
             const mins = Math.floor(remaining / 60)
             const secs = Math.floor(remaining % 60)
-            this.elements.progressText.textContent = `Frame ${i + 1} / ${totalFrames} (${pct.toFixed(0)}%) — ${mins}:${String(secs).padStart(2, '0')} remaining`
+            let progressMsg = `Frame ${i + 1} / ${totalFrames} (${pct.toFixed(0)}%) — ${mins}:${String(secs).padStart(2, '0')} remaining`
+            if(frameBlobBytes > 500 * 1024 * 1024){
+                progressMsg += ` — ${(frameBlobBytes / (1024 * 1024)).toFixed(0)}MB in memory`
+            }
+            this.elements.progressText.textContent = progressMsg
 
             // Yield to browser
             await new Promise(r => setTimeout(r, 0))
@@ -413,6 +450,10 @@ registerNode({
         }
 
         } finally {
+            // Restore renderer to output resolution if supersampled
+            if(ssScale > 1 && renderer._width !== outW){
+                renderer.onResize(outW, outH)
+            }
             // Resume realtime loops on upstream nodes (even if cancelled or errored)
             for(const node of timeNodes){
                 node._resumeRealtimeLoops?.()
