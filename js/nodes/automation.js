@@ -428,6 +428,36 @@ registerNode({
         }
     },
 
+    _prepareForTime(virtualTime, fps){
+        if(!this.values.isPlaying || this.values.automationData.length === 0) return
+        if(!this.runtimeState.phaseAccumulator){
+            this.runtimeState.phaseAccumulator = new PhaseAccumulator({
+                initialSpeed: 1.0 / Math.max(this.values.duration, 0.01),
+                transitionDuration: 0.05,
+                minSpeed: -10.0,
+                maxSpeed: 10.0
+            })
+        }
+        const speed = 1.0 / Math.max(this.values.duration, 0.01)
+        this.runtimeState.phaseAccumulator.advanceByDt(1 / fps, speed)
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.updateValue(this._getCurrentValue())
+            this.runtimeState.graph.draw()
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.stopAnimation()
+        }
+    },
+
+    _resumeRealtimeLoops(){
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.startAnimation(() => this._getCurrentValue())
+        }
+    },
+
     onDestroy(){
         if(this.runtimeState.graph){
             this.runtimeState.graph.destroy()

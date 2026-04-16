@@ -699,6 +699,13 @@ registerNode({
                 this.runtimeState.analyzer.audioValues.high = oa.audioValues.high
                 this.runtimeState.analyzer.waveformData.set(oa.waveformData)
                 this.runtimeState.analyzer.frequencyData.set(oa.frequencyData)
+
+                // Check thresholds and fire action triggers
+                const {bass, mid, high} = oa.audioValues
+                const now = virtualTime * 1000
+                updateMeterAndCheckThreshold(this, 'bass', bass, now)
+                updateMeterAndCheckThreshold(this, 'mid', mid, now)
+                updateMeterAndCheckThreshold(this, 'high', high, now)
             }
         }
     },
@@ -723,6 +730,11 @@ registerNode({
             this.runtimeState.uiUpdateFrameId = null
         }
         this.elements.video?.pause()
+        // Reset threshold state so debounce works in virtual time space
+        for(const band in this.runtimeState.thresholdState){
+            this.runtimeState.thresholdState[band].triggered = false
+            this.runtimeState.thresholdState[band].lastTriggerTime = 0
+        }
     },
 
     _resumeRealtimeLoops(){

@@ -126,6 +126,24 @@ registerNode({
         }
     },
 
+    _advanceSmoothing(dt){
+        if(dt <= 0 || dt >= 0.2) return
+        const diff = this.values.target - this.values.current
+        if(Math.abs(diff) > 1e-7){
+            this.values.current += diff * (1 - Math.exp(-this.values.speed * dt))
+
+            if(this.getOption('mode') === 'wrap'){
+                const range = this.values.max - this.values.min
+                if(range > 0){
+                    this.values.current = this.values.min + ((this.values.current - this.values.min) % range + range) % range
+                    this.values.target = this.values.min + ((this.values.target - this.values.min) % range + range) % range
+                }
+            }
+
+            this._updateDisplay()
+        }
+    },
+
     _tick(timestamp){
         if(this.isDestroyed) return
 
@@ -134,23 +152,24 @@ registerNode({
             : 0
         this.runtimeState.lastTime = timestamp
 
-        if(dt > 0 && dt < 0.2){
-            const diff = this.values.target - this.values.current
-            if(Math.abs(diff) > 1e-7){
-                this.values.current += diff * (1 - Math.exp(-this.values.speed * dt))
+        this._advanceSmoothing(dt)
 
-                if(this.getOption('mode') === 'wrap'){
-                    const range = this.values.max - this.values.min
-                    if(range > 0){
-                        this.values.current = this.values.min + ((this.values.current - this.values.min) % range + range) % range
-                        this.values.target = this.values.min + ((this.values.target - this.values.min) % range + range) % range
-                    }
-                }
+        this.runtimeState.animationFrameId = requestAnimationFrame((t) => this._tick(t))
+    },
 
-                this._updateDisplay()
-            }
+    _prepareForTime(virtualTime, fps){
+        this._advanceSmoothing(1 / fps)
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.animationFrameId){
+            cancelAnimationFrame(this.runtimeState.animationFrameId)
+            this.runtimeState.animationFrameId = null
         }
+    },
 
+    _resumeRealtimeLoops(){
+        this.runtimeState.lastTime = 0
         this.runtimeState.animationFrameId = requestAnimationFrame((t) => this._tick(t))
     },
 

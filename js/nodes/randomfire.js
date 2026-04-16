@@ -183,6 +183,41 @@ registerNode({
         }
     },
 
+    _prepareForTime(virtualTime, fps){
+        if(!this.values.isRunning) return
+
+        // Accumulate virtual time and fire when threshold is crossed
+        if(!this.runtimeState._offlineNextFire){
+            this.runtimeState._offlineNextFire = this._calculateFireDelay()
+            this.runtimeState._offlineAccum = 0
+        }
+
+        this.runtimeState._offlineAccum += 1 / fps
+
+        if(this.runtimeState._offlineAccum >= this.runtimeState._offlineNextFire){
+            this.triggerAction('fire', 'down')
+            this.runtimeState._offlineAccum = 0
+            this.runtimeState._offlineNextFire = this._calculateFireDelay()
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        this._stopAnimation()
+        this.runtimeState._offlineNextFire = null
+        this.runtimeState._offlineAccum = 0
+        this.runtimeState._wasRunning = this.values.isRunning
+        this.values.isRunning = true
+    },
+
+    _resumeRealtimeLoops(){
+        this.values.isRunning = this.runtimeState._wasRunning ?? this.values.isRunning
+        this.runtimeState._offlineNextFire = null
+        if(this.values.isRunning){
+            this._scheduleNextFire()
+            this._startAnimation()
+        }
+    },
+
     onDestroy(){
         this._stopAnimation()
     }

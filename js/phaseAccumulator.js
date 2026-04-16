@@ -66,6 +66,24 @@ export class PhaseAccumulator {
     }
     
     /**
+     * Advance phase by an explicit delta time (for offline rendering).
+     * Bypasses performance.now() and smooth speed transitions.
+     * @param {number} dt - Time step in seconds
+     * @param {number} newSpeed - Target speed
+     * @returns {number} Current accumulated phase
+     */
+    advanceByDt(dt, newSpeed = null) {
+        if (this.isPaused) return this.pausedPhase
+        if (newSpeed !== null) {
+            this.speed = Math.max(this.minSpeed, Math.min(this.maxSpeed, newSpeed))
+            this.targetSpeed = this.speed
+            this.transitionStartTime = -1
+        }
+        this.phase += dt * this.speed
+        return this.phase
+    }
+
+    /**
      * Get current accumulated phase without updating
      * @returns {number} Current phase value
      */

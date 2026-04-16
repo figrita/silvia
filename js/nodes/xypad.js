@@ -295,6 +295,32 @@ registerNode({
         animate()
     },
 
+    _prepareForTime(virtualTime, fps){
+        this._step(1 / fps)
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.animationFrameId){
+            cancelAnimationFrame(this.runtimeState.animationFrameId)
+            this.runtimeState.animationFrameId = null
+        }
+    },
+
+    _resumeRealtimeLoops(){
+        this.runtimeState.lastTime = performance.now()
+        const canvas = this.elements.canvas
+        if(canvas){
+            const ctx = canvas.getContext('2d')
+            const animate = () => {
+                this._step()
+                this._draw(canvas, ctx)
+                this._updateDisplays()
+                this.runtimeState.animationFrameId = requestAnimationFrame(animate)
+            }
+            animate()
+        }
+    },
+
     onDestroy() {
         if (this.runtimeState.animationFrameId) {
             cancelAnimationFrame(this.runtimeState.animationFrameId)
@@ -503,14 +529,19 @@ registerNode({
         return false
     },
 
-    _step() {
-        const now = performance.now()
-        if (!this.runtimeState.lastTime) {
+    _step(overrideDt) {
+        let dt
+        if(overrideDt !== undefined){
+            dt = overrideDt
+        } else {
+            const now = performance.now()
+            if (!this.runtimeState.lastTime) {
+                this.runtimeState.lastTime = now
+                return
+            }
+            dt = Math.min((now - this.runtimeState.lastTime) / 1000, 0.1)
             this.runtimeState.lastTime = now
-            return
         }
-        const dt = Math.min((now - this.runtimeState.lastTime) / 1000, 0.1)
-        this.runtimeState.lastTime = now
 
         if (this.runtimeState.isPointerDown) return
 

@@ -58,6 +58,59 @@ registerNode({
         this._addEventListeners()
     },
 
+    _prepareForTime(virtualTime, fps){
+        if(!this.runtimeState.isRunning) return
+
+        const bpm = this.values.bpm
+        const timePerStep = 60 / bpm / 4
+        const absoluteStep = Math.floor(virtualTime / timePerStep)
+
+        // Track absolute step count to detect skipped steps
+        if(this.runtimeState._lastAbsoluteStep === undefined){
+            this.runtimeState._lastAbsoluteStep = -1
+        }
+
+        // Fire all intermediate steps that were skipped between frames
+        if(absoluteStep > this.runtimeState._lastAbsoluteStep){
+            const from = this.runtimeState._lastAbsoluteStep + 1
+            for(let s = from; s <= absoluteStep; s++){
+                this.runtimeState.currentStep = s % 16
+                this._executeCurrentStep()
+            }
+            this.runtimeState._lastAbsoluteStep = absoluteStep
+            this.runtimeState.lastStepIndex = this.runtimeState.currentStep
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.animationFrameId){
+            cancelAnimationFrame(this.runtimeState.animationFrameId)
+            this.runtimeState.animationFrameId = null
+        }
+        for(let i = 0; i < this.runtimeState.gateTimeouts.length; i++) clearTimeout(this.runtimeState.gateTimeouts[i])
+        this.runtimeState.gateTimeouts.length = 0
+        // Force-start for offline and save previous state
+        this.runtimeState._wasRunning = this.runtimeState.isRunning
+        this.runtimeState.isRunning = true
+        this.runtimeState.currentStep = -1
+        this.runtimeState.lastStepIndex = -1
+        this.runtimeState._lastAbsoluteStep = -1
+    },
+
+    _resumeRealtimeLoops(){
+        this.runtimeState.isRunning = this.runtimeState._wasRunning ?? this.runtimeState.isRunning
+        if(this.runtimeState.isRunning){
+            this.runtimeState.startTime = performance.now()
+            if(this.runtimeState.currentStep >= 0){
+                const bpm = this.values.bpm
+                const timePerStep = (60 / bpm / 4) * 1000
+                this.runtimeState.startTime -= this.runtimeState.currentStep * timePerStep
+            }
+            this.runtimeState.lastStepIndex = this.runtimeState.currentStep
+            this.runtimeState.animationFrameId = requestAnimationFrame((t) => this._run(t))
+        }
+    },
+
     onDestroy(){
         if(this.runtimeState.animationFrameId){
             cancelAnimationFrame(this.runtimeState.animationFrameId)

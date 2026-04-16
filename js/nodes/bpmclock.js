@@ -212,6 +212,48 @@ registerNode({
         this._updateDisplay()
     },
 
+    _prepareForTime(virtualTime, fps){
+        if(!this.runtimeState.isRunning) return
+
+        const subdivision = parseFloat(this.getOption('subdivision'))
+        const beatsPerSecond = this.values.bpm / 60
+        const timePerBeat = subdivision / beatsPerSecond
+        const currentBeat = Math.floor(virtualTime / timePerBeat)
+
+        // Fire all intermediate beats that were skipped between frames
+        if(currentBeat > this.runtimeState.lastBeat){
+            const from = this.runtimeState.lastBeat + 1
+            for(let b = from; b <= currentBeat; b++){
+                this.triggerAction('trigger', 'up')
+                this.triggerAction('trigger', 'down')
+            }
+            this.runtimeState.lastBeat = currentBeat
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.animationFrameId){
+            cancelAnimationFrame(this.runtimeState.animationFrameId)
+            this.runtimeState.animationFrameId = null
+        }
+        if(this.runtimeState.gateTimeout){
+            clearTimeout(this.runtimeState.gateTimeout)
+            this.runtimeState.gateTimeout = null
+        }
+        this.runtimeState._wasRunning = this.runtimeState.isRunning
+        this.runtimeState.isRunning = true
+        this.runtimeState.lastBeat = -1
+    },
+
+    _resumeRealtimeLoops(){
+        this.runtimeState.isRunning = this.runtimeState._wasRunning ?? this.runtimeState.isRunning
+        if(this.runtimeState.isRunning){
+            this.runtimeState.startTime = performance.now()
+            this.runtimeState.lastBeat = -1
+            this.runtimeState.animationFrameId = requestAnimationFrame((t) => this._run(t))
+        }
+    },
+
     onDestroy(){
         if(this.runtimeState.animationFrameId){
             cancelAnimationFrame(this.runtimeState.animationFrameId)

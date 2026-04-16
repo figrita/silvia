@@ -178,21 +178,58 @@ registerNode({
         })
     },
 
+    _prepareForTime(virtualTime, fps){
+        this.runtimeState._virtualTime = virtualTime
+        // Update graph visualization during offline render
+        if(this.runtimeState.graph){
+            const value = this._getCurrentValue()
+            this.runtimeState.graph.updateValue(value)
+            this.runtimeState.graph.draw()
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.stopAnimation()
+        }
+        // Reset envelope state for clean offline start
+        this.runtimeState.gateTime = -1
+        this.runtimeState.releaseTime = -1
+        this.runtimeState.isGated = false
+        this.runtimeState.lastValue = 0
+    },
+
+    _resumeRealtimeLoops(){
+        this.runtimeState._virtualTime = null
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.startAnimation(() => {
+                const value = this._getCurrentValue()
+                this._updatePhaseDisplay()
+                this._updateGateDisplay()
+                return value
+            })
+        }
+    },
+
     onDestroy(){
         if(this.runtimeState.graph){
             this.runtimeState.graph.destroy()
         }
     },
 
+    _now(){
+        return this.runtimeState._virtualTime ?? performance.now() / 1000
+    },
+
     _gateOn(){
-        this.runtimeState.gateTime = performance.now() / 1000
+        this.runtimeState.gateTime = this._now()
         this.runtimeState.isGated = true
         this.runtimeState.releaseTime = -1
     },
 
     _gateOff(){
         if(this.runtimeState.isGated){
-            this.runtimeState.releaseTime = performance.now() / 1000
+            this.runtimeState.releaseTime = this._now()
             this.runtimeState.isGated = false
             // Store the current value at release time for proper release curve
             this.runtimeState.lastValue = this._getPreReleaseValue()
@@ -204,7 +241,7 @@ registerNode({
             return 0
         }
 
-        const currentTime = performance.now() / 1000
+        const currentTime = this._now()
         const elapsed = currentTime - this.runtimeState.gateTime
         
         const attack = this.values.attack
@@ -247,7 +284,7 @@ registerNode({
             return 0
         }
 
-        const currentTime = performance.now() / 1000
+        const currentTime = this._now()
         
         // Handle release phase
         if(this.runtimeState.releaseTime > 0 && !this.runtimeState.isGated){
@@ -301,7 +338,7 @@ registerNode({
         if(this.runtimeState.gateTime < 0){
             phase = 'Idle'
         } else if(this.runtimeState.releaseTime > 0 && !this.runtimeState.isGated){
-            const currentTime = performance.now() / 1000
+            const currentTime = this._now()
             const releaseElapsed = currentTime - this.runtimeState.releaseTime
             if(releaseElapsed < this.values.release){
                 phase = 'Release'
@@ -309,7 +346,7 @@ registerNode({
                 phase = 'Idle'
             }
         } else if(this.runtimeState.isGated){
-            const currentTime = performance.now() / 1000
+            const currentTime = this._now()
             const elapsed = currentTime - this.runtimeState.gateTime
             
             if(elapsed < this.values.attack){
