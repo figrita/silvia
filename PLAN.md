@@ -1,4 +1,4 @@
-# Offline Rendering
+# Plan 1: Offline Rendering (complete)
 
 Offline mode renders frame-by-frame at arbitrary FPS and resolution, producing lossless PNG sequences. Every frame gets as long as it needs — no realtime deadline.
 
@@ -29,23 +29,6 @@ The connection system enforces this at the **graph level**, not just direct conn
 - Warm-up modes: black, hold first frame, run sequence
 - Progress bar with ETA, preview canvas, cancel button
 
-### Phase 2.1: Unify realtime and offline into single-clock architecture (future)
-The offline work proves that a single clock driving all nodes in topological order is correct. The realtime path currently has ~14 independent rAF loops, each calling performance.now() separately. This causes jitter, drift between audio analysis and rendering, and wasted scheduling overhead.
-
-**The refactor:** the main `renderLoop` in main.js becomes the sole rAF. Each frame it calls `_prepareForTime(time, 1/dt)` on every node in topological order (the same method offline uses), then renders. Per-node rAF loops are removed entirely.
-
-**Kill list:**
-- `_startCanvasRenderLoop` on video — main loop calls `_drawVideoToCanvas`
-- `_startUiUpdateLoop` on video/audioanalyzer/micline — meters update in `_prepareForTime`
-- `_tick` rAF on smoothcounter
-- `_run` rAF on stepsequencer, euclideanrhythm, bpmclock
-- `_updateLoop` rAF on randomfire
-- `RealtimeGraph.startAnimation` on ADSR/animation/oscillator/automation
-- AudioAnalyzer's internal rAF — call `#analyze()` from the main loop
-- XY pad's animate loop
-
-**Keep:** main `renderLoop` (single rAF), all `_prepareForTime` methods, PhaseAccumulator.advanceByDt, ADSR `_now()` pattern.
-
 ### Phase 3: Video Node Offline Support (done)
 - `_prepareForTime(t)` on video node — seek to `t % duration`, wait for `seeked`, draw to canvas
 - `_suspendRealtimeLoops()` / `_resumeRealtimeLoops()` on video and audioanalyzer nodes
@@ -68,7 +51,7 @@ The offline work proves that a single clock driving all nodes in topological ord
 
 ### Phase 5: Timing Node Determinism (done)
 All timing-driven nodes now support offline rendering via `_prepareForTime` / `_suspendRealtimeLoops` / `_resumeRealtimeLoops`:
-- **Step Sequencer + Euclidean Rhythm**: compute step from absolute step count, iterate through ALL intermediate steps between frames to prevent skipping at high BPM / low FPS
+- **Step Sequencer + Euclidean Rhythm**: compute step from absolute step count, iterate through ALL intermediate steps between frames to prevent skipping at high BPM / low FPS. Gate transitions tracked per-lane — only fire up/down on actual transitions, hold gate through consecutive active steps
 - **BPM Clock**: compute beat from virtual time + subdivision, iterate through all skipped beats
 - **Random Fire**: accumulate virtual dt, fire when threshold crossed
 - **ADSR Envelope**: `_now()` helper returns virtual time or `performance.now()`, gate timestamps use it. State fully reset on suspend to prevent stale realtime timestamps corrupting offline values
@@ -86,3 +69,25 @@ All timing-driven nodes now support offline rendering via `_prepareForTime` / `_
 - **Memory pressure**: web zip fallback tracks accumulated blob bytes, shows size warning in progress text when >500MB
 - **Loop points**: already handled — video node wraps `virtualTime % duration` when loop=true, OfflineAudioAnalyzer wraps with double-modulo for negative warm-up times
 - **Warm-up frames**: already exposed in UI from Phase 2
+
+---
+
+# Plan 2: Single-Clock Architecture (future)
+
+The offline rendering work proved that driving all nodes from a single clock in topological order is the correct architecture. The realtime path currently has ~14 independent rAF loops, each calling performance.now() separately, causing jitter, drift between audio analysis and rendering, and wasted scheduling overhead.
+
+## Part 1: Unify timing
+
+The main `renderLoop` in main.js becomes the sole rAF. Each frame it calls `_prepareForTime(time, 1/dt)` on every node in topological order (the same method offline uses), then renders. Per-node rAF loops are removed entirely.
+
+**Kill list:**
+- `_startCanvasRenderLoop` on video — main loop calls `_drawVideoToCanvas`
+- `_startUiUpdateLoop` on video/audioanalyzer/micline — meters update in `_prepareForTime`
+- `_tick` rAF on smoothcounter
+- `_run` rAF on stepsequencer, euclideanrhythm, bpmclock
+- `_updateLoop` rAF on randomfire
+- `RealtimeGraph.startAnimation` on ADSR/animation/oscillator/automation
+- AudioAnalyzer's internal rAF — call `#analyze()` from the main loop
+- XY pad's animate loop
+
+**Keep:** main `renderLoop` (single rAF), all `_prepareForTime` methods, PhaseAccumulator.advanceByDt, ADSR `_now()` pattern.
