@@ -1,0 +1,61 @@
+/* styles/offlineoutput.css - Offline Output node UI */
+
+.offline-output-canvas {
+    width: 360px;
+    height: auto;
+    display: block;
+}
+
+.offline-output-controls {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.offline-output-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.offline-output-row label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.offline-output-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.offline-output-buttons .btn {
+    flex: 1;
+    padding: 4px 8px;
+}
+
+.offline-output-cancel {
+    display: none;
+}
+
+.offline-output-progress {
+    display: none;
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.offline-output-progress-fill {
+    height: 100%;
+    background: var(--primary-color);
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.offline-output-progress-text {
+    display: none;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+}

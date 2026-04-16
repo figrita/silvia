@@ -112,9 +112,7 @@ registerNode({
 
         // Preview canvas
         const canvas = document.createElement('canvas')
-        canvas.style.width = '360px'
-        canvas.style.height = 'auto'
-        canvas.style.display = 'block'
+        canvas.className = 'offline-output-canvas'
         this.elements.canvas = canvas
 
         const [w, h] = this.getOption('resolution').split('x').map(Number)
@@ -124,27 +122,27 @@ registerNode({
 
         // Controls HTML
         const controlsHtml = `
-            <div style="padding: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label style="font-size: 0.9rem; color: #ccc;">FPS</label>
+            <div class="offline-output-controls">
+                <div class="offline-output-row">
+                    <label>FPS</label>
                     <s-number midi-disabled value="${this.values.fps}" default="${this.defaults.fps}" min="1" max="120" step="1" data-el="fpsControl"></s-number>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label style="font-size: 0.9rem; color: #ccc;">Duration (s)</label>
+                <div class="offline-output-row">
+                    <label>Duration (s)</label>
                     <s-number midi-disabled value="${this.values.duration}" default="${this.defaults.duration}" min="0.1" max="3600" step="0.1" data-el="durationControl"></s-number>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <label style="font-size: 0.9rem; color: #ccc;">Warm-up</label>
+                <div class="offline-output-row">
+                    <label>Warm-up</label>
                     <s-number midi-disabled value="${this.values.warmupFrames}" default="${this.defaults.warmupFrames}" min="0" max="600" step="1" data-el="warmupControl"></s-number>
                 </div>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button class="btn" data-el="startBtn" style="flex: 1; font-family: monospace; background: #444; color: #ccc; border: 1px solid #666; padding: 5px; border-radius: 4px; cursor: pointer;">Render</button>
-                    <button class="btn" data-el="cancelBtn" style="flex: 1; font-family: monospace; background: #444; color: #ccc; border: 1px solid #666; padding: 5px; border-radius: 4px; cursor: pointer; display: none;">Cancel</button>
+                <div class="offline-output-buttons">
+                    <button class="btn" data-el="startBtn">Render</button>
+                    <button class="btn offline-output-cancel" data-el="cancelBtn">Cancel</button>
                 </div>
-                <div data-el="progressBar" style="display: none; height: 8px; background: #333; border-radius: 4px; overflow: hidden;">
-                    <div data-el="progressFill" style="height: 100%; background: var(--primary-color); width: 0%; transition: width 0.1s linear;"></div>
+                <div class="offline-output-progress" data-el="progressBar">
+                    <div class="offline-output-progress-fill" data-el="progressFill"></div>
                 </div>
-                <div data-el="progressText" style="display: none; font-size: 0.8rem; color: #999; text-align: center; font-family: monospace;"></div>
+                <div class="offline-output-progress-text" data-el="progressText"></div>
             </div>
         `
         const controlsFragment = StringToFragment(controlsHtml)
