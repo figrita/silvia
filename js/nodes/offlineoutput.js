@@ -350,7 +350,12 @@ registerNode({
             await new Promise(r => setTimeout(r, 0))
         }
 
-        // Main render pass
+        // Main render pass — encode/save is pipelined with the next frame's prepare+render:
+        // convertToBlob for frame N is fired immediately after readPixels (non-blocking),
+        // then frame N's blob is awaited and saved during frame N+1's iteration. PNG encoding
+        // (browser background thread) overlaps with video seeks and GPU readback.
+        let pendingEncode = null  // {promise: Promise<Blob>, frameName: string, frameNum: number}
+
         for(let i = 0; i < totalFrames; i++){
             if(this.runtimeState.cancelled) break
 
@@ -393,37 +398,46 @@ registerNode({
             if(i % 4 === 0 || i === totalFrames - 1){
                 previewCtx.drawImage(encodeCanvas, 0, 0, outW, outH)
             }
-            let blob
-            try {
-                blob = await encodeCanvas.convertToBlob({type: 'image/png'})
-            } catch(e) {
-                this.elements.progressText.textContent = `Encode failed on frame ${i + 1}: ${e.message}`
-                throw e
-            }
 
-            // Save frame
+            // Kick off PNG encode for this frame without awaiting — the bitmap is captured
+            // immediately, so overwriting encodeCanvas in the next iteration is safe.
             const frameName = `frame_${String(i + 1).padStart(6, '0')}.png`
+            const encodePromise = encodeCanvas.convertToBlob({type: 'image/png'})
 
-            if(isElectronMode && outputDir){
-                // Electron: write to disk via IPC
-                const arrayBuf = await blob.arrayBuffer()
-                await window.electronAPI.writeFrameFile(outputDir, frameName, arrayBuf)
-            } else if(fileHandle){
-                // Web File System Access API
-                const fh = await fileHandle.getFileHandle(frameName, {create: true})
-                const writable = await fh.createWritable()
-                await writable.write(blob)
-                await writable.close()
-            } else {
-                // Web fallback: accumulate blobs for zip
-                frameBlobs.push({name: frameName, blob})
-                frameBlobBytes += blob.size
-                if(frameBlobBytes > 3900 * 1024 * 1024){
-                    this.elements.progressText.textContent = 'Web zip limit reached (~4GB). Use File System Access API or Electron.'
-                    this.runtimeState.cancelled = true
-                    continue
+            // Await and save the PREVIOUS frame's blob. By this point it has been encoding
+            // in the background during _prepareForTime, renderOneFrame, and readPixels above.
+            if(pendingEncode !== null){
+                let blob
+                try {
+                    blob = await pendingEncode.promise
+                } catch(e) {
+                    this.elements.progressText.textContent = `Encode failed on frame ${pendingEncode.frameNum}: ${e.message}`
+                    throw e
+                }
+
+                if(isElectronMode && outputDir){
+                    // Electron: write to disk via IPC
+                    const arrayBuf = await blob.arrayBuffer()
+                    await window.electronAPI.writeFrameFile(outputDir, pendingEncode.frameName, arrayBuf)
+                } else if(fileHandle){
+                    // Web File System Access API
+                    const fh = await fileHandle.getFileHandle(pendingEncode.frameName, {create: true})
+                    const writable = await fh.createWritable()
+                    await writable.write(blob)
+                    await writable.close()
+                } else {
+                    // Web fallback: accumulate blobs for zip
+                    frameBlobs.push({name: pendingEncode.frameName, blob})
+                    frameBlobBytes += blob.size
+                    if(frameBlobBytes > 3900 * 1024 * 1024){
+                        this.elements.progressText.textContent = 'Web zip limit reached (~4GB). Use File System Access API or Electron.'
+                        this.runtimeState.cancelled = true
+                        break
+                    }
                 }
             }
+
+            pendingEncode = {promise: encodePromise, frameName, frameNum: i + 1}
 
             // Progress
             const pct = ((i + 1) / totalFrames) * 100
@@ -441,6 +455,29 @@ registerNode({
 
             // Yield to browser
             await new Promise(r => setTimeout(r, 0))
+        }
+
+        // Flush the last encoded frame (not yet saved because the loop ended)
+        if(pendingEncode !== null && !this.runtimeState.cancelled){
+            let blob
+            try {
+                blob = await pendingEncode.promise
+            } catch(e) {
+                this.elements.progressText.textContent = `Encode failed on frame ${pendingEncode.frameNum}: ${e.message}`
+                throw e
+            }
+            if(isElectronMode && outputDir){
+                const arrayBuf = await blob.arrayBuffer()
+                await window.electronAPI.writeFrameFile(outputDir, pendingEncode.frameName, arrayBuf)
+            } else if(fileHandle){
+                const fh = await fileHandle.getFileHandle(pendingEncode.frameName, {create: true})
+                const writable = await fh.createWritable()
+                await writable.write(blob)
+                await writable.close()
+            } else {
+                frameBlobs.push({name: pendingEncode.frameName, blob})
+                frameBlobBytes += blob.size
+            }
         }
 
         // Finalize
