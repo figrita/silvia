@@ -403,6 +403,9 @@ registerNode({
             // immediately, so overwriting encodeCanvas in the next iteration is safe.
             const frameName = `frame_${String(i + 1).padStart(6, '0')}.png`
             const encodePromise = encodeCanvas.convertToBlob({type: 'image/png'})
+            // Mark the promise as handled so a rejection between frames doesn't fire
+            // unhandledrejection; the real error still surfaces at the await below.
+            encodePromise.catch(() => {})
 
             // Await and save the PREVIOUS frame's blob. By this point it has been encoding
             // in the background during _prepareForTime, renderOneFrame, and readPixels above.
@@ -552,6 +555,7 @@ registerNode({
     async _buildZip(entries){
         const files = []
         let offset = 0
+        const {time: dosTime, date: dosDate} = dosDateTime(new Date())
 
         for(const entry of entries){
             const data = new Uint8Array(await entry.blob.arrayBuffer())
@@ -565,8 +569,8 @@ registerNode({
             lv.setUint16(4, 20, true)           // Version needed
             lv.setUint16(6, 0, true)            // Flags
             lv.setUint16(8, 0, true)            // Compression: stored
-            lv.setUint16(10, 0, true)           // Mod time
-            lv.setUint16(12, 0, true)           // Mod date
+            lv.setUint16(10, dosTime, true)     // Mod time
+            lv.setUint16(12, dosDate, true)     // Mod date
             lv.setUint32(14, crc, true)         // CRC-32
             lv.setUint32(18, data.length, true) // Compressed size
             lv.setUint32(22, data.length, true) // Uncompressed size
@@ -588,8 +592,8 @@ registerNode({
             cv.setUint16(6, 20, true)            // Version needed
             cv.setUint16(8, 0, true)             // Flags
             cv.setUint16(10, 0, true)            // Compression
-            cv.setUint16(12, 0, true)            // Mod time
-            cv.setUint16(14, 0, true)            // Mod date
+            cv.setUint16(12, dosTime, true)      // Mod time
+            cv.setUint16(14, dosDate, true)      // Mod date
             cv.setUint32(16, f.crc, true)
             cv.setUint32(20, f.data.length, true)
             cv.setUint32(24, f.data.length, true)
@@ -705,4 +709,14 @@ function crc32(data){
         crc = crc32Table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8)
     }
     return (crc ^ 0xFFFFFFFF) >>> 0
+}
+
+// Pack a JS Date into MS-DOS time/date fields used by the zip format.
+// Time: hh(5) | mm(6) | ss/2(5)   Date: (year-1980)(7) | month(4) | day(5)
+// Range is 1980-01-01..2107-12-31; dates outside clamp to the nearest bound.
+function dosDateTime(d){
+    const year = Math.min(Math.max(d.getFullYear(), 1980), 2107)
+    const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >>> 1)
+    const date = ((year - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()
+    return {time, date}
 }
