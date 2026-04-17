@@ -255,17 +255,18 @@ registerNode({
 
         // Discover upstream nodes that need time-driven preparation
         const timeNodes = this._collectTimeDrivenNodes()
-
-        // Suspend their realtime loops
-        for(const node of timeNodes){
-            node._suspendRealtimeLoops?.()
-        }
+        const suspendedNodes = []
 
         this.runtimeState.isRendering = true
         this.runtimeState.cancelled = false
         let renderCompleted = false
 
         try {
+        // Suspend realtime loops; track each one so finally only resumes what actually suspended
+        for(const node of timeNodes){
+            node._suspendRealtimeLoops?.()
+            suspendedNodes.push(node)
+        }
         // UI state
         this.elements.startBtn.style.display = 'none'
         this.elements.cancelBtn.style.display = 'block'
@@ -503,7 +504,7 @@ registerNode({
                 renderer.onResize(outW, outH)
             }
             // Resume realtime loops on upstream nodes (even if cancelled or errored)
-            for(const node of timeNodes){
+            for(const node of suspendedNodes){
                 node._resumeRealtimeLoops?.()
             }
 
