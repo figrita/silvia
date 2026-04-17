@@ -15,6 +15,8 @@ import {expandWorkspaceToViewport} from './editor.js'
 // Use the global isElectronMode set in index.html, with fallback
 const isElectronMode = typeof window !== 'undefined' && (window.isElectronMode || window.electronAPI)
 
+const UI_STATE_KEY = 'silvia_maininput_ui'
+
 export class MainInputUI {
     constructor() {
         this.panel = null
@@ -29,6 +31,29 @@ export class MainInputUI {
         this._updateLoopId = null
     }
 
+    _loadUIState() {
+        try {
+            const raw = localStorage.getItem(UI_STATE_KEY)
+            if (raw) return JSON.parse(raw)
+        } catch {}
+        return {}
+    }
+
+    _saveUIState() {
+        const sections = this.panel.querySelectorAll('.input-section')
+        const state = {
+            collapsed: this.isCollapsed,
+            videoSectionOpen: sections[0]?.dataset.expanded !== 'false',
+            audioSectionOpen: sections[1]?.dataset.expanded !== 'false',
+            analyzerSectionOpen: this.elements.audioAnalyzerSection?.dataset.expanded !== 'false',
+            videoType: this.elements.videoTypeSelect.value,
+            audioType: this.elements.audioTypeSelect.value
+        }
+        try {
+            localStorage.setItem(UI_STATE_KEY, JSON.stringify(state))
+        } catch {}
+    }
+
     async init() {
         if (this.isInitialized) return
 
@@ -38,9 +63,16 @@ export class MainInputUI {
             this.audioDevices = await mainInput.enumerateAudioDevices()
         }
 
+        const stored = this._loadUIState()
+        if (stored.collapsed) this.isCollapsed = true
+
         this._adjustBodyLayout()
-        this.panel = this._createPanel()
+        this.panel = this._createPanel(stored)
         document.body.appendChild(this.panel)
+
+        if (stored.videoType && stored.videoType !== 'demo') {
+            await mainInput.setVideoSource('none')
+        }
 
         // Set up state change callback and sync with current state
         mainInput.onStateChange = () => this._updateUI()
@@ -54,8 +86,9 @@ export class MainInputUI {
         document.documentElement.style.setProperty('--panel-left-width', width)
     }
 
-    _createPanel() {
+    _createPanel(stored) {
         const panel = document.createElement('div')
+        this.panel = panel
         panel.className = 'main-input-panel'
         panel.innerHTML = `
             <div class="main-input-header">
@@ -134,11 +167,32 @@ export class MainInputUI {
         `
 
         this._cacheElements(panel)
+        this._applyUIState(panel, stored)
         this._setupEventListeners(panel)
         this._updateVideoControls()
         this._updateAudioControls()
 
         return panel
+    }
+
+    _applyUIState(panel, state) {
+        const sections = panel.querySelectorAll('.input-section')
+        if (state.videoSectionOpen === false) sections[0].dataset.expanded = 'false'
+        if (state.audioSectionOpen === false) sections[1].dataset.expanded = 'false'
+        if (state.analyzerSectionOpen === false) this.elements.audioAnalyzerSection.dataset.expanded = 'false'
+        if (this.isCollapsed) {
+            panel.classList.add('collapsed')
+            this.elements.collapseBtn.classList.add('flipped')
+            this.elements.collapseBtn.title = 'Expand panel'
+        }
+        if (state.videoType) {
+            this.elements.videoTypeSelect.value = state.videoType
+            this._updateVideoControls()
+        }
+        if (state.audioType) {
+            this.elements.audioTypeSelect.value = state.audioType
+            this._updateAudioControls()
+        }
     }
 
     _cacheElements(panel) {
@@ -188,6 +242,7 @@ export class MainInputUI {
         this.elements.videoTypeSelect.addEventListener('change', async (e) => {
             const type = e.target.value
             this._updateVideoControls()
+            this._saveUIState()
 
             if (type === 'none') {
                 await mainInput.setVideoSource('none')
@@ -201,6 +256,7 @@ export class MainInputUI {
         this.elements.audioTypeSelect.addEventListener('change', async (e) => {
             const type = e.target.value
             this._updateAudioControls()
+            this._saveUIState()
 
             if (type === 'none') {
                 await mainInput.setAudioSource('none')
@@ -243,6 +299,7 @@ export class MainInputUI {
                 const section = header.closest('.input-section')
                 const expanded = section.dataset.expanded === 'true'
                 section.dataset.expanded = expanded ? 'false' : 'true'
+                this._saveUIState()
             })
         })
 
@@ -589,12 +646,13 @@ export class MainInputUI {
         this.elements.audioAnalyzerSection.style.display = hasAudio ? 'block' : 'none'
 
 
-        // Sync dropdown selections with actual state and re-render controls
-        if (this.elements.videoTypeSelect.value !== mainInput.videoSourceType) {
+        // Sync dropdown to mainInput when a source becomes active; when source clears
+        // to 'none', keep the dropdown showing the user's last selection
+        if (mainInput.videoSourceType !== 'none' && this.elements.videoTypeSelect.value !== mainInput.videoSourceType) {
             this.elements.videoTypeSelect.value = mainInput.videoSourceType
             this._updateVideoControls()
         }
-        if (this.elements.audioTypeSelect.value !== mainInput.audioSourceType) {
+        if (mainInput.audioSourceType !== 'none' && this.elements.audioTypeSelect.value !== mainInput.audioSourceType) {
             this.elements.audioTypeSelect.value = mainInput.audioSourceType
             this._updateAudioControls()
         }
@@ -636,6 +694,8 @@ export class MainInputUI {
         this.elements.collapseBtn.title = this.isCollapsed ? 'Expand panel' : 'Collapse panel'
 
         this._adjustBodyLayout()
+        this._saveUIState()
+        if (!this.isCollapsed) this._scope = null // force scope re-init with correct canvas size
         expandWorkspaceToViewport()
         window.dispatchEvent(new Event('resize'))
     }
