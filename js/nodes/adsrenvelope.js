@@ -197,6 +197,8 @@ registerNode({
         this.runtimeState.releaseTime = -1
         this.runtimeState.isGated = false
         this.runtimeState.lastValue = 0
+        // Close the realtime-fallback window before _prepareForTime sets the real value
+        this.runtimeState._virtualTime = 0
     },
 
     _resumeRealtimeLoops(){

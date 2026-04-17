@@ -61,6 +61,12 @@ registerNode({
     _prepareForTime(virtualTime, fps){
         if(!this.runtimeState.isRunning) return
 
+        // Invariants maintained across calls:
+        //   _lastAbsoluteStep : last step whose _executeCurrentStep() has been run (-1 before any)
+        //   _lastGateUpStep   : last step whose gate-up has been emitted (-1 before any)
+        //   _laneActive       : always reflects the lane states of _lastAbsoluteStep
+        // Branches handle: (1) carry-over gate-up for the prior frame's step,
+        // (2) intermediate steps skipped between frames, (3) gate-up for the current step.
         const bpm = this.values.bpm
         const timePerStep = 60 / bpm / 4
         const gateLength = this.values.gateLength
