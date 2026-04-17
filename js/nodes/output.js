@@ -3,7 +3,7 @@ import {compile, compileAsync} from '../compiler.js'
 import {SNode} from '../snode.js'
 import {WebGLRenderer} from '../webgl.js'
 import {BackgroundRenderer} from './_background.js'
-import {formatBytes} from '../utils.js'
+import {formatBytes, showAlertModal} from '../utils.js'
 import {mainMixer} from '../mainMixer.js'
 import {mainMixerUI} from '../mainMixerUI.js'
 
@@ -232,7 +232,7 @@ registerNode({
 
     _downloadCanvasSnapshot(){
         if(!this.runtimeState.isActive || !this.elements.canvas){
-            alert('Cannot save snapshot: Output node is not active or has not rendered yet.')
+            showAlertModal('Cannot save snapshot: Output node is not active or has not rendered yet.', 'Output')
             return
         }
         const filename = getTimestampFilename('silvia_snap', 'png')
@@ -254,7 +254,7 @@ registerNode({
 
     _startRecording(){
         if(!this.runtimeState.isActive || !this.elements.canvas){
-            alert('Cannot start recording: Output node is not active or has not rendered yet.')
+            showAlertModal('Cannot start recording: Output node is not active or has not rendered yet.', 'Output')
             return
         }
 
@@ -318,7 +318,7 @@ registerNode({
             }
         } catch(error) {
             console.error('Failed to start recording:', error)
-            alert('Failed to start recording. Your browser may not support canvas recording.')
+            showAlertModal('Failed to start recording. Your browser may not support canvas recording.', 'Output')
         }
     },
 

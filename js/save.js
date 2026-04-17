@@ -4,7 +4,7 @@
 
 import {addVersionToPatch, PATCH_VERSION} from './version.js'
 import {iconHtml} from './icons.js'
-import {autowire, StringToFragment} from './utils.js'
+import {autowire, StringToFragment, showAlertModal} from './utils.js'
 import {SNode} from './snode.js'
 import {Connection} from './connections.js'
 import {WorkspaceManager} from './workspaceManager.js'
@@ -352,7 +352,7 @@ async function checkPatchNameExists(patchName){
 
 async function handleSaveNew(){
     if(!patchNameEl.value){
-        alert('Name is required.')
+        showAlertModal('Name is required.', 'Save')
         return
     }
 
@@ -361,7 +361,7 @@ async function handleSaveNew(){
     // Check if patch name already exists
     const nameExists = await checkPatchNameExists(patchName)
     if(nameExists){
-        alert('A file with that name already exists. Please choose a different name.')
+        showAlertModal('A file with that name already exists. Please choose a different name.', 'Save')
         return
     }
 
@@ -395,7 +395,7 @@ async function handleSaveNew(){
 
         } catch (error) {
             console.error('Failed to save file:', error)
-            alert('Failed to save file. Please try again.')
+            showAlertModal('Failed to save file. Please try again.', 'Save')
             return
         }
     } else {
@@ -462,7 +462,7 @@ function overwritePatchInLocalStorage(originalPatch, newPatch){
         return true
     } catch(e){
         console.error('Could not overwrite patch in local storage:', e)
-        alert('Error saving. Local storage might be full.')
+        showAlertModal('Error saving. Local storage might be full.', 'Save')
         return false
     }
 }
@@ -637,7 +637,7 @@ function savePatchToLocalStorage(patch){
         return true
     } catch(e){
         console.error('Could not save patch to local storage:', e)
-        alert('Error saving. Local storage might be full.')
+        showAlertModal('Error saving. Local storage might be full.', 'Save')
         return false
     }
 }
@@ -671,7 +671,7 @@ export async function quickSave() {
             flashTab(activeWs.id)
         } catch (error) {
             console.error('Quick save failed:', error)
-            alert('Failed to save file. Please try again.')
+            showAlertModal('Failed to save file. Please try again.', 'Save')
         }
     } else if (source.type === 'localStorage') {
         // Build a stub with .meta for overwritePatchInLocalStorage matching

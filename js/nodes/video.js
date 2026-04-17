@@ -1,6 +1,6 @@
 import {registerNode} from '../registry.js'
 import {Connection} from '../connections.js'
-import {autowire, StringToFragment} from '../utils.js'
+import {autowire, StringToFragment, showAlertModal} from '../utils.js'
 import {AudioAnalyzer} from '../audioAnalyzer.js'
 import {OfflineAudioAnalyzer} from '../offlineAudioAnalyzer.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
@@ -457,7 +457,7 @@ registerNode({
             await this._loadFromAssetPath(assetPath)
         } catch (error) {
             console.error('Failed to handle video file path:', error)
-            alert(`Failed to load video: ${error.message}`)
+            showAlertModal(`Failed to load video: ${error.message}`, 'Video')
         }
     },
 

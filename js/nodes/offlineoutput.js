@@ -4,7 +4,7 @@ import {SNode} from '../snode.js'
 import {Connection} from '../connections.js'
 import {WebGLRenderer} from '../webgl.js'
 import {mainMixer} from '../mainMixer.js'
-import {autowire, StringToFragment} from '../utils.js'
+import {autowire, StringToFragment, showAlertModal} from '../utils.js'
 
 registerNode({
     slug: 'offlineoutput',
@@ -227,7 +227,7 @@ registerNode({
         // Compile shader
         this.recompile()
         if(!this.runtimeState.shaderInfo){
-            alert('Cannot render: no input connected or compilation failed.')
+            showAlertModal('Cannot render: no input connected or compilation failed.', 'Offline Render')
             return
         }
 
@@ -544,6 +544,7 @@ registerNode({
         this.elements.progressText.style.display = 'none'
         this.elements.progressFill.style.width = '0%'
     },
+
 
     /**
      * Build a minimal zip file from an array of {name, blob} entries.
