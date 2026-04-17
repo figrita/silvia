@@ -139,9 +139,11 @@ registerNode({
         this.runtimeState._lastAbsoluteStep = -1
         this.runtimeState._lastGateUpStep = -1
         this.runtimeState._laneActive = [false, false, false, false]
+        this.runtimeState._isOffline = true
     },
 
     _resumeRealtimeLoops(){
+        this.runtimeState._isOffline = false
         this.runtimeState.isRunning = this.runtimeState._wasRunning ?? this.runtimeState.isRunning
         if(this.runtimeState.isRunning){
             this.runtimeState.startTime = performance.now()
@@ -214,7 +216,9 @@ registerNode({
             }
             // Lane staying active: no up/down cycle, gate remains held
 
-            if(isActive && gateLength < 0.99){
+            // Offline render path manages gate-up via _prepareForTime's virtual-time
+            // logic; setTimeout would fire at wall-clock and emit spurious gate-ups.
+            if(isActive && gateLength < 0.99 && !this.runtimeState._isOffline){
                 // Schedule gate release within the step
                 const timeout = setTimeout(() => {
                     this.triggerAction(`lane${lane + 1}`, 'up')

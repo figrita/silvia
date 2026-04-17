@@ -158,7 +158,11 @@ registerNode({
         this.elements.warmupControl.addEventListener('input', (e) => {
             this.values.warmupFrames = parseInt(e.target.value, 10)
         })
-        this.elements.startBtn.addEventListener('click', () => this._startRender())
+        this.elements.startBtn.addEventListener('click', () => {
+            this.runtimeState._renderPromise = this._startRender().finally(() => {
+                this.runtimeState._renderPromise = null
+            })
+        })
         this.elements.cancelBtn.addEventListener('click', () => this._cancelRender())
 
         // Resolution change
@@ -325,22 +329,18 @@ registerNode({
         for(let i = 0; i < warmupFrames; i++){
             if(this.runtimeState.cancelled) break
 
-            let virtualTime
             if(warmupMode === 'black'){
-                virtualTime = 0
-            } else if(warmupMode === 'hold'){
-                virtualTime = 0
+                // Clear FBOs to black; do not advance upstream time-driven state.
+                // Distinct from 'hold' (which renders the scene at t=0).
+                this._clearRendererToBlack(renderer, gl)
             } else {
-                // 'sequence' — run frames that precede frame 0
-                virtualTime = (i - warmupFrames) / fps
+                // 'hold' freezes the scene at t=0; 'sequence' runs frames before t=0.
+                const virtualTime = warmupMode === 'hold' ? 0 : (i - warmupFrames) / fps
+                for(const node of timeNodes){
+                    await node._prepareForTime(virtualTime, fps)
+                }
+                this._renderOneFrame(virtualTime, renderer, gl)
             }
-
-            // Prepare upstream nodes for this time
-            for(const node of timeNodes){
-                await node._prepareForTime(virtualTime, fps)
-            }
-
-            this._renderOneFrame(virtualTime, renderer, gl)
 
             // Update progress
             const pct = (i / warmupFrames) * 100
@@ -434,6 +434,13 @@ registerNode({
                     frameBlobBytes += blob.size
                     if(frameBlobBytes > 3900 * 1024 * 1024){
                         this.elements.progressText.textContent = 'Web zip limit reached (~4GB). Use File System Access API or Electron.'
+                        this.runtimeState.cancelled = true
+                        break
+                    }
+                    // Zip EOCD entry-count fields are 16-bit; above 65535 the zip is silently
+                    // truncated. Cap before that to avoid producing a corrupt archive.
+                    if(frameBlobs.length >= 65535){
+                        this.elements.progressText.textContent = 'Web zip limit reached (65535 frames). Use File System Access API or Electron.'
                         this.runtimeState.cancelled = true
                         break
                     }
@@ -531,6 +538,16 @@ registerNode({
         }
 
         renderer.render(virtualTime, this.runtimeState.shaderInfo, this.runtimeState.textureMap)
+    },
+
+    _clearRendererToBlack(renderer, gl){
+        gl.clearColor(0, 0, 0, 1)
+        const fbos = [renderer.tempFBO, renderer.outputFBO, ...renderer.historyFBOs]
+        for(const fbo of fbos){
+            if(!fbo) continue
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
+            gl.clear(gl.COLOR_BUFFER_BIT)
+        }
     },
 
     _cancelRender(){
@@ -654,40 +671,49 @@ registerNode({
     },
 
     onDestroy(){
-        if(this.runtimeState.isRendering){
-            this.runtimeState.cancelled = true
-        }
-
-        if(this.runtimeState.renderer){
-            mainMixer.unregisterOutputRenderer(this.runtimeState.renderer)
-        }
-
-        if(this.runtimeState.renderer && mainMixer.gl){
-            const gl = mainMixer.gl
-            const r = this.runtimeState.renderer
-
-            if(r.historyTexture)  gl.deleteTexture(r.historyTexture)
-            if(r.tempTexture)     gl.deleteTexture(r.tempTexture)
-            if(r.tempFBO)         gl.deleteFramebuffer(r.tempFBO)
-            if(r.outputTexture)   gl.deleteTexture(r.outputTexture)
-            if(r.outputFBO)       gl.deleteFramebuffer(r.outputFBO)
-            r.historyFBOs.forEach(fbo => gl.deleteFramebuffer(fbo))
-            if(r._pbo) r._pbo.forEach(b => { if(b) gl.deleteBuffer(b) })
-            if(r._pboFences[0])   gl.deleteSync(r._pboFences[0])
-            if(r._pboFences[1])   gl.deleteSync(r._pboFences[1])
-            if(r.pendingFence)    gl.deleteSync(r.pendingFence)
-            if(r.program)         gl.deleteProgram(r.program)
-            if(r.pendingProgram)  { gl.deleteProgram(r.pendingProgram); r.pendingProgram = null }
-        }
-
-        if(this.runtimeState.textureMap && mainMixer.gl){
-            const gl = mainMixer.gl
-            this.runtimeState.textureMap.forEach(entry => gl.deleteTexture(entry.tex))
-            this.runtimeState.textureMap.clear()
-        }
-
-        this.runtimeState.renderer = null
         SNode.outputs.delete(this)
+
+        // The async render loop captures `renderer` and `gl` and has many await points.
+        // Deleting GL resources synchronously here would race with in-flight render/readPixels
+        // calls. Cancel and defer cleanup until the render promise resolves.
+        const cleanup = () => {
+            if(this.runtimeState.renderer){
+                mainMixer.unregisterOutputRenderer(this.runtimeState.renderer)
+            }
+
+            if(this.runtimeState.renderer && mainMixer.gl){
+                const gl = mainMixer.gl
+                const r = this.runtimeState.renderer
+
+                if(r.historyTexture)  gl.deleteTexture(r.historyTexture)
+                if(r.tempTexture)     gl.deleteTexture(r.tempTexture)
+                if(r.tempFBO)         gl.deleteFramebuffer(r.tempFBO)
+                if(r.outputTexture)   gl.deleteTexture(r.outputTexture)
+                if(r.outputFBO)       gl.deleteFramebuffer(r.outputFBO)
+                r.historyFBOs.forEach(fbo => gl.deleteFramebuffer(fbo))
+                if(r._pbo) r._pbo.forEach(b => { if(b) gl.deleteBuffer(b) })
+                if(r._pboFences[0])   gl.deleteSync(r._pboFences[0])
+                if(r._pboFences[1])   gl.deleteSync(r._pboFences[1])
+                if(r.pendingFence)    gl.deleteSync(r.pendingFence)
+                if(r.program)         gl.deleteProgram(r.program)
+                if(r.pendingProgram)  { gl.deleteProgram(r.pendingProgram); r.pendingProgram = null }
+            }
+
+            if(this.runtimeState.textureMap && mainMixer.gl){
+                const gl = mainMixer.gl
+                this.runtimeState.textureMap.forEach(entry => gl.deleteTexture(entry.tex))
+                this.runtimeState.textureMap.clear()
+            }
+
+            this.runtimeState.renderer = null
+        }
+
+        if(this.runtimeState.isRendering && this.runtimeState._renderPromise){
+            this.runtimeState.cancelled = true
+            this.runtimeState._renderPromise.finally(cleanup)
+        } else {
+            cleanup()
+        }
     }
 })
 
