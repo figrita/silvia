@@ -45,7 +45,7 @@ const categoryStructure = [
     {
         name: 'Effects',
         icon: '🔍',
-        nodes: ['colorshift', 'contrast', 'invert', 'colorize', 'chromaticaberration', 'chromakey', 'posterize', 'dither', 'colordither', 'colormapping', 'autoexposure', 'blur', 'bloom', 'dilate', 'erode', 'edgedetection', 'supersampling', 'sincfilter', 'sharpen', 'emboss', 'heighttonormal', 'simplelight', 'halftone', 'mosaic', 'kuwahara', 'pixelsort', 'wavefold']
+        nodes: ['colorshift', 'contrast', 'saturate', 'vibrance', 'gamma', 'levels', 'vignette', 'radialblur', 'motionblur', 'invert', 'colorize', 'chromaticaberration', 'chromakey', 'posterize', 'dither', 'colordither', 'colormapping', 'autoexposure', 'blur', 'bloom', 'dilate', 'erode', 'edgedetection', 'supersampling', 'sincfilter', 'sharpen', 'emboss', 'heighttonormal', 'simplelight', 'halftone', 'mosaic', 'kuwahara', 'pixelsort', 'wavefold']
     },
     {
         name: 'Mix',

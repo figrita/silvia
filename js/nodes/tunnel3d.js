@@ -169,7 +169,7 @@ registerNode({
 
     vec3 t3d_hit = t3d_ro + t3d_rd * t3d_t;
     vec2 t3d_hp = ${pathAt('t3d_hit.z')};
-    float t3d_a = atan(t3d_hit.y - t3d_hp.y, t3d_hit.x - t3d_hp.x);
+    float t3d_a = atan(t3d_hit.x - t3d_hp.x, t3d_hit.y - t3d_hp.y);
     float t3d_zc = t3d_hit.z * 0.5;
     ${wrapCode}
     ${mapping === 'polar'
