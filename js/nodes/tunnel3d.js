@@ -174,7 +174,7 @@ registerNode({
     ${wrapCode}
     ${mapping === 'polar'
     ? `float t3d_pr = (t3d_zc + 1.0) * 0.5;
-    vec2 t3d_tc = vec2(cos(t3d_a), sin(t3d_a)) * t3d_pr;`
+    vec2 t3d_tc = vec2(sin(t3d_a), cos(t3d_a)) * t3d_pr;`
     : mapping === 'cartesian_mirror'
     ? `vec2 t3d_tc = vec2(abs(t3d_a / 3.14159265) * 2.0 - 1.0, t3d_zc);`
     : `vec2 t3d_tc = vec2(t3d_a / 3.14159265, t3d_zc);`}
