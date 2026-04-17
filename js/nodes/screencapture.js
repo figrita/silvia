@@ -13,11 +13,11 @@ registerNode({
         stream: null
     },
 
+    offlineBlocked: true,
     input: {},
     output: {
         'output': {
             label: 'Output',
-            offlineBlocked: true,
             type: 'color',
             genCode(cc, funcName, uniformName){
                 return `vec4 ${funcName}(vec2 uv) {

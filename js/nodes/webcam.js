@@ -13,8 +13,9 @@ registerNode({
         stream: null // To hold the MediaStream object
     },
 
+    offlineBlocked: true,
     input: {},
-    
+
     options: {
         'mirror': {
             label: 'Mirror Output',
@@ -30,7 +31,6 @@ registerNode({
         'output': {
             label: 'Output',
             type: 'color',
-            offlineBlocked: true,
             genCode(cc, funcName, uniformName){
                 const mirror = this.getOption('mirror') === 'yes'
                 const xCoord = mirror ? '1.0 - uv.x' : 'uv.x'

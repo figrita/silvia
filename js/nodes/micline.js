@@ -39,13 +39,13 @@ registerNode({
         availableDevices: []
     },
 
+    offlineBlocked: true,
     input: {},
     output: {
         'bass': {
             label: 'Red Band',
             type: 'float',
             range: '[0, 1]',
-            offlineBlocked: true,
             genCode(cc, funcName, uniformName){
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -60,7 +60,6 @@ registerNode({
             label: 'Green Band',
             type: 'float',
             range: '[0, 1]',
-            offlineBlocked: true,
             genCode(cc, funcName, uniformName){
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -75,7 +74,6 @@ registerNode({
             label: 'Blue Band',
             type: 'float',
             range: '[0, 1]',
-            offlineBlocked: true,
             genCode(cc, funcName, uniformName){
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -90,7 +88,6 @@ registerNode({
             label: 'Volume',
             type: 'float',
             range: '[0, 1]',
-            offlineBlocked: true,
             genCode(cc, funcName, uniformName){
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -102,11 +99,11 @@ registerNode({
                 gl.uniform1f(location, Math.min(1.0, avg))
             }
         },
-        'oscilloscope': {...makeOscilloscopeOutput(function(){ return this.runtimeState.analyzer?.waveformData }), offlineBlocked: true},
-        'bassThreshold': {label: 'Red Band Event', type: 'action', offlineBlocked: true},
-        'midThreshold': {label: 'Green Band Event', type: 'action', offlineBlocked: true},
-        'highThreshold': {label: 'Blue Band Event', type: 'action', offlineBlocked: true},
-        'volumeThreshold': {label: 'Volume Event', type: 'action', offlineBlocked: true}
+        'oscilloscope': {...makeOscilloscopeOutput(function(){ return this.runtimeState.analyzer?.waveformData })},
+        'bassThreshold': {label: 'Red Band Event', type: 'action'},
+        'midThreshold': {label: 'Green Band Event', type: 'action'},
+        'highThreshold': {label: 'Blue Band Event', type: 'action'},
+        'volumeThreshold': {label: 'Volume Event', type: 'action'}
     },
 
     async onCreate(){

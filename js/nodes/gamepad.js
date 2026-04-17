@@ -26,22 +26,23 @@ registerNode({
         buttonPrevState: new Array(20).fill(false)
     },
 
+    offlineBlocked: true,
     input: {},
     output: {
-        'leftStickX': {label: 'Left Stick X', type: 'float', range: '[-1, 1]', offlineBlocked: true},
-        'leftStickY': {label: 'Left Stick Y', type: 'float', range: '[-1, 1]', offlineBlocked: true},
-        'rightStickX': {label: 'Right Stick X', type: 'float', range: '[-1, 1]', offlineBlocked: true},
-        'rightStickY': {label: 'Right Stick Y', type: 'float', range: '[-1, 1]', offlineBlocked: true},
-        'leftTrigger': {label: 'Left Trigger', type: 'float', range: '[0, 1]', offlineBlocked: true},
-        'rightTrigger': {label: 'Right Trigger', type: 'float', range: '[0, 1]', offlineBlocked: true},
-        'buttonA': {label: 'Button A (Cross)', type: 'action', offlineBlocked: true},
-        'buttonB': {label: 'Button B (Circle)', type: 'action', offlineBlocked: true},
-        'buttonX': {label: 'Button X (Square)', type: 'action', offlineBlocked: true},
-        'buttonY': {label: 'Button Y (Triangle)', type: 'action', offlineBlocked: true},
-        'dpadUp': {label: 'D-pad Up', type: 'action', offlineBlocked: true},
-        'dpadDown': {label: 'D-pad Down', type: 'action', offlineBlocked: true},
-        'dpadLeft': {label: 'D-pad Left', type: 'action', offlineBlocked: true},
-        'dpadRight': {label: 'D-pad Right', type: 'action', offlineBlocked: true}
+        'leftStickX': {label: 'Left Stick X', type: 'float', range: '[-1, 1]'},
+        'leftStickY': {label: 'Left Stick Y', type: 'float', range: '[-1, 1]'},
+        'rightStickX': {label: 'Right Stick X', type: 'float', range: '[-1, 1]'},
+        'rightStickY': {label: 'Right Stick Y', type: 'float', range: '[-1, 1]'},
+        'leftTrigger': {label: 'Left Trigger', type: 'float', range: '[0, 1]'},
+        'rightTrigger': {label: 'Right Trigger', type: 'float', range: '[0, 1]'},
+        'buttonA': {label: 'Button A (Cross)', type: 'action'},
+        'buttonB': {label: 'Button B (Circle)', type: 'action'},
+        'buttonX': {label: 'Button X (Square)', type: 'action'},
+        'buttonY': {label: 'Button Y (Triangle)', type: 'action'},
+        'dpadUp': {label: 'D-pad Up', type: 'action'},
+        'dpadDown': {label: 'D-pad Down', type: 'action'},
+        'dpadLeft': {label: 'D-pad Left', type: 'action'},
+        'dpadRight': {label: 'D-pad Right', type: 'action'}
     },
 
     onCreate(){

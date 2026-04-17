@@ -33,13 +33,13 @@ registerNode({
         thresholdState: DEFAULT_THRESHOLD_STATE
     },
 
+    offlineBlocked: true,
     input: {},
 
     output: {
         'output': {
             label: 'Video',
             type: 'color',
-            offlineBlocked: true,
             genCode(cc, funcName, uniformName) {
                 return `vec4 ${funcName}(vec2 uv) {
     ivec2 texSize = textureSize(${uniformName}, 0);
@@ -60,7 +60,6 @@ registerNode({
             label: 'Red Band',
             type: 'float',
             range: '[0, 1]',
-            offlineBlocked: true,
             genCode(cc, funcName, uniformName) {
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -75,7 +74,6 @@ registerNode({
             label: 'Green Band',
             type: 'float',
             range: '[0, 1]',
-            offlineBlocked: true,
             genCode(cc, funcName, uniformName) {
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -90,7 +88,6 @@ registerNode({
             label: 'Blue Band',
             type: 'float',
             range: '[0, 1]',
-            offlineBlocked: true,
             genCode(cc, funcName, uniformName) {
                 return `float ${funcName}(vec2 uv) { return ${uniformName}; }`
             },
@@ -101,11 +98,11 @@ registerNode({
             }
         },
 
-        'oscilloscope': {...makeOscilloscopeOutput(function(){ return mainInput.getWaveformData() }), offlineBlocked: true},
+        'oscilloscope': {...makeOscilloscopeOutput(function(){ return mainInput.getWaveformData() })},
 
-        'bassThreshold': {label: 'Red Band Event', type: 'action', offlineBlocked: true},
-        'midThreshold': {label: 'Green Band Event', type: 'action', offlineBlocked: true},
-        'highThreshold': {label: 'Blue Band Event', type: 'action', offlineBlocked: true}
+        'bassThreshold': {label: 'Red Band Event', type: 'action'},
+        'midThreshold': {label: 'Green Band Event', type: 'action'},
+        'highThreshold': {label: 'Blue Band Event', type: 'action'}
     },
 
     onCreate() {

@@ -337,6 +337,20 @@ export class Connection{
 
         // Show source tags on input ports with cross-workspace connections
         this.updateCrossWorkspaceTags()
+
+        // Apply offline-blocked styling to all tainted nodes' output ports
+        this.updateTaintedPortStyles()
+    }
+
+    static updateTaintedPortStyles(){
+        const tainted = getTaintedNodes()
+        for(const node of SNode.nodes){
+            const isTainted = tainted.has(node)
+            for(const key in node.output){
+                const portEl = node.output[key].portEl
+                if(portEl) portEl.classList.toggle('offline-blocked', isTainted)
+            }
+        }
     }
 
     /**
@@ -747,14 +761,7 @@ function hasOfflineOutputDescendant(startNode, descendants){
 function getTaintedNodes(){
     const tainted = new Set()
     for(const node of SNode.nodes){
-        let hasBlocked = false
-        for(const key in node.output){
-            if(node.output[key].offlineBlocked){
-                hasBlocked = true
-                break
-            }
-        }
-        if(hasBlocked){
+        if(node.offlineBlocked){
             tainted.add(node)
             for(const desc of getDescendants(node)){
                 tainted.add(desc)
