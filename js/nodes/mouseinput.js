@@ -14,6 +14,7 @@ registerNode({
         editorEl: null
     },
     
+    offlineBlocked: true,
     input: {},
     output: {
         'x': {

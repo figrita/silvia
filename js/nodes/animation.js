@@ -252,6 +252,44 @@ registerNode({
         }
     },
     
+    _prepareForTime(virtualTime, fps){
+        if(!this.values.isRunning) return
+        if(!this.runtimeState.phaseAccumulator){
+            this.runtimeState.phaseAccumulator = new PhaseAccumulator({
+                initialSpeed: 1.0 / Math.max(this.values.duration, 0.01),
+                transitionDuration: 0.05,
+                minSpeed: -10.0,
+                maxSpeed: 10.0
+            })
+        }
+        const speed = 1.0 / Math.max(this.values.duration, 0.01)
+        this.runtimeState.phaseAccumulator.advanceByDt(1 / fps, speed)
+        // Update graph visualization during offline render
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.updateValue(this._getCurrentValue())
+            this.runtimeState.graph.draw()
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.stopAnimation()
+        }
+        this.runtimeState._wasRunning = this.values.isRunning
+        this.values.isRunning = true
+        // Reset phase for clean offline start
+        if(this.runtimeState.phaseAccumulator){
+            this.runtimeState.phaseAccumulator.resetPhase(0)
+        }
+    },
+
+    _resumeRealtimeLoops(){
+        this.values.isRunning = this.runtimeState._wasRunning ?? this.values.isRunning
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.startAnimation(() => this._getCurrentValue())
+        }
+    },
+
     onDestroy(){
         if(this.runtimeState.graph){
             this.runtimeState.graph.destroy()

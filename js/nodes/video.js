@@ -1,7 +1,8 @@
 import {registerNode} from '../registry.js'
 import {Connection} from '../connections.js'
-import {autowire, StringToFragment} from '../utils.js'
+import {autowire, StringToFragment, showAlertModal} from '../utils.js'
 import {AudioAnalyzer} from '../audioAnalyzer.js'
+import {OfflineAudioAnalyzer} from '../offlineAudioAnalyzer.js'
 import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
 import {AssetManager} from '../assetManager.js'
 import {ensureBandConfig, createBandEQControlsHTML, attachBandEQListeners, drawScope, applyBandConfig, makeOscilloscopeOutput, DEFAULT_BAND_CONFIG} from '../audioHistogram.js'
@@ -456,7 +457,7 @@ registerNode({
             await this._loadFromAssetPath(assetPath)
         } catch (error) {
             console.error('Failed to handle video file path:', error)
-            alert(`Failed to load video: ${error.message}`)
+            showAlertModal(`Failed to load video: ${error.message}`, 'Video')
         }
     },
 
@@ -651,6 +652,96 @@ registerNode({
             this.runtimeState.uiUpdateFrameId = requestAnimationFrame(updateMeters)
         }
         updateMeters()
+    },
+
+    async _prepareForTime(virtualTime, fps){
+        const video = this.elements.video
+        if(!video || !video.duration || video.duration === 0) return
+
+        // Compute target time, handling looping. Double-modulo handles negative virtualTime (warmup).
+        const targetTime = video.loop
+            ? ((virtualTime % video.duration) + video.duration) % video.duration
+            : Math.max(0, Math.min(virtualTime, video.duration))
+
+        // Skip seek if already at the right time (within half a frame)
+        if(Math.abs(video.currentTime - targetTime) < 0.001) {
+            this._drawVideoToCanvas()
+        } else {
+            // Seek and wait, with 5s timeout guard
+            video.currentTime = targetTime
+            await Promise.race([
+                new Promise(resolve => {
+                    const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve() }
+                    video.addEventListener('seeked', onSeeked)
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Video seek timeout')), 5000))
+            ])
+            this._drawVideoToCanvas()
+        }
+
+        // Offline audio analysis
+        if(this.runtimeState.analyzer){
+            if(!this.runtimeState.offlineAnalyzer){
+                const src = video.src
+                if(src){
+                    const oa = new OfflineAudioAnalyzer()
+                    applyBandConfig(oa, this.values.bandConfig)
+                    await oa.initFromURL(src)
+                    oa.reset()
+                    this.runtimeState.offlineAnalyzer = oa
+                }
+            }
+            if(this.runtimeState.offlineAnalyzer){
+                this.runtimeState.offlineAnalyzer.analyzeAtTime(virtualTime)
+                const oa = this.runtimeState.offlineAnalyzer
+                this.runtimeState.analyzer.audioValues.bass = oa.audioValues.bass
+                this.runtimeState.analyzer.audioValues.mid = oa.audioValues.mid
+                this.runtimeState.analyzer.audioValues.high = oa.audioValues.high
+                this.runtimeState.analyzer.waveformData.set(oa.waveformData)
+                this.runtimeState.analyzer.frequencyData.set(oa.frequencyData)
+
+                // Check thresholds and fire action triggers
+                const {bass, mid, high} = oa.audioValues
+                const now = virtualTime * 1000
+                updateMeterAndCheckThreshold(this, 'bass', bass, now)
+                updateMeterAndCheckThreshold(this, 'mid', mid, now)
+                updateMeterAndCheckThreshold(this, 'high', high, now)
+            }
+        }
+    },
+
+    _drawVideoToCanvas(){
+        const {video, canvas} = this.elements
+        if(!video || !canvas) return
+        if(video.readyState >= video.HAVE_CURRENT_DATA){
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            this.runtimeState.canvasHasData = true
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.renderLoop){
+            cancelAnimationFrame(this.runtimeState.renderLoop)
+            this.runtimeState.renderLoop = null
+        }
+        if(this.runtimeState.uiUpdateFrameId){
+            cancelAnimationFrame(this.runtimeState.uiUpdateFrameId)
+            this.runtimeState.uiUpdateFrameId = null
+        }
+        this.elements.video?.pause()
+        // Reset threshold state so debounce works in virtual time space
+        for(const band in this.runtimeState.thresholdState){
+            this.runtimeState.thresholdState[band].triggered = false
+            this.runtimeState.thresholdState[band].lastTriggerTime = 0
+        }
+    },
+
+    _resumeRealtimeLoops(){
+        this.runtimeState.offlineAnalyzer = null
+        this._startCanvasRenderLoop()
+        this._startUiUpdateLoop()
+        this.elements.video?.play().catch(e => console.warn('Video play interrupted:', e))
     },
 
     onDestroy(){

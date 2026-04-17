@@ -235,6 +235,41 @@ registerNode({
         })
     },
     
+    _prepareForTime(virtualTime, fps){
+        if(!this.values.isRunning) return
+        if(!this.runtimeState.phaseAccumulator){
+            this.runtimeState.phaseAccumulator = new PhaseAccumulator({
+                initialSpeed: this.values.frequency,
+                transitionDuration: 0.05,
+                minSpeed: 0.01,
+                maxSpeed: 30.0
+            })
+        }
+        this.runtimeState.phaseAccumulator.advanceByDt(1 / fps, this.values.frequency)
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.updateValue(this._getCurrentValue())
+            this.runtimeState.graph.draw()
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.stopAnimation()
+        }
+        this.runtimeState._wasRunning = this.values.isRunning
+        this.values.isRunning = true
+        if(this.runtimeState.phaseAccumulator){
+            this.runtimeState.phaseAccumulator.resetPhase(0)
+        }
+    },
+
+    _resumeRealtimeLoops(){
+        this.values.isRunning = this.runtimeState._wasRunning ?? this.values.isRunning
+        if(this.runtimeState.graph){
+            this.runtimeState.graph.startAnimation(() => this._getCurrentValue())
+        }
+    },
+
     onDestroy(){
         if(this.runtimeState.graph){
             this.runtimeState.graph.destroy()

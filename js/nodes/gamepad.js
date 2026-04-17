@@ -26,6 +26,7 @@ registerNode({
         buttonPrevState: new Array(20).fill(false)
     },
 
+    offlineBlocked: true,
     input: {},
     output: {
         'leftStickX': {label: 'Left Stick X', type: 'float', range: '[-1, 1]'},

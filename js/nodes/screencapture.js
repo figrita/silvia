@@ -13,6 +13,7 @@ registerNode({
         stream: null
     },
 
+    offlineBlocked: true,
     input: {},
     output: {
         'output': {

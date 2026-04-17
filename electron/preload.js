@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // File system helpers
     showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
     showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
+    writeFrameFile: (dirPath, filename, arrayBuffer) => ipcRenderer.invoke('write-frame-file', dirPath, filename, arrayBuffer),
     
     // .svs file management APIs
     // NOTE: Methods use "Patch" to mean .svs file operations (legacy naming).

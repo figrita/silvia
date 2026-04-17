@@ -1,6 +1,7 @@
 // AssetManager - Electron-only asset management
 
 import {setIcon, setIconLabel, iconHtml} from './icons.js'
+import {showAlertModal} from './utils.js'
 
 const TYPE_ICONS = { image: 'image', video: 'film', audio: 'volume-2' }
 const TYPE_PLURAL = { image: 'images', video: 'videos', audio: 'audio' }
@@ -146,7 +147,7 @@ export const AssetManager = {
                 return true
             } catch (error) {
                 console.error('Failed to delete asset:', error)
-                alert('Failed to delete asset. Please try again.')
+                showAlertModal('Failed to delete asset. Please try again.', 'Assets')
                 return false
             }
         }
@@ -261,10 +262,10 @@ export const AssetManager = {
                     if (successCount > 0 && failCount === 0) {
                     } else if (successCount > 0 && failCount > 0) {
                         const failedFiles = uploadPromises.filter(p => !p.success).map(p => `${p.fileName}: ${p.error}`).join('\n')
-                        alert(`Uploaded ${successCount} file(s), ${failCount} failed:\n\n${failedFiles}`)
+                        showAlertModal(`Uploaded ${successCount} file(s), ${failCount} failed:\n\n${failedFiles}`, 'Assets')
                     } else {
                         const failedFiles = uploadPromises.filter(p => !p.success).map(p => `${p.fileName}: ${p.error}`).join('\n')
-                        alert(`Failed to upload ${failCount} file(s):\n\n${failedFiles}`)
+                        showAlertModal(`Failed to upload ${failCount} file(s):\n\n${failedFiles}`, 'Assets')
                     }
                 }
             }
@@ -606,11 +607,11 @@ export const AssetManager = {
                                     await loadTabContent(activeTab)
                                 }
                             } else {
-                                alert('Failed to update asset. Please try again.')
+                                showAlertModal('Failed to update asset. Please try again.', 'Assets')
                             }
                         } catch (error) {
                             console.error('Error updating asset:', error)
-                            alert('Failed to update asset. Please try again.')
+                            showAlertModal('Failed to update asset. Please try again.', 'Assets')
                         }
                     }
                     hidePanel()
@@ -864,7 +865,7 @@ export const AssetManager = {
 
         } catch (error) {
             console.error('Failed to show global asset manager:', error)
-            alert('Failed to open asset manager. Check console for details.')
+            showAlertModal('Failed to open asset manager. Check console for details.', 'Assets')
         }
     }
 }

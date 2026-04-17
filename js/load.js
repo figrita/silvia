@@ -2,7 +2,7 @@
 // User-facing UI says "Open" and "workspace". CSS classes like .patch-card
 // are the file browser card styles. IPC methods use "patch" for file I/O.
 
-import {autowire, StringToFragment} from './utils.js'
+import {autowire, StringToFragment, showAlertModal} from './utils.js'
 import {SNode} from './snode.js'
 import {Connection} from './connections.js'
 import {clearWorkspace, setWorkspaceWidth} from './editor.js'
@@ -354,7 +354,7 @@ function handleFileUpload(event){
             openPatch(patchData, sourceInfo, name)
             loadModal.style.display = 'none'
         } catch(error){
-            alert('Failed to parse file. Is it a valid .svs file?')
+            showAlertModal('Failed to parse file. Is it a valid .svs file?', 'Load')
             console.error('File parsing error:', error)
         }
     }
@@ -513,11 +513,11 @@ function createPatchListItem(patch, patchFile = null, isDefaultPatch = false){
                             clearSourceForDeletedPatch(patchFile)
                             populateLoadModal() // Refresh the list
                         } else {
-                            alert('Failed to delete file.')
+                            showAlertModal('Failed to delete file.', 'Delete')
                         }
                     } catch (error) {
                         console.error('Failed to delete patch file:', error)
-                        alert('Failed to delete file.')
+                        showAlertModal('Failed to delete file.', 'Delete')
                     }
                 } else {
                     // Web mode: delete from localStorage
@@ -610,7 +610,7 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true, sou
         const {nodeMap, errors} = createNodesAndConnections(nodes, patchData.connections)
 
         if (nodeMap.size === 0) {
-            alert('Load failed: no nodes could be created.')
+            showAlertModal('Load failed: no nodes could be created.', 'Load')
             return
         }
 
@@ -640,12 +640,12 @@ export function deserializeWorkspace(patchData, shouldClearWorkspace = true, sou
 
         if (errors.length > 0) {
             console.warn('Load errors:', errors)
-            alert(`Loaded with ${errors.length} errors. Check console.`)
+            showAlertModal(`Loaded with ${errors.length} errors. Check console.`, 'Load')
         }
 
     } catch(error){
         console.error('Failed to load patch:', error)
-        alert(`Load failed: ${error.message}`)
+        showAlertModal(`Load failed: ${error.message}`, 'Load')
     }
 }
 

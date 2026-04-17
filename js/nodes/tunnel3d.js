@@ -169,12 +169,12 @@ registerNode({
 
     vec3 t3d_hit = t3d_ro + t3d_rd * t3d_t;
     vec2 t3d_hp = ${pathAt('t3d_hit.z')};
-    float t3d_a = atan(t3d_hit.y - t3d_hp.y, t3d_hit.x - t3d_hp.x);
+    float t3d_a = atan(t3d_hit.x - t3d_hp.x, t3d_hit.y - t3d_hp.y);
     float t3d_zc = t3d_hit.z * 0.5;
     ${wrapCode}
     ${mapping === 'polar'
     ? `float t3d_pr = (t3d_zc + 1.0) * 0.5;
-    vec2 t3d_tc = vec2(cos(t3d_a), sin(t3d_a)) * t3d_pr;`
+    vec2 t3d_tc = vec2(sin(t3d_a), cos(t3d_a)) * t3d_pr;`
     : mapping === 'cartesian_mirror'
     ? `vec2 t3d_tc = vec2(abs(t3d_a / 3.14159265) * 2.0 - 1.0, t3d_zc);`
     : `vec2 t3d_tc = vec2(t3d_a / 3.14159265, t3d_zc);`}

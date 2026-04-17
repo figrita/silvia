@@ -212,6 +212,74 @@ registerNode({
         this._updateDisplay()
     },
 
+    _prepareForTime(virtualTime, fps){
+        if(!this.runtimeState.isRunning) return
+
+        const subdivision = parseFloat(this.getOption('subdivision'))
+        const beatsPerSecond = this.values.bpm / 60
+        const timePerBeat = subdivision / beatsPerSecond
+        const gateLength = this.values.gateLength ?? 1.0
+        const hasGate = gateLength < 0.99
+        const currentBeat = Math.floor(virtualTime / timePerBeat)
+
+        // Fire gate-up for the previously-active beat if its close time has now passed
+        if(hasGate && this.runtimeState.lastBeat >= 0 &&
+           this.runtimeState.lastGateUpBeat < this.runtimeState.lastBeat){
+            const gateUpTime = this.runtimeState.lastBeat * timePerBeat + gateLength * timePerBeat
+            if(virtualTime >= gateUpTime){
+                this.triggerAction('trigger', 'up')
+                this.runtimeState.lastGateUpBeat = this.runtimeState.lastBeat
+            }
+        }
+
+        // Fire all intermediate beats skipped between frames
+        if(currentBeat > this.runtimeState.lastBeat){
+            const from = this.runtimeState.lastBeat + 1
+            for(let b = from; b <= currentBeat; b++){
+                // Close gate for b-1 if not yet closed
+                if(hasGate && b > 0 && this.runtimeState.lastGateUpBeat < b - 1){
+                    this.triggerAction('trigger', 'up')
+                    this.runtimeState.lastGateUpBeat = b - 1
+                }
+                this.triggerAction('trigger', 'down')
+            }
+            this.runtimeState.lastBeat = currentBeat
+
+            // Close gate for currentBeat if its up-time has already passed
+            if(hasGate && this.runtimeState.lastGateUpBeat < currentBeat){
+                const gateUpTime = currentBeat * timePerBeat + gateLength * timePerBeat
+                if(virtualTime >= gateUpTime){
+                    this.triggerAction('trigger', 'up')
+                    this.runtimeState.lastGateUpBeat = currentBeat
+                }
+            }
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.animationFrameId){
+            cancelAnimationFrame(this.runtimeState.animationFrameId)
+            this.runtimeState.animationFrameId = null
+        }
+        if(this.runtimeState.gateTimeout){
+            clearTimeout(this.runtimeState.gateTimeout)
+            this.runtimeState.gateTimeout = null
+        }
+        this.runtimeState._wasRunning = this.runtimeState.isRunning
+        this.runtimeState.isRunning = true
+        this.runtimeState.lastBeat = -1
+        this.runtimeState.lastGateUpBeat = -1
+    },
+
+    _resumeRealtimeLoops(){
+        this.runtimeState.isRunning = this.runtimeState._wasRunning ?? this.runtimeState.isRunning
+        if(this.runtimeState.isRunning){
+            this.runtimeState.startTime = performance.now()
+            this.runtimeState.lastBeat = -1
+            this.runtimeState.animationFrameId = requestAnimationFrame((t) => this._run(t))
+        }
+    },
+
     onDestroy(){
         if(this.runtimeState.animationFrameId){
             cancelAnimationFrame(this.runtimeState.animationFrameId)

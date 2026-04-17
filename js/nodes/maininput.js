@@ -8,7 +8,7 @@
 
 import {registerNode} from '../registry.js'
 import {mainInput} from '../mainInput.js'
-import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE, THRESHOLD_ACTION_OUTPUTS} from '../audioThresholds.js'
+import {createAudioMetersUI, updateMeterAndCheckThreshold, DEFAULT_THRESHOLDS, DEFAULT_THRESHOLD_STATE} from '../audioThresholds.js'
 import {makeOscilloscopeOutput} from '../audioHistogram.js'
 
 registerNode({
@@ -33,6 +33,7 @@ registerNode({
         thresholdState: DEFAULT_THRESHOLD_STATE
     },
 
+    offlineBlocked: true,
     input: {},
 
     output: {
@@ -97,9 +98,11 @@ registerNode({
             }
         },
 
-        'oscilloscope': makeOscilloscopeOutput(function(){ return mainInput.getWaveformData() }),
+        'oscilloscope': {...makeOscilloscopeOutput(function(){ return mainInput.getWaveformData() })},
 
-        ...THRESHOLD_ACTION_OUTPUTS
+        'bassThreshold': {label: 'Red Band Event', type: 'action'},
+        'midThreshold': {label: 'Green Band Event', type: 'action'},
+        'highThreshold': {label: 'Blue Band Event', type: 'action'}
     },
 
     onCreate() {

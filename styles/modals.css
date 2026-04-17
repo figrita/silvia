@@ -143,6 +143,20 @@
     margin-top: auto;
 }
 
+.alert-modal-content {
+    min-width: auto;
+    max-width: 32rem;
+    width: 32rem;
+}
+
+.alert-modal-message {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .save-modal-checkbox {
     display: flex;
     align-items: center;

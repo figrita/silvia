@@ -1,5 +1,6 @@
 // Multimonitor support
 import {mainMixer} from '../mainMixer.js'
+import {showAlertModal} from '../utils.js'
 
 let projectorWindow = null
 let bgVideoRef = null
@@ -57,7 +58,7 @@ export const BackgroundRenderer = {
 
         projectorWindow = window.open('about:blank', 'projector', `width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no,scrollbars=no,resizable=yes`)
         if(!projectorWindow){
-            alert('Popup blocker may have prevented the projector window from opening.')
+            showAlertModal('Popup blocker may have prevented the projector window from opening.', 'Projector')
             return
         }
 

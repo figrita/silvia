@@ -5,18 +5,61 @@ import {BackgroundRenderer} from './nodes/_background.js'
 import {iconHtml} from './icons.js'
 import {expandWorkspaceToViewport} from './editor.js'
 
+const UI_STATE_KEY = 'silvia_mixer_ui'
+
 export class MainMixerUI {
     constructor() {
         this.panel = null
         this.isInitialized = false
         this.isCollapsed = false
     }
-    
+
+    _loadUIState() {
+        try {
+            const raw = localStorage.getItem(UI_STATE_KEY)
+            if (raw) return JSON.parse(raw)
+        } catch {}
+        return {}
+    }
+
+    _saveUIState() {
+        const sections = this.panel.querySelectorAll('.mixer-section')
+        const state = {
+            collapsed: this.isCollapsed,
+            channelA: sections[0]?.dataset.expanded !== 'false',
+            channelB: sections[1]?.dataset.expanded !== 'false',
+            mix: sections[2]?.dataset.expanded !== 'false',
+            projection: sections[3]?.dataset.expanded !== 'false'
+        }
+        try {
+            localStorage.setItem(UI_STATE_KEY, JSON.stringify(state))
+        } catch {}
+    }
+
+    _applyUIState(panel, state) {
+        const sections = panel.querySelectorAll('.mixer-section')
+        if (state.channelA === false) sections[0].dataset.expanded = 'false'
+        if (state.channelB === false) sections[1].dataset.expanded = 'false'
+        if (state.mix === false) sections[2].dataset.expanded = 'false'
+        if (state.projection === false) sections[3].dataset.expanded = 'false'
+        if (this.isCollapsed) {
+            panel.classList.add('collapsed')
+            const btn = panel.querySelector('#mixer-collapse-btn')
+            if (btn) {
+                btn.classList.remove('flipped')
+                btn.title = 'Expand panel'
+            }
+        }
+    }
+
     init() {
         if (this.isInitialized) return
-        
+
+        const stored = this._loadUIState()
+        if (stored.collapsed) this.isCollapsed = true
+
         this._adjustBodyLayout()
-        this.panel = this._createPanel()
+        this.panel = this._createPanel(stored)
         document.body.appendChild(this.panel)
 
         // Refresh channel labels when workspace context changes
@@ -35,7 +78,7 @@ export class MainMixerUI {
         document.documentElement.style.setProperty('--panel-right-width', width)
     }
     
-    _createPanel() {
+    _createPanel(stored) {
         const panel = document.createElement('div')
         panel.className = 'main-mixer-panel'
         panel.innerHTML = `
@@ -132,6 +175,7 @@ export class MainMixerUI {
             </div>
         `
         
+        this._applyUIState(panel, stored)
         this._setupEventListeners(panel)
         return panel
     }
@@ -199,6 +243,7 @@ export class MainMixerUI {
                 const section = header.closest('.mixer-section')
                 const expanded = section.dataset.expanded === 'true'
                 section.dataset.expanded = expanded ? 'false' : 'true'
+                this._saveUIState()
             })
         })
 
@@ -347,6 +392,7 @@ export class MainMixerUI {
         collapseBtn.title = this.isCollapsed ? 'Expand panel' : 'Collapse panel'
 
         this._adjustBodyLayout()
+        this._saveUIState()
         expandWorkspaceToViewport()
         window.dispatchEvent(new Event('resize'))
     }

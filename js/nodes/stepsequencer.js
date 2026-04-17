@@ -58,6 +58,105 @@ registerNode({
         this._addEventListeners()
     },
 
+    _prepareForTime(virtualTime, fps){
+        if(!this.runtimeState.isRunning) return
+
+        // Invariants maintained across calls:
+        //   _lastAbsoluteStep : last step whose _executeCurrentStep() has been run (-1 before any)
+        //   _lastGateUpStep   : last step whose gate-up has been emitted (-1 before any)
+        //   _laneActive       : always reflects the lane states of _lastAbsoluteStep
+        // Branches handle: (1) carry-over gate-up for the prior frame's step,
+        // (2) intermediate steps skipped between frames, (3) gate-up for the current step.
+        const bpm = this.values.bpm
+        const timePerStep = 60 / bpm / 4
+        const gateLength = this.values.gateLength
+        const hasGate = gateLength < 0.99
+        const absoluteStep = Math.floor(virtualTime / timePerStep)
+
+        if(this.runtimeState._lastAbsoluteStep === undefined) this.runtimeState._lastAbsoluteStep = -1
+        if(this.runtimeState._lastGateUpStep === undefined) this.runtimeState._lastGateUpStep = -1
+
+        // Carry-over: fire gate-up for the previous frame's step if its time has now passed
+        if(hasGate && this.runtimeState._lastAbsoluteStep >= 0 &&
+           this.runtimeState._lastGateUpStep < this.runtimeState._lastAbsoluteStep){
+            const gateUpTime = this.runtimeState._lastAbsoluteStep * timePerStep + gateLength * timePerStep
+            if(virtualTime >= gateUpTime){
+                for(let lane = 0; lane < 4; lane++){
+                    if(this.runtimeState._laneActive?.[lane]) this.triggerAction(`lane${lane + 1}`, 'up')
+                }
+                this.runtimeState._lastGateUpStep = this.runtimeState._lastAbsoluteStep
+            }
+        }
+
+        if(absoluteStep > this.runtimeState._lastAbsoluteStep){
+            const from = this.runtimeState._lastAbsoluteStep + 1
+            for(let s = from; s <= absoluteStep; s++){
+                // Before executing step s, _laneActive reflects step s-1.
+                // Close gate for s-1 if not yet done.
+                if(hasGate && this.runtimeState._lastGateUpStep < s - 1){
+                    for(let lane = 0; lane < 4; lane++){
+                        if(this.runtimeState._laneActive?.[lane]) this.triggerAction(`lane${lane + 1}`, 'up')
+                    }
+                    this.runtimeState._lastGateUpStep = s - 1
+                }
+                this.runtimeState.currentStep = s % 16
+                this._executeCurrentStep() // updates _laneActive to step s
+                // Close gate for step s if it's a fully-past step
+                if(hasGate && s < absoluteStep){
+                    for(let lane = 0; lane < 4; lane++){
+                        if(this.runtimeState._laneActive?.[lane]) this.triggerAction(`lane${lane + 1}`, 'up')
+                    }
+                    this.runtimeState._lastGateUpStep = s
+                }
+            }
+            // Close gate for absoluteStep if its gate-up time is before virtualTime
+            if(hasGate && this.runtimeState._lastGateUpStep < absoluteStep){
+                const gateUpTime = absoluteStep * timePerStep + gateLength * timePerStep
+                if(virtualTime >= gateUpTime){
+                    for(let lane = 0; lane < 4; lane++){
+                        if(this.runtimeState._laneActive?.[lane]) this.triggerAction(`lane${lane + 1}`, 'up')
+                    }
+                    this.runtimeState._lastGateUpStep = absoluteStep
+                }
+            }
+            this.runtimeState._lastAbsoluteStep = absoluteStep
+            this.runtimeState.lastStepIndex = this.runtimeState.currentStep
+        }
+    },
+
+    _suspendRealtimeLoops(){
+        if(this.runtimeState.animationFrameId){
+            cancelAnimationFrame(this.runtimeState.animationFrameId)
+            this.runtimeState.animationFrameId = null
+        }
+        for(let i = 0; i < this.runtimeState.gateTimeouts.length; i++) clearTimeout(this.runtimeState.gateTimeouts[i])
+        this.runtimeState.gateTimeouts.length = 0
+        // Force-start for offline and save previous state
+        this.runtimeState._wasRunning = this.runtimeState.isRunning
+        this.runtimeState.isRunning = true
+        this.runtimeState.currentStep = -1
+        this.runtimeState.lastStepIndex = -1
+        this.runtimeState._lastAbsoluteStep = -1
+        this.runtimeState._lastGateUpStep = -1
+        this.runtimeState._laneActive = [false, false, false, false]
+        this.runtimeState._isOffline = true
+    },
+
+    _resumeRealtimeLoops(){
+        this.runtimeState._isOffline = false
+        this.runtimeState.isRunning = this.runtimeState._wasRunning ?? this.runtimeState.isRunning
+        if(this.runtimeState.isRunning){
+            this.runtimeState.startTime = performance.now()
+            if(this.runtimeState.currentStep >= 0){
+                const bpm = this.values.bpm
+                const timePerStep = (60 / bpm / 4) * 1000
+                this.runtimeState.startTime -= this.runtimeState.currentStep * timePerStep
+            }
+            this.runtimeState.lastStepIndex = this.runtimeState.currentStep
+            this.runtimeState.animationFrameId = requestAnimationFrame((t) => this._run(t))
+        }
+    },
+
     onDestroy(){
         if(this.runtimeState.animationFrameId){
             cancelAnimationFrame(this.runtimeState.animationFrameId)
@@ -92,38 +191,48 @@ registerNode({
     _executeCurrentStep(){
         this._updatePlayhead()
 
-        // Clear any previous gate timeouts and send up events first
+        // Clear any previous gate timeouts
         for(let i = 0; i < this.runtimeState.gateTimeouts.length; i++) clearTimeout(this.runtimeState.gateTimeouts[i])
         this.runtimeState.gateTimeouts.length = 0
-        
-        // Send up events for all lanes to ensure clean note-offs
-        for(let lane = 0; lane < 4; lane++){
-            this.triggerAction(`lane${lane + 1}`, 'up')
-        }
 
-        // Get gate length
         const gateLength = this.values.gateLength
-        
-        // Calculate gate time
         const bpm = this.values.bpm
         const timePerStep = (60 / bpm / 4) * 1000
         const gateTime = timePerStep * gateLength
+        const step = this.runtimeState.currentStep
 
-        // Trigger actions for active steps
         for(let lane = 0; lane < 4; lane++){
-            if(this.values.stepStates[lane][this.runtimeState.currentStep]){
-                // Trigger down event
-                this.triggerAction(`lane${lane + 1}`, 'down')
-                
-                // Only schedule up event if gate length is less than 1.0
-                // At 1.0, the next step will handle the note off
-                if(gateLength < 0.99){
-                    const timeout = setTimeout(() => {
-                        this.triggerAction(`lane${lane + 1}`, 'up')
-                    }, gateTime)
-                    this.runtimeState.gateTimeouts.push(timeout)
-                }
+            const wasActive = this.runtimeState._laneActive?.[lane] ?? false
+            const isActive = this.values.stepStates[lane][step]
+
+            if(wasActive && !isActive){
+                // Lane becoming inactive — release gate
+                this.triggerAction(`lane${lane + 1}`, 'up')
             }
+
+            if(isActive && !wasActive){
+                // Lane becoming active — trigger gate
+                this.triggerAction(`lane${lane + 1}`, 'down')
+            }
+            // Lane staying active: no up/down cycle, gate remains held
+
+            // Offline render path manages gate-up via _prepareForTime's virtual-time
+            // logic; setTimeout would fire at wall-clock and emit spurious gate-ups.
+            if(isActive && gateLength < 0.99 && !this.runtimeState._isOffline){
+                // Schedule gate release within the step
+                const timeout = setTimeout(() => {
+                    this.triggerAction(`lane${lane + 1}`, 'up')
+                }, gateTime)
+                this.runtimeState.gateTimeouts.push(timeout)
+            }
+        }
+
+        // Track active lanes for next step comparison
+        if(!this.runtimeState._laneActive){
+            this.runtimeState._laneActive = [false, false, false, false]
+        }
+        for(let lane = 0; lane < 4; lane++){
+            this.runtimeState._laneActive[lane] = this.values.stepStates[lane][step]
         }
     },
 

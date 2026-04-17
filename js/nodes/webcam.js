@@ -13,8 +13,9 @@ registerNode({
         stream: null // To hold the MediaStream object
     },
 
+    offlineBlocked: true,
     input: {},
-    
+
     options: {
         'mirror': {
             label: 'Mirror Output',

@@ -286,6 +286,45 @@ export function navigateToNode(node, {SNode, WorkspaceManager}){
     })
 }
 
+/**
+ * Shows a modal alert dialog styled to match the app.
+ * Non-blocking (native alert() blocks the thread, this does not).
+ * @param {string} message - The message to display. Newlines are preserved.
+ * @param {string} [title='Notice'] - Modal title.
+ * @returns {Promise<void>} Resolves when the modal is dismissed.
+ */
+export function showAlertModal(message, title = 'Notice'){
+    return new Promise(resolve => {
+        const modal = document.createElement('div')
+        modal.className = 'modal-overlay'
+        modal.innerHTML = `
+            <div class="modal-content alert-modal-content">
+                <h2></h2>
+                <p class="alert-modal-message"></p>
+                <div class="modal-actions">
+                    <button class="modal-btn confirm-btn">OK</button>
+                </div>
+            </div>
+        `
+        modal.querySelector('h2').textContent = title
+        modal.querySelector('.alert-modal-message').textContent = message
+        document.body.appendChild(modal)
+
+        const close = () => {
+            modal.remove()
+            document.removeEventListener('keydown', onKey)
+            resolve()
+        }
+        const onKey = (e) => {
+            if(e.key === 'Escape' || e.key === 'Enter'){ e.preventDefault(); close() }
+        }
+        modal.querySelector('.confirm-btn').addEventListener('click', close)
+        modal.addEventListener('click', (e) => { if(e.target === modal) close() })
+        document.addEventListener('keydown', onKey)
+        modal.querySelector('.confirm-btn').focus()
+    })
+}
+
 let toastEl = null
 let toastTimer = null
 

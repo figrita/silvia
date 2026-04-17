@@ -36,6 +36,7 @@ import { mainInput } from './js/mainInput.js'
 import { mainInputUI } from './js/mainInputUI.js'
 import { initIcons } from './js/icons.js'
 import { defaultPatches } from './js/defaults.js'
+import { showAlertModal } from './js/utils.js'
 
 
 // --- Centralized Resize Handler ---
@@ -442,7 +443,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.log(`Successfully loaded: ${filePath}`)
                 } catch (error) {
                     console.error('Failed to open file:', error)
-                    alert(`Failed to open file: ${error.message}`)
+                    showAlertModal(`Failed to open file: ${error.message}`, 'Open File')
                 }
             })
         }
