@@ -756,15 +756,36 @@ function hasOfflineOutputDescendant(startNode, descendants){
  * Computes the set of all nodes "tainted" by offlineBlocked data.
  * A node is tainted if it has offlineBlocked outputs, or any of its
  * ancestors do (i.e., offlineBlocked data flows through it transitively).
+ *
+ * Single O(N+C) pass: build child index from Connection.connections,
+ * then multi-source BFS from every offlineBlocked node. Avoids the
+ * per-source getDescendants scan which was O(sources · N · C).
  * @returns {Set<SNode>}
  */
 function getTaintedNodes(){
+    const children = new Map()
+    for(const conn of Connection.connections){
+        const s = conn.source.parent
+        let set = children.get(s)
+        if(!set) children.set(s, set = new Set())
+        set.add(conn.destination.parent)
+    }
+
     const tainted = new Set()
+    const queue = []
     for(const node of SNode.nodes){
         if(node.offlineBlocked){
             tainted.add(node)
-            for(const desc of getDescendants(node)){
-                tainted.add(desc)
+            queue.push(node)
+        }
+    }
+    for(let i = 0; i < queue.length; i++){
+        const kids = children.get(queue[i])
+        if(!kids) continue
+        for(const c of kids){
+            if(!tainted.has(c)){
+                tainted.add(c)
+                queue.push(c)
             }
         }
     }

@@ -191,32 +191,31 @@ registerNode({
      * Collect all upstream nodes that support offline time preparation.
      * Returns them in topological order (sources first) so upstream nodes
      * prepare before downstream nodes that depend on their output.
+     *
+     * Builds a parent index once (covers data + action edges; every
+     * Connection lives in Connection.connections), then DFS post-order.
+     * Avoids the O(N·C) per-visit scan of the connection list.
      */
     _collectTimeDrivenNodes(){
+        const parents = new Map()
+        for(const conn of Connection.connections){
+            const s = conn.source.parent
+            const d = conn.destination.parent
+            if(s === d) continue
+            let set = parents.get(d)
+            if(!set) parents.set(d, set = new Set())
+            set.add(s)
+        }
+
         const visited = new Set()
         const ordered = []
-
         const visit = (node) => {
             if(visited.has(node)) return
             visited.add(node)
-            // Visit upstream nodes first (depth-first, post-order)
-            for(const key in node.input){
-                const port = node.input[key]
-                if(port.connection){
-                    visit(port.connection.parent)
-                }
-            }
-            // Also follow action connections (step sequencer → triggered nodes)
-            for(const conn of Connection.connections){
-                if(conn.destination.parent === node && conn.source.parent !== node){
-                    visit(conn.source.parent)
-                }
-            }
-            if(node._prepareForTime){
-                ordered.push(node)
-            }
+            const ps = parents.get(node)
+            if(ps) for(const p of ps) visit(p)
+            if(node._prepareForTime) ordered.push(node)
         }
-
         visit(this)
         return ordered
     },

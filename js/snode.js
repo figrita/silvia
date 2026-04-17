@@ -263,7 +263,16 @@ export class SNode{
         mapJoin(this.input, (input, key) => {
             input.portEl = this.nodeEl.querySelector(`[data-in-port="${key}"]`)
         })
-        
+
+        // Apply offline-blocked ring to a freshly-minted source node's own output
+        // ports. No connections exist yet, so this can't affect other nodes —
+        // full taint propagation still runs on the next redrawAllConnections.
+        if(this.offlineBlocked){
+            for(const key in this.output){
+                this.output[key].portEl?.classList.add('offline-blocked')
+            }
+        }
+
         // Bring new node to front
         this.nodeEl.style.zIndex = ++SNode.nextZIndex
 
