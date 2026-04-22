@@ -611,8 +611,8 @@ export function serializeWorkspace(allWorkspaces = false){
     // Add workspace info
     if (activeWs) {
         const workspaceList = allWorkspaces
-            ? WorkspaceManager.getAll().map(ws => ({ id: ws.id, name: ws.name }))
-            : [{ id: activeWs.id, name: activeWs.name }]
+            ? WorkspaceManager.getAll().map(ws => ({ id: ws.id, name: ws.name, type: ws.type || 'video' }))
+            : [{ id: activeWs.id, name: activeWs.name, type: activeWs.type || 'video' }]
 
         result.workspaceTree = {
             version: PATCH_VERSION,

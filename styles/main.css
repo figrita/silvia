@@ -1,6 +1,7 @@
 /* styles/main.css */
 /* Import structural and layout styles */
 @import url('./node.css');
+@import url('./audio-node.css');
 
 /* Import component styles which may override or depend on the above */
 @import url('./snumber.css');
@@ -46,6 +47,10 @@
     --event-sat: 60%;
     --event-light: 65%;
 
+    --audio-hue: 195;
+    --audio-sat: 75%;
+    --audio-light: 55%;
+
     /* Calculated saturation levels for consistent theming */
     --theme-sat-subtle: calc(var(--theme-sat) * 0.05);   /* 3% at 60% base */
     --theme-sat-low: calc(var(--theme-sat) * 0.08);      /* 5% at 60% base */
@@ -89,6 +94,7 @@
     --port-float-bg: linear-gradient(140deg, hsla(var(--number-hue), var(--theme-sat-strong), 100%, 0.5), hsl(var(--number-hue), var(--number-sat), var(--number-light)) 50%), hsl(var(--number-hue), var(--number-sat), var(--number-light));
     --port-color-bg: linear-gradient(140deg, hsla(var(--color-hue), var(--theme-sat-norm), 100%, 1), hsl(var(--color-hue), var(--color-sat), calc(var(--color-light) * 1.1)) 50%) hsl(var(--color-hue), var(--color-sat), var(--color-light));
     --port-action-bg: linear-gradient(140deg, hsla(var(--event-hue), var(--theme-sat-strong), 100%, 0.5), hsl(var(--event-hue), var(--event-sat), var(--event-light)) 50%), hsl(var(--event-hue), var(--event-sat), var(--event-light));
+    --port-audio-bg: linear-gradient(140deg, hsla(var(--audio-hue), var(--theme-sat-strong), 100%, 0.5), hsl(var(--audio-hue), var(--audio-sat), var(--audio-light)) 50%), hsl(var(--audio-hue), var(--audio-sat), var(--audio-light));
 
     /* Shadow colors */
     --shadow-primary: hsla(var(--theme-hue), var(--theme-sat-strong), 0%, 0.7);
@@ -154,6 +160,10 @@ body {
 
 #connection-root.theme-wires .connection-path.action {
     stroke: hsl(var(--event-hue), calc(var(--event-sat) * 0.7), calc(var(--event-light) * 1.4));
+}
+
+#connection-root.theme-wires .connection-path.audio {
+    stroke: hsl(var(--audio-hue), calc(var(--audio-sat) * 0.8), calc(var(--audio-light) * 1.1));
 }
 
 /* ===== CHECKBOXES ===== */

@@ -24,6 +24,10 @@
         height: 1rem;
     }
 
+    &.audio {
+        background: var(--port-audio-bg);
+    }
+
     &.hidden {
         opacity: 0.4;
         pointer-events: none;

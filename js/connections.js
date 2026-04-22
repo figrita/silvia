@@ -5,6 +5,38 @@ import {settings} from './settings.js'
 import {SNode, getDescendants} from './snode.js'
 import {canConvert, createConversionMenu, removeConversionMenu} from './typeConversions.js'
 import {WorkspaceManager} from './workspaceManager.js'
+import {audioRuntime} from './audioRuntime.js'
+
+/**
+ * True if this cable ends touches the audio graph — that is, at least one
+ * endpoint is a node that participates in the compiled worklet (declares
+ * genAudio or genSinkAudio). A graph edit on these triggers a worklet
+ * recompile; all other cables are pure video/GLSL.
+ */
+function isAudioConnection(source, destination){
+    const s = source?.parent
+    const d = destination?.parent
+    return !!(s?.genAudio || s?.genSinkAudio || d?.genAudio || d?.genSinkAudio)
+}
+
+/**
+ * Are these two ports connectable inside the compiled audio graph despite
+ * their `type` labels differing? Audio and float are freely interchangeable
+ * within the worklet (an LFO's float output can drive a VCA.audio input, an
+ * oscillator can FM a filter.cutoff). Both endpoints must belong to nodes
+ * that participate in audio codegen (declare genAudio or genSinkAudio).
+ */
+function audioTypeCompatible(portA, portB){
+    if(portA.type === portB.type) return false
+    const src  = portA.portType === 'output' ? portA : portB
+    const dest = portA.portType === 'input'  ? portA : portB
+    if(!src || !dest || src.portType !== 'output' || dest.portType !== 'input') return false
+    const srcIsAudioGraph  = !!(src.parent?.genAudio  || src.parent?.genSinkAudio)
+    const destIsAudioGraph = !!(dest.parent?.genAudio || dest.parent?.genSinkAudio)
+    if(!srcIsAudioGraph || !destIsAudioGraph) return false
+    const isAudioish = (t) => t === 'audio' || t === 'float'
+    return isAudioish(src.type) && isAudioish(dest.type)
+}
 
 export class CursorWire{
     port
@@ -127,6 +159,17 @@ export class CursorWire{
             
             // Check for same type - direct connection
             if(newPort.type === this.port.type){
+                if(this.port.portType === 'input'){
+                    new Connection(newPort, this.port, this.color)
+                } else {
+                    new Connection(this.port, newPort, this.color)
+                }
+                Connection.redrawAllConnections()
+            }
+            // Cross-type but audio-compatible (e.g., audio Oscillator → float
+            // filter.cutoff for FM, or LFO's float output into a VCA.gain
+            // AudioParam). Connect directly, no conversion menu.
+            else if(audioTypeCompatible(this.port, newPort)){
                 if(this.port.portType === 'input'){
                     new Connection(newPort, this.port, this.color)
                 } else {
@@ -487,7 +530,7 @@ export class Connection{
     constructor(source, destination, color = null){
         this.source = source
         this.destination = destination
-        this.type = source.type // 'float', 'color', or 'action'
+        this.type = source.type // 'float', 'color', 'action', or 'audio'
 
         // ALWAYS use phi-spaced color for stroke attribute
         this.color = color || getGoldenRatioColor()
@@ -507,6 +550,7 @@ export class Connection{
                 Connection.clearPortColor(conn.source.portEl)
                 Connection.clearPortColor(conn.destination.portEl)
 
+                conn.teardown()
                 conn.destination.connection = null
                 Connection.connections.delete(conn)
             })
@@ -519,13 +563,28 @@ export class Connection{
 
         Connection.connections.add(this)
 
+        // Audio-graph cables trigger a worklet recompile. All runtime wiring
+        // (AudioParam automation, mic source connections, etc.) is owned by
+        // audioRuntime — nothing to do here beyond notifying it.
+        this._isAudio = isAudioConnection(source, destination)
+        if(this._isAudio) audioRuntime.invalidate()
+
         // Update port border colors to match connection
         this.updatePortColors()
 
         // Only trigger shader recompiles for data connections
-        if(this.type !== 'action'){
+        if(this.type !== 'action' && this.type !== 'audio'){
             SNode.refreshDownstreamOutputs(destination.parent)
         }
+    }
+
+    /**
+     * Called from every site that deletes a connection before removing it
+     * from `Connection.connections`. For audio cables, notify the runtime
+     * so the graph gets recompiled without this edge.
+     */
+    teardown(){
+        if(this._isAudio) audioRuntime.invalidate()
     }
 
     updatePortColors() {
@@ -646,6 +705,11 @@ function managePortVisibility(startPort, shouldHide){
                     if(targetPort.type === startPort.type && !ancestors.has(targetNode)){
                         isIllegal = false
                     }
+                    // Cross-type audio-compatible: audio/float ports can reach
+                    // audio-rate sinks regardless of type label.
+                    else if(audioTypeCompatible(startPort, targetPort) && !ancestors.has(targetNode)){
+                        isIllegal = false
+                    }
                     // Check for convertible types
                     else if(canConvert(startPort.type, targetPort.type) && !ancestors.has(targetNode)){
                         isIllegal = false
@@ -690,6 +754,11 @@ function managePortVisibility(startPort, shouldHide){
                 } else {
                     // Data ports - check for direct match first
                     if(targetPort.type === startPort.type && !descendants.has(targetNode)){
+                        isIllegal = false
+                    }
+                    // Cross-type audio-compatible (dragging from a float/audio
+                    // input toward a compatible audio source).
+                    else if(audioTypeCompatible(targetPort, startPort) && !descendants.has(targetNode)){
                         isIllegal = false
                     }
                     // Check for convertible types

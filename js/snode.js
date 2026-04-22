@@ -527,6 +527,7 @@ export class SNode{
             Connection.clearPortColor(connection.source.portEl)
             Connection.clearPortColor(connection.destination.portEl)
 
+            connection.teardown()
             connection.destination.connection = null
             Connection.connections.delete(connection)
         })
@@ -576,6 +577,7 @@ export class SNode{
                 Connection.clearPortColor(connection.source.portEl)
                 Connection.clearPortColor(connection.destination.portEl)
 
+                connection.teardown()
                 connection.destination.connection = null
                 Connection.connections.delete(connection)
             })
@@ -647,6 +649,7 @@ export class SNode{
             Connection.clearPortColor(connection.source.portEl)
             Connection.clearPortColor(connection.destination.portEl)
 
+            connection.teardown()
             connection.destination.connection = null
             Connection.connections.delete(connection)
         })
@@ -1393,6 +1396,7 @@ export class SNode{
                 this.optionValues[key] = typeof def === 'number'
                     ? Number(e.target.value)
                     : e.target.value
+                if(this.onOptionChange){ this.onOptionChange(key, this.optionValues[key]) }
                 SNode.refreshDownstreamOutputs(this)
             })
         })

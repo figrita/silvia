@@ -201,6 +201,28 @@
     border-color: var(--primary-muted);
 }
 
+/* Audio workspace tabs get an audio-hued top bar accent so they're
+   recognizable at a glance from video tabs. */
+.workspace-tab[data-workspace-type="audio"] {
+    border-top: 2px solid hsl(var(--audio-hue), var(--audio-sat), var(--audio-light));
+}
+
+.workspace-tab[data-workspace-type="audio"].active {
+    box-shadow: inset 0 2px 0 0 hsl(var(--audio-hue), var(--audio-sat), var(--audio-light));
+}
+
+/* Audio create button gets the audio accent */
+.workspace-tab-add.workspace-tab-add-audio {
+    border-color: hsl(var(--audio-hue), calc(var(--audio-sat) * 0.6), calc(var(--audio-light) * 0.6));
+    color: hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 1.2));
+}
+
+.workspace-tab-add.workspace-tab-add-audio:hover,
+.workspace-tab-add.workspace-tab-add-audio:active {
+    background: hsl(var(--audio-hue), calc(var(--audio-sat) * 0.3), 20%);
+    border-color: hsl(var(--audio-hue), var(--audio-sat), var(--audio-light));
+}
+
 .workspace-tab-name {
     flex: 1;
     overflow: hidden;

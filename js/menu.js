@@ -1,17 +1,30 @@
 import {mapJoin} from './utils.js'
 import {SNode} from './snode.js'
 import {nodeList} from './registry.js' // Direct access to the flat list
-import {categorizedNodeList} from './categories.js'
+import {categorizedNodeList, videoNodeSlugs} from './categories.js'
+import {categorizedNodeListAudio, audioNodeSlugs} from './categoriesAudio.js'
+import {WorkspaceManager} from './workspaceManager.js'
 
 // ============================================================================
 // MODULE-LEVEL VARIABLES
 // ============================================================================
 let quickMenu
-let startMenu
+let startMenuVideo
+let startMenuAudio
 let editor
 let X = 0 // Will be set after editor is available
 let Y = window.innerHeight / 2
 let ignoreNextMouseUp = false // Ignore mouseup that follows contextmenu on same mouse action
+
+/** Returns the slug set belonging to the currently active workspace's menu. */
+function activeSlugSet(){
+    return WorkspaceManager.getActiveType() === 'audio' ? audioNodeSlugs : videoNodeSlugs
+}
+
+/** Returns the start menu element for the currently active workspace type. */
+function activeStartMenu(){
+    return WorkspaceManager.getActiveType() === 'audio' ? startMenuAudio : startMenuVideo
+}
 
 // ============================================================================
 // KEYBOARD NAVIGATION MANAGER CLASS
@@ -577,36 +590,38 @@ function createQuickMenu(){
     // Filter nodes based on search
     searchInput.addEventListener('input', (e) => {
         const searchTerm = e.target.value.trim()
-        
+        const allowedSlugs = activeSlugSet()
+
         if (!searchTerm) {
-            // Show all items
+            // Show all items of the active workspace type
             allMenuItems.forEach(item => {
-                item.element.style.display = 'flex'
+                const allowed = allowedSlugs.has(item.nodeDef.slug)
+                item.element.style.display = allowed ? 'flex' : 'none'
                 item.element.style.order = ''
             })
             selectedIndex = 0
             updateSelection()
             return
         }
-        
+
         // Score and filter items
         const scoredItems = allMenuItems.map(item => ({
             ...item,
             score: fuzzyMatchWithPrefix(searchTerm, item)
         }))
-        
+
         // Sort by score and update display
         scoredItems.sort((a, b) => b.score - a.score)
-        
+
         scoredItems.forEach((item, index) => {
-            if (item.score > 0) {
+            if (item.score > 0 && allowedSlugs.has(item.nodeDef.slug)) {
                 item.element.style.display = 'flex'
                 item.element.style.order = index.toString()
             } else {
                 item.element.style.display = 'none'
             }
         })
-        
+
         selectedIndex = 0
         updateSelection()
     })
@@ -671,10 +686,26 @@ function createQuickMenu(){
         selectedIndex = 0
         updateSelection()
     }
+    // Expose the items + a filter hook so the module can hide items that
+    // don't belong to the active workspace type.
+    menuEl.allMenuItems = allMenuItems
+    menuEl.applyTypeFilter = (allowedSlugs) => {
+        allMenuItems.forEach(item => {
+            const allowed = allowedSlugs.has(item.nodeDef.slug)
+            // Only toggle visibility; preserve any ordering set by active search.
+            item.element.style.display = allowed ? 'flex' : 'none'
+        })
+    }
 
     menuEl.appendChild(contentEl)
     document.body.appendChild(menuEl)
     return menuEl
+}
+
+/** Hide quick-menu items not belonging to the active workspace type. */
+function applyQuickMenuTypeFilter(){
+    if(!quickMenu || !quickMenu.applyTypeFilter) return
+    quickMenu.applyTypeFilter(activeSlugSet())
 }
 
 // Helper to reset quick menu state
@@ -682,13 +713,14 @@ function resetQuickMenu() {
     const searchInput = document.getElementById('nodes-menu-search')
     if (searchInput) {
         searchInput.value = ''
-        // Reset all items to visible
+        // Reset order/selection, then apply the workspace-type filter so only
+        // nodes belonging to the active workspace kind are visible.
         const allItems = quickMenu.querySelectorAll('.menu-item')
         allItems.forEach(item => {
-            item.style.display = 'flex'
             item.style.order = ''
             item.classList.remove('selected')
         })
+        applyQuickMenuTypeFilter()
         // Scroll menu content to top
         const contentEl = document.getElementById('nodes-menu-quick-content')
         if (contentEl) {
@@ -756,18 +788,21 @@ function showQuickMenuCentered(e){
 // ============================================================================
 // START MENU (Button)
 // ============================================================================
-function createStartMenu(){
+function createStartMenu(categorizedList, menuId){
     // ========================================================================
     // 1. INITIALIZATION
     // ========================================================================
     const menuEl = document.createElement('div')
-    menuEl.id = 'nodes-menu-start'
-    menuEl.className = 'nodes-menu'
+    menuEl.id = menuId
+    menuEl.className = 'nodes-menu nodes-menu-start'
     menuEl.tabIndex = -1 // Make focusable for keyboard events
-    
-    // Create a container for submenus that sits behind the main menu
+
+    // Create a container for submenus that sits behind the main menu.
+    // Each start menu gets its own submenu container so their submenus
+    // don't collide when switching workspace types.
     const submenuContainer = document.createElement('div')
     submenuContainer.className = 'submenu-container'
+    submenuContainer.dataset.ownerMenu = menuId
     document.body.appendChild(submenuContainer)
     
     // ========================================================================
@@ -861,7 +896,7 @@ function createStartMenu(){
     // ========================================================================
     // 4. BUILD MENU STRUCTURE
     // ========================================================================
-    categorizedNodeList.forEach(category => {
+    categorizedList.forEach(category => {
         const categoryItemEl = document.createElement('div')
         categoryItemEl.className = 'menu-category-item'
 
@@ -1024,6 +1059,7 @@ function createStartMenu(){
 
 function showStartMenu(){
     hideAllMenus()
+    const startMenu = activeStartMenu()
     startMenu.style.display = 'flex'
     const btn = document.getElementById('nodes-menu-btn')
     btn.classList.add('menu-open')
@@ -1036,7 +1072,7 @@ function showStartMenu(){
 
     // Always create nodes at center position
     setCenterNodePosition()
-    
+
     // Activate keyboard navigation
     if (startMenu.keyboardNav) {
         startMenu.keyboardNav.activate()
@@ -1050,32 +1086,28 @@ export function hideAllMenus(){
     // Clean up any visible tooltips
     const existingTooltips = document.querySelectorAll('.menu-tooltip')
     existingTooltips.forEach(tooltip => tooltip.remove())
-    
+
     // Reset the ignore flag when menus are hidden
     ignoreNextMouseUp = false
-    
+
     if(quickMenu){ quickMenu.style.display = 'none' }
-    if(startMenu){
-        startMenu.style.display = 'none'
-        const nodesBtn = document.getElementById('nodes-menu-btn')
-        if (nodesBtn) nodesBtn.classList.remove('menu-open')
-        
-        // Deactivate keyboard navigation
-        if (startMenu.keyboardNav) {
-            startMenu.keyboardNav.deactivate()
-        }
-        
-        // Close any open submenus immediately
-        const visibleSubmenus = document.querySelectorAll('.menu-category-submenu.visible')
-        visibleSubmenus.forEach(submenu => {
-            submenu.classList.remove('visible')
-        })
-        // Clear submenu container
-        const submenuContainer = document.querySelector('.submenu-container')
-        if (submenuContainer) {
-            submenuContainer.innerHTML = ''
-        }
+
+    const nodesBtn = document.getElementById('nodes-menu-btn')
+    if (nodesBtn) nodesBtn.classList.remove('menu-open')
+
+    for(const sm of [startMenuVideo, startMenuAudio]){
+        if(!sm) continue
+        sm.style.display = 'none'
+        if (sm.keyboardNav) sm.keyboardNav.deactivate()
     }
+
+    // Close any open submenus and clear all submenu containers
+    document.querySelectorAll('.menu-category-submenu.visible').forEach(submenu => {
+        submenu.classList.remove('visible')
+    })
+    document.querySelectorAll('.submenu-container').forEach(container => {
+        container.innerHTML = ''
+    })
 }
 
 export function createMenu(){
@@ -1084,15 +1116,25 @@ export function createMenu(){
     const editorRect = editor.getBoundingClientRect()
     X = (editorRect.width / 2) - 100  // Center in editor
     quickMenu = createQuickMenu()
-    startMenu = createStartMenu()
+    startMenuVideo = createStartMenu(categorizedNodeList, 'nodes-menu-start-video')
+    startMenuAudio = createStartMenu(categorizedNodeListAudio, 'nodes-menu-start-audio')
+
+    // When workspace type switches, close any open menus so the user sees the
+    // right set of nodes next time they pop a menu.
+    document.addEventListener('workspace-switched', () => {
+        hideAllMenus()
+        applyQuickMenuTypeFilter()
+    })
+    // Initial filter pass once menus exist
+    applyQuickMenuTypeFilter()
 
     const startMenuBtn = document.getElementById('nodes-menu-btn')
-    
+
     // Trigger on mousedown for immediate response
     startMenuBtn.addEventListener('mousedown', (e) => {
         e.preventDefault()
         e.stopPropagation()
-        // Check if menu is hidden (including empty string on first load)
+        const startMenu = activeStartMenu()
         const isHidden = !startMenu.style.display || startMenu.style.display === 'none'
         if(isHidden){
             showStartMenu()
@@ -1134,6 +1176,7 @@ export function createMenu(){
         // Check for 'n' key to open start menu (like Windows key)
         else if (e.key === 'n' && !e.target.closest('input') && !e.target.closest('textarea') && e.target.contentEditable !== 'true') {
             e.preventDefault()
+            const startMenu = activeStartMenu()
             const isHidden = !startMenu.style.display || startMenu.style.display === 'none'
             if(isHidden){
                 showStartMenu()
@@ -1146,9 +1189,9 @@ export function createMenu(){
     // Close menus on click outside, but not if clicking on menu items
     document.addEventListener('click', (e) => {
         // Don't close if clicking on the menus themselves or any menu items
-        if (!e.target.closest('#nodes-menu-start') && 
+        if (!e.target.closest('.nodes-menu-start') &&
             !e.target.closest('#nodes-menu-quick') &&
-            !e.target.closest('.menu-category-item') && 
+            !e.target.closest('.menu-category-item') &&
             !e.target.closest('.menu-category-submenu') &&
             !e.target.closest('#nodes-menu-btn')) {
             hideAllMenus()

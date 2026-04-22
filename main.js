@@ -37,6 +37,7 @@ import { mainInputUI } from './js/mainInputUI.js'
 import { initIcons } from './js/icons.js'
 import { defaultPatches } from './js/defaults.js'
 import { showAlertModal } from './js/utils.js'
+import { armUserGestureAutoResume } from './js/audioContext.js'
 
 
 // --- Centralized Resize Handler ---
@@ -224,6 +225,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 0. Initialize WorkspaceManager FIRST (before any nodes can be created)
     WorkspaceManager.init()
+
+    // Arm the AudioContext to resume on the first user gesture. The context
+    // itself is lazy — created only when an audio node actually needs it.
+    armUserGestureAutoResume()
 
     // 1. Initialize theme system (required for CSS variables)
     themeManager.applyTheme()

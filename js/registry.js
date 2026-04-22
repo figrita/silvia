@@ -5,8 +5,12 @@ import {deepClone} from './utils.js'
  * It contains the JSDoc type definitions that provide rich, inline documentation
  * for the Node-API, enabling autocompletion and helpful tooltips in VS Code.
  *
- * @typedef {'color' | 'float' | 'action'} PortType
+ * @typedef {'color' | 'float' | 'action' | 'audio'} PortType
  * The data type of a port, determining what it can connect to and how its data is handled.
+ * - 'color': vec4 RGBA pixels (video workspaces only, compiles to GLSL sampler2D/vec4 uniforms).
+ * - 'float': scalar CPU-computed values pushed to GPU as uniforms (video), or audio-graph k-rate CV (audio workspaces).
+ * - 'action': gate/trigger events with optional down/up callbacks (both workspace types).
+ * - 'audio': stereo a-rate Web Audio `AudioNode` connections (audio workspaces only).
  *
  * @typedef {'select'} OptionType
  * The type of UI for a node option. Currently only 'select' is supported.
@@ -60,6 +64,12 @@ import {deepClone} from './utils.js'
  * @property {string} icon - An emoji used as the icon in the node header and menu.
  * @property {string} label - The user-facing name of the node.
  * @property {string} [tooltip] - Optional descriptive text shown as a tooltip in menus and on node headers.
+ * @property {'video'|'audio'} [workspaceType] - Which workspace type this node belongs on. Defaults to 'video'.
+ *   Audio nodes render with R→L port alignment and use Web Audio `AudioNode`s for their runtime.
+ *   See `onOptionChange` below for reacting to option changes on audio nodes (shader recompile is a no-op).
+ * @property {(this: SNode, key: string, value: *) => void} [onOptionChange] - Optional hook called when an option changes.
+ *   For audio nodes, use this to push the new value to a Web Audio node (e.g., `osc.type = value` on waveform change).
+ *   The hook runs before `SNode.refreshDownstreamOutputs`, so it is safe for both video and audio sides.
  * @property {Record<string, NodePort>} [input] - An object defining the input ports for the node. The object keys are used as internal identifiers.
  * @property {Record<string, NodePort>} [output] - An object defining the output ports for the node. The object keys are used as internal identifiers.
  * @property {Record<string, NodeOption>} [options] - An object defining the configurable options (e.g., dropdowns) for the node.

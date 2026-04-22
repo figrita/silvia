@@ -1,0 +1,81 @@
+/* styles/audio-node.css
+ *
+ * Audio nodes share the standard left-to-right layout with every other node
+ * so that hybrid nodes (ADSR, LFO, Button, BPM Clock, etc.) can coexist on
+ * the same canvas without a visual mismatch. This file only provides styles
+ * for the custom-area controls used inside audio nodes' node-custom slot
+ * (control stacks and the SynthOut scope).
+ */
+
+.audio-ctl-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 8px;
+}
+
+.audio-ctl-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+
+    label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+}
+
+.synthout-custom {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 8px;
+
+    canvas {
+        width: 100%;
+        max-width: 240px;
+        height: 64px;
+        background: hsl(var(--audio-hue), 20%, 6%);
+        border-radius: 2px;
+        align-self: center;
+    }
+}
+
+.synthout-level-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+
+    label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+}
+
+.mic-enable-btn {
+    font-family: monospace;
+    background: hsl(var(--audio-hue), calc(var(--audio-sat) * 0.4), 20%);
+    color: var(--text-primary);
+    border: 1px solid hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.7));
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+
+    &:hover {
+        background: hsl(var(--audio-hue), var(--audio-sat), 25%);
+        border-color: hsl(var(--audio-hue), var(--audio-sat), var(--audio-light));
+    }
+}
+
+.mic-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+
+    &.mic-live {
+        color: hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 1.2));
+    }
+}

@@ -47,7 +47,8 @@ class WorkspaceTabBar {
             this.containerEl.innerHTML = `
                 <div class="workspace-tab-bar">
                     <div class="workspace-tabs-container"></div>
-                    <button class="workspace-tab-add" title="New Workspace"><span class="floating-btn-label">New</span><span class="floating-btn-icon">${iconHtml('plus', 14)}</span></button>
+                    <button class="workspace-tab-add" data-ws-type="video" title="New Video Workspace"><span class="floating-btn-label">Video</span><span class="floating-btn-icon">${iconHtml('film', 14)}</span></button>
+                    <button class="workspace-tab-add workspace-tab-add-audio" data-ws-type="audio" title="New Audio Workspace"><span class="floating-btn-label">Audio</span><span class="floating-btn-icon">${iconHtml('music', 14)}</span></button>
                 </div>
             `
             this.tabBarEl = this.containerEl.firstElementChild
@@ -60,8 +61,9 @@ class WorkspaceTabBar {
         WorkspaceManager.getAll().forEach(ws => {
             const isActive = WorkspaceManager.activeWorkspaceId === ws.id
             const hasSource = ws.source?.type != null
+            const type = ws.type || 'video'
             this.tabsContainer.insertAdjacentHTML('beforeend',
-                `<div class="workspace-tab${isActive ? ' active' : ''}${hasSource ? ' has-source' : ''}" data-workspace-id="${ws.id}">
+                `<div class="workspace-tab${isActive ? ' active' : ''}${hasSource ? ' has-source' : ''}" data-workspace-id="${ws.id}" data-workspace-type="${type}">
                     <span class="workspace-tab-name">${ws.name}</span>
                 </div>`
             )
@@ -70,8 +72,9 @@ class WorkspaceTabBar {
 
     setupEvents(tabBar, tabsContainer) {
         tabBar.addEventListener('click', (e) => {
-            if (e.target.closest('.workspace-tab-add')) {
-                this.createNewWorkspace()
+            const addBtn = e.target.closest('.workspace-tab-add')
+            if (addBtn) {
+                this.createNewWorkspace(addBtn.dataset.wsType || 'video')
                 return
             }
             const tab = e.target.closest('.workspace-tab')
@@ -87,7 +90,7 @@ class WorkspaceTabBar {
                 e.preventDefault()
                 this.startRenaming(tab)
             } else if (e.target === tabBar || e.target === tabsContainer) {
-                this.createNewWorkspace()
+                this.createNewWorkspace('video')
             }
         })
 
@@ -106,8 +109,8 @@ class WorkspaceTabBar {
         this.render()
     }
 
-    createNewWorkspace() {
-        const workspace = WorkspaceManager.create()
+    createNewWorkspace(type = 'video') {
+        const workspace = WorkspaceManager.create(null, type)
         WorkspaceManager.setActive(workspace.id)
         SNode.updateVisibility()
         this.render()
@@ -160,7 +163,10 @@ class WorkspaceTabBar {
                 { icon: iconHtml('info', 14), label: 'Properties...', action: () => this.showPropertiesModal(workspaceId) },
                 { icon: iconHtml('x', 14), label: 'Close', inline: true, action: (itemEl) => this.showInlineDeleteConfirm(menu, workspaceId, itemEl) }
             ]
-            : [{ icon: iconHtml('plus', 14), label: 'New Workspace', action: () => this.createNewWorkspace() }]
+            : [
+                { icon: iconHtml('film', 14), label: 'New Video Workspace', action: () => this.createNewWorkspace('video') },
+                { icon: iconHtml('music', 14), label: 'New Audio Workspace', action: () => this.createNewWorkspace('audio') }
+            ]
 
         items.forEach(({ icon, label, action, inline }) => {
             const item = document.createElement('div')

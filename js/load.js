@@ -538,7 +538,8 @@ function createPatchListItem(patch, patchFile = null, isDefaultPatch = false){
  * For loading into an existing workspace (startup, Add In), use deserializeWorkspace directly.
  */
 export function openPatch(patchData, sourceInfo = null, name = 'Untitled') {
-    const newWs = WorkspaceManager.create()
+    const firstType = patchData?.workspaceTree?.workspaces?.[0]?.type || 'video'
+    const newWs = WorkspaceManager.create(null, firstType)
     WorkspaceManager.setActive(newWs.id)
     deserializeWorkspace(patchData, true, sourceInfo)
     WorkspaceManager.rename(newWs.id, name)
@@ -675,7 +676,7 @@ function buildWorkspaceIdMap(patchData, shouldClearWorkspace) {
             }
             savedWorkspaces.forEach(ws => {
                 if (idMap.has(ws.id)) return
-                const newWs = WorkspaceManager.create(ws.name)
+                const newWs = WorkspaceManager.create(ws.name, ws.type || 'video')
                 idMap.set(ws.id, newWs.id)
             })
             const activeId = patchData.workspaceTree?.activeWorkspaceId ?? patchData.activeWorkspaceId

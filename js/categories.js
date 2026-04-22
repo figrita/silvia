@@ -80,7 +80,7 @@ const categoryStructure = [
     {
         name: 'Output',
         icon: '📺',
-        nodes: ['output', 'offlineoutput']
+        nodes: ['output', 'offlineoutput', 'synthout']
     }
 ]
 
@@ -104,3 +104,6 @@ function processCategories(){
 }
 
 export const categorizedNodeList = processCategories()
+
+/** Slugs that belong to the video workspace menu. Used to filter the flat quick-menu search. */
+export const videoNodeSlugs = new Set(categoryStructure.flatMap(c => c.nodes))

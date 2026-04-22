@@ -30,7 +30,7 @@ export class WorkspaceManager {
      */
     static init() {
         if (this.workspaces.size === 0) {
-            const ws = this.create('Workspace 1')
+            const ws = this.create('Workspace 1', 'video')
             this.activeWorkspaceId = ws.id
         }
     }
@@ -38,13 +38,16 @@ export class WorkspaceManager {
     /**
      * Create a new workspace.
      * @param {string|null} name - Optional workspace name
+     * @param {'video'|'audio'} type - Workspace type. Video workspaces compile to GLSL;
+     *   audio workspaces compile to a Web Audio graph. Defaults to 'video' for backwards compat.
      * @returns {object} The created workspace
      */
-    static create(name = null) {
+    static create(name = null, type = 'video') {
         const id = this.nextId++
         const workspace = {
             id,
             name: name || `Workspace ${id}`,
+            type,
             source: null
         }
         this.workspaces.set(id, workspace)
@@ -80,8 +83,19 @@ export class WorkspaceManager {
     static setActive(workspaceId) {
         if (!this.workspaces.has(workspaceId)) return false
         this.activeWorkspaceId = workspaceId
+        document.dispatchEvent(new CustomEvent('workspace-switched'))
         document.dispatchEvent(new CustomEvent('source-changed'))
         return true
+    }
+
+    /**
+     * Get the type of the active workspace. Returns 'video' if no workspace is active
+     * (keeps existing single-workspace behavior sensible before init).
+     * @returns {'video'|'audio'}
+     */
+    static getActiveType() {
+        const ws = this.getActiveWorkspace()
+        return ws?.type || 'video'
     }
 
     /**
@@ -151,6 +165,7 @@ export class WorkspaceManager {
             workspaces: [...this.workspaces.values()].map(ws => ({
                 id: ws.id,
                 name: ws.name,
+                type: ws.type || 'video',
                 source: ws.source || null
             }))
         }
@@ -169,6 +184,7 @@ export class WorkspaceManager {
                 this.workspaces.set(wsData.id, {
                     id: wsData.id,
                     name: wsData.name,
+                    type: wsData.type || 'video',
                     source: wsData.source || null
                 })
             })

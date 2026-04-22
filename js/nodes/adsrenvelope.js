@@ -53,6 +53,11 @@ registerNode({
                 const location = gl.getUniformLocation(program, uniformName)
                 const value = this._getCurrentValue()
                 gl.uniform1f(location, value)
+            },
+            // Hybrid hook: audio nodes poll this each frame to drive AudioParams.
+            // `this` is the port object; `this.parent` is the SNode (set by snode.js).
+            getCurrentValue(){
+                return this.parent.isDestroyed ? 0 : this.parent._getCurrentValue()
             }
         }
     },
