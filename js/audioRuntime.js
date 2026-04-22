@@ -1,26 +1,40 @@
 /**
- * audioRuntime.js — lifecycle manager for graph-compiled AudioWorkletNodes.
+ * audioRuntime.js — lifecycle manager for the persistent audio engine.
  *
- * One instance (the singleton exported below) coordinates:
+ * One AudioWorkletNode ("engine") lives for the lifetime of each SynthOut.
+ * Graph changes don't tear it down: the compiler emits a new DSP body and
+ * the runtime posts it to the engine, which swaps its `program` function
+ * in place. Phase, envelope, and filter state survive the swap because
+ * they live inside the engine's `this.state`.
+ *
+ * Coordinates:
  *   • Which sinks (SynthOut nodes) are active.
- *   • Debounced recompile on graph changes (connection add/remove, node
- *     add/remove, audio option change).
- *   • Parameter updates from UI knobs (route to the matching worklet param).
- *   • Gate/action events (postMessage to every worklet that owns that nid).
- *   • Mic audio input routing (external MediaStreamSources → worklet inputs).
- *   • State handoff between successive worklets so oscillator phase, envelope
- *     level, etc. are preserved across recompiles.
+ *   • One-shot registration of the engine AudioWorkletProcessor (per ctx).
+ *   • Microtask-debounced recompile on graph changes (connect/disconnect,
+ *     node add/remove, audio option change).
+ *   • Parameter updates from UI knobs → postMessage to the matching engine.
+ *   • Gate/action events (postMessage to every engine that owns that nid).
+ *   • Mic audio input routing (external MediaStreamSources → engine inputs).
  */
 
 import {getAudioContext, ensureAudioRunning} from './audioContext.js'
 import {compileGraph} from './audioCompiler.js'
+import {AUDIO_ENGINE_SOURCE} from './audioEngine.js'
+
+// Hard cap on simultaneous mic inputs per engine. numberOfInputs can't be
+// changed after construction, so this needs to be set up-front. Eight is
+// more than enough for live patching; exceeding it logs a warning and the
+// extra mics are silent.
+const MAX_MIC_INPUTS = 8
 
 class AudioRuntime {
     constructor(){
-        this.sinks = new Set()          // SynthOut node instances
-        this.worklets = new Map()       // sinkNode → { node, micConnections, paramNames, gateMap, stateInit }
-        this._invalidated = false
-        this._moduleCounter = 0
+        this.sinks = new Set()
+        // sinkNode → { engine, micConnections, paramNames, gateMap }
+        this.engines = new Map()
+        this._dirty = false
+        this._scheduled = false
+        this._modulePromise = null
     }
 
     registerSink(sinkNode){
@@ -36,9 +50,9 @@ class AudioRuntime {
     /**
      * Flag the graph as dirty. A single recompile pass runs on the next
      * microtask; if another invalidate lands while that pass is in the
-     * middle of an `await` (addModule is async), the flag survives until
-     * the current pass completes, then another pass runs. This serializes
-     * compiles and never drops an edit.
+     * middle of an `await` (addModule is async on first call), the flag
+     * survives until the current pass completes, then another pass runs.
+     * This serializes compiles and never drops an edit.
      */
     invalidate(){
         this._dirty = true
@@ -59,178 +73,147 @@ class AudioRuntime {
     async _recompileAll(){
         const ctx = getAudioContext()
         if(!ctx) return
+        try { await this._ensureEngineModule(ctx) }
+        catch(e){ console.warn('audioRuntime: engine module load failed:', e); return }
+
         for(const sink of this.sinks){
             try { await this._recompileOne(sink) }
             catch(e){ console.warn('audioRuntime recompile failed:', e) }
         }
     }
 
+    _ensureEngineModule(ctx){
+        if(this._modulePromise) return this._modulePromise
+        const blobUrl = URL.createObjectURL(
+            new Blob([AUDIO_ENGINE_SOURCE], {type: 'application/javascript'})
+        )
+        this._modulePromise = ctx.audioWorklet.addModule(blobUrl)
+            .finally(() => setTimeout(() => URL.revokeObjectURL(blobUrl), 0))
+        return this._modulePromise
+    }
+
     async _recompileOne(sinkNode){
         const ctx = getAudioContext()
         if(!ctx) return
 
+        let entry = this.engines.get(sinkNode)
+        if(!entry){
+            const engine = new AudioWorkletNode(ctx, 'silvia-audio-engine', {
+                numberOfInputs: MAX_MIC_INPUTS,
+                numberOfOutputs: 1,
+                outputChannelCount: [2]
+            })
+            engine.connect(ctx.destination)
+            entry = {
+                engine,
+                micConnections: [],
+                paramNames: new Set(),
+                gateMap: {}
+            }
+            this.engines.set(sinkNode, entry)
+            sinkNode._onWorkletReady?.(engine)
+        }
+
         const compiled = compileGraph(sinkNode)
 
-        // If nothing feeds this sink, tear down silently.
         if(!compiled){
-            this._tearDown(sinkNode)
+            entry.engine.port.postMessage({type: 'silence'})
+            this._updateMicConnections(entry, [])
+            entry.paramNames = new Set()
+            entry.gateMap = {}
             return
         }
 
-        // Capture state from the currently-running worklet so the new one
-        // can resume mid-phase. postMessage is async, so we race with a
-        // small timeout — worst case the new worklet starts from its
-        // default state and we get a tiny glitch.
-        const prev = this.worklets.get(sinkNode)
-        let preservedState = null
-        if(prev?.node){
-            preservedState = await dumpWorkletState(prev.node).catch(() => null)
+        if(compiled.micNodes.length > MAX_MIC_INPUTS){
+            console.warn(
+                `audioRuntime: ${compiled.micNodes.length} mic nodes exceed ` +
+                `engine cap of ${MAX_MIC_INPUTS}; extras will be silent.`
+            )
         }
 
-        const blobUrl = URL.createObjectURL(new Blob([compiled.source], {type: 'application/javascript'}))
-        try {
-            await ctx.audioWorklet.addModule(blobUrl)
-        } finally {
-            // Revoke after a microtask — Chrome needs it around long enough
-            // for addModule to finish fetching, but not forever.
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 0)
-        }
-
-        const workletNode = new AudioWorkletNode(ctx, compiled.processorName, {
-            numberOfInputs:  Math.max(1, compiled.micNodes.length),
-            numberOfOutputs: 1,
-            outputChannelCount: [2],
-            parameterData: buildInitialParamData(compiled.paramDescriptors)
+        entry.engine.port.postMessage({
+            type: 'program',
+            body: compiled.body,
+            stateInit: compiled.stateInit,
+            paramNames: compiled.paramNames,
+            paramInit: compiled.paramInit
         })
+        entry.paramNames = new Set(compiled.paramNames)
+        entry.gateMap = compiled.gateMap
 
-        // Connect external mic sources into the worklet's input slots.
-        const micConnections = []
-        compiled.micNodes.forEach((micNode, idx) => {
-            const out = micNode.runtimeState?.outGain
-            if(out){
-                try { out.connect(workletNode, 0, idx) } catch(e){}
-                micConnections.push({src: out, sink: workletNode, idx})
-            }
-        })
-
-        // Send preserved state so the new processor picks up where the old
-        // one left off (phase, envelope stage/level, etc.).
-        if(preservedState){
-            workletNode.port.postMessage({type: 'state', state: preservedState})
-        }
-
-        workletNode.connect(ctx.destination)
-
-        // Swap: disconnect old, keep new. Tiny crossfade could go here
-        // later — for patch-building, a brief click on rewire is fine.
-        if(prev){
-            try { prev.node.disconnect() } catch(e){}
-            for(const c of prev.micConnections){
-                try { c.src.disconnect(c.sink, 0, c.idx) } catch(e){}
-            }
-        }
-
-        this.worklets.set(sinkNode, {
-            node: workletNode,
-            micConnections,
-            paramNames: new Set(compiled.paramDescriptors.map(p => p.name)),
-            gateMap: compiled.gateMap,
-            stateInit: compiled.stateInit
-        })
-
-        // Hand the worklet node to the sink for side-channel hookups (the
-        // analyser tap for the oscilloscope, for instance).
-        sinkNode._onWorkletReady?.(workletNode)
+        this._updateMicConnections(entry, compiled.micNodes)
 
         ensureAudioRunning().catch(() => {})
     }
 
-    _tearDown(sinkNode){
-        const entry = this.worklets.get(sinkNode)
-        if(!entry) return
-        try { entry.node.disconnect() } catch(e){}
+    _updateMicConnections(entry, micNodes){
+        // Tear down previous mic wiring. The GainNodes themselves are owned
+        // by the mic nodes and persist across recompiles; we only touch
+        // their connection to the engine.
         for(const c of entry.micConnections){
             try { c.src.disconnect(c.sink, 0, c.idx) } catch(e){}
         }
-        this.worklets.delete(sinkNode)
+        const next = []
+        micNodes.forEach((micNode, idx) => {
+            if(idx >= MAX_MIC_INPUTS) return
+            const src = micNode.runtimeState?.outGain
+            if(!src) return
+            try { src.connect(entry.engine, 0, idx) } catch(e){}
+            next.push({src, sink: entry.engine, idx})
+        })
+        entry.micConnections = next
+    }
+
+    _tearDown(sinkNode){
+        const entry = this.engines.get(sinkNode)
+        if(!entry) return
+        for(const c of entry.micConnections){
+            try { c.src.disconnect(c.sink, 0, c.idx) } catch(e){}
+        }
+        try { entry.engine.disconnect() } catch(e){}
+        this.engines.delete(sinkNode)
         sinkNode._onWorkletReady?.(null)
     }
 
     /**
-     * Push a knob value into every worklet that owns the matching
-     * parameter. Node-id-scoped naming means updates route unambiguously.
+     * Push a knob value into every engine that uses the matching param.
+     * The engine smooths toward the target with τ ≈ 5 ms per block, so
+     * knob drags are zipper-free without any main-thread automation.
      */
     setNodeParam(nodeId, inputKey, value){
         const name = `n${nodeId}_${inputKey}`
-        for(const entry of this.worklets.values()){
+        for(const entry of this.engines.values()){
             if(!entry.paramNames.has(name)) continue
-            const p = entry.node.parameters.get(name)
-            if(!p) continue
-            try {
-                const ctx = getAudioContext()
-                p.setTargetAtTime(value, ctx.currentTime, 0.005)
-            } catch(e){}
+            entry.engine.port.postMessage({type: 'param', name, value})
         }
     }
 
     /**
-     * Forward a gate/trigger event to every worklet that tracks this node.
+     * Forward a gate/trigger event to every engine that tracks this node.
      */
     postGate(nodeId, inputKey, value){
         const nid = `n${nodeId}`
-        for(const entry of this.worklets.values()){
+        for(const entry of this.engines.values()){
             if(!entry.gateMap[nid]) continue
             if(!(inputKey in entry.gateMap[nid])) continue
-            entry.node.port.postMessage({type: 'gate', nid, key: inputKey, value})
+            entry.engine.port.postMessage({type: 'gate', nid, key: inputKey, value})
         }
     }
 
     /**
-     * The worklet tied to a given sink (or null if none).
+     * The engine node tied to a given sink (or null if none).
      */
     workletFor(sinkNode){
-        return this.worklets.get(sinkNode)?.node || null
+        return this.engines.get(sinkNode)?.engine || null
     }
-}
-
-function buildInitialParamData(descriptors){
-    const data = {}
-    for(const d of descriptors){
-        data[d.name] = d.defaultValue
-    }
-    return data
-}
-
-function dumpWorkletState(workletNode){
-    return new Promise((resolve, reject) => {
-        let done = false
-        const timer = setTimeout(() => {
-            if(done) return
-            done = true
-            workletNode.port.removeEventListener('message', onMsg)
-            reject(new Error('state-dump timeout'))
-        }, 30)
-        const onMsg = (e) => {
-            if(e.data?.type !== 'state-dump') return
-            if(done) return
-            done = true
-            clearTimeout(timer)
-            workletNode.port.removeEventListener('message', onMsg)
-            resolve(e.data.state)
-        }
-        workletNode.port.addEventListener('message', onMsg)
-        workletNode.port.start?.()
-        workletNode.port.postMessage({type: 'dump'})
-    })
 }
 
 export const audioRuntime = new AudioRuntime()
 
 /**
- * Hook up an audio node's s-number controls so dragging a knob updates the
- * running worklet's parameter (when unconnected) and, if the control value
- * is one that changes the *topology or shape* of the compiled code (option
- * changes handled elsewhere), triggers a recompile instead.
+ * Hook up an audio node's s-number controls so dragging a knob posts the
+ * new value to the engine. Connected float inputs are driven by the graph
+ * and don't need UI routing — skip them.
  *
  * Call from an audio node's onCreate.
  */
@@ -249,4 +232,3 @@ export function bindAudioControls(snode){
         })
     }
 }
-
