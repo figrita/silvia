@@ -4,27 +4,29 @@ import {hexToRgba, rgbaToHsla} from './utils.js'
 
 /**
  * Multi-Color Theme Manager
- * Handles a 4-color theming system where users can customize:
+ * Handles a 5-color theming system where users can customize:
  * - Main UI color (general interface elements)
  * - Number color (number ports and connections)
  * - Color color (color ports and connections)
  * - Event color (action/event ports and connections)
+ * - Audio color (audio signal ports — used by the entire audio graph)
  */
 
 export class ThemeManager {
     static instance = null
-    
+
     constructor() {
         if (ThemeManager.instance) {
             return ThemeManager.instance
         }
-        
+
         // Default theme colors
         this.colors = {
             main: '#f52fbcff',    // Pink - for main UI elements
             number: '#10b981ff',  // Green - for number ports
-            color: '#f59e0bff',   // Orange - for color ports  
-            event: '#8b5cf6ff'    // Purple - for action/event ports
+            color: '#f59e0bff',   // Orange - for color ports
+            event: '#8b5cf6ff',   // Purple - for action/event ports
+            audio: '#38bcdcff'    // Cyan  - for audio signal ports
         }
         
         this.rootElement = document.documentElement
@@ -40,11 +42,11 @@ export class ThemeManager {
     
     /**
      * Sets a specific theme color
-     * @param {string} colorType - One of: 'main', 'number', 'color', 'event'
+     * @param {string} colorType - One of: 'main', 'number', 'color', 'event', 'audio'
      * @param {string} hexValue - 8-digit hex color string (e.g., '#ff0000ff')
      */
     setColor(colorType, hexValue) {
-        if (!['main', 'number', 'color', 'event'].includes(colorType)) {
+        if (!['main', 'number', 'color', 'event', 'audio'].includes(colorType)) {
             console.warn(`Invalid color type: ${colorType}`)
             return
         }
@@ -63,7 +65,7 @@ export class ThemeManager {
     
     /**
      * Gets a specific theme color
-     * @param {string} colorType - One of: 'main', 'number', 'color', 'event'
+     * @param {string} colorType - One of: 'main', 'number', 'color', 'event', 'audio'
      * @returns {string} The hex color string
      */
     getColor(colorType) {
@@ -130,19 +132,23 @@ export class ThemeManager {
             if (savedColors !== null) {
                 const parsed = JSON.parse(savedColors)
                 
-                // Validate that all required color types exist and are valid hex strings
+                // Validate base color types. `audio` is optional so older
+                // saved themes (saved before audio existed) still load —
+                // we just fill it in from the default below.
                 const validTypes = ['main', 'number', 'color', 'event']
                 let isValid = true
-                
+
                 for (const type of validTypes) {
                     if (!parsed[type] || !hexToRgba(parsed[type])) {
                         isValid = false
                         break
                     }
                 }
-                
+
                 if (isValid) {
-                    this.colors = parsed
+                    // Merge so any new color types pick up their defaults
+                    // when an older theme file is loaded.
+                    this.colors = {...this.colors, ...parsed}
                 } else {
                     console.warn('Invalid saved theme colors, using defaults')
                 }
@@ -158,9 +164,10 @@ export class ThemeManager {
     resetToDefaults() {
         this.colors = {
             main: '#f52fbcff',    // Pink
-            number: '#10b981ff',  // Green  
+            number: '#10b981ff',  // Green
             color: '#f59e0bff',   // Orange
-            event: '#8b5cf6ff'    // Purple
+            event: '#8b5cf6ff',   // Purple
+            audio: '#38bcdcff'    // Cyan
         }
         this.applyTheme()
         this.saveTheme()

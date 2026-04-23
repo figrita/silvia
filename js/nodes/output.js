@@ -10,8 +10,8 @@ import {mainMixerUI} from '../mainMixerUI.js'
 registerNode({
     slug: 'output',
     icon: '📺',
-    label: 'Output',
-    tooltip: 'Main output node for rendering and display. Shows result on screen, provides recording capabilities, and frame history control. Connect your effect chain here.',
+    label: 'Video Output',
+    tooltip: 'Video sink. Renders the GLSL graph to a canvas, provides snapshot/record, exposes the rendered frame on its Frame Out port, and controls frame-history buffer size.',
     elements: {
         canvas: null,
         canvas2d: null,

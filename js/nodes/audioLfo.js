@@ -18,14 +18,14 @@ registerNode({
     workspaceType: 'audio',
 
     input: {
-        'rate':      {label: 'Rate',      type: 'float', control: {default: 2, min: 0.01, max: 200, step: 0.01, unit: 'Hz', logScale: true}},
-        'amplitude': {label: 'Amplitude', type: 'float', control: {default: 1.0, min: 0, max: 10, step: 0.01}}
+        'rate':      {label: 'Rate',      type: 'audio', control: {default: 2, min: 0.01, max: 200, step: 0.01, unit: 'Hz', logScale: true}},
+        'amplitude': {label: 'Amplitude', type: 'audio', control: {default: 1.0, min: 0, max: 10, step: 0.01}}
     },
 
     output: {
         'out': {
             label: 'Out',
-            type: 'float',
+            type: 'audio',
             genAudio(ctx){
                 const phase = ctx.state('phase')
                 const amp = ctx.in('amplitude')

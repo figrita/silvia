@@ -34,11 +34,11 @@ registerNode({
             downCallback(){ audioRuntime.postGate(this.id, 'gate', 1) },
             upCallback(){   audioRuntime.postGate(this.id, 'gate', 0) }
         },
-        'attack':  {label: 'Attack',  type: 'float', control: {default: 0.01, min: 0, max: 5, step: 0.001, unit: 's'}},
-        'decay':   {label: 'Decay',   type: 'float', control: {default: 0.2,  min: 0.001, max: 5, step: 0.001, unit: 's'}},
-        'sustain': {label: 'Sustain', type: 'float', control: {default: 0.6,  min: 0, max: 1, step: 0.01}},
-        'release': {label: 'Release', type: 'float', control: {default: 0.3,  min: 0.001, max: 5, step: 0.001, unit: 's'}},
-        'max':     {label: 'Max',     type: 'float', control: {default: 1.0,  min: 0, max: 10, step: 0.01}}
+        'attack':  {label: 'Attack',  type: 'audio', control: {default: 0.01, min: 0, max: 5, step: 0.001, unit: 's'}},
+        'decay':   {label: 'Decay',   type: 'audio', control: {default: 0.2,  min: 0.001, max: 5, step: 0.001, unit: 's'}},
+        'sustain': {label: 'Sustain', type: 'audio', control: {default: 0.6,  min: 0, max: 1, step: 0.01}},
+        'release': {label: 'Release', type: 'audio', control: {default: 0.3,  min: 0.001, max: 5, step: 0.001, unit: 's'}},
+        'max':     {label: 'Max',     type: 'audio', control: {default: 1.0,  min: 0, max: 10, step: 0.01}}
     },
 
     output: {
@@ -46,7 +46,7 @@ registerNode({
         // pre-codegen ADSR keep their cables after this refactor.
         'output': {
             label: 'Out',
-            type: 'float',
+            type: 'audio',
             genAudio(ctx){ return ctx.state('env') }
         }
     },

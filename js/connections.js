@@ -679,7 +679,12 @@ function managePortVisibility(startPort, shouldHide){
     const isDraggingFromOutput = startPort.portType === 'output'
 
     // Pre-calculate the "tainted" sets based on the start node.
-    const ancestors = getAncestors(startNode)
+    // A `feedback: true` output is allowed to close cycles back into
+    // its own ancestors — that's the entire point. Skip the ancestor
+    // block for those ports; compiler enforces correctness via the
+    // feedback marker / tail emission.
+    const isFeedbackSource = isDraggingFromOutput && !!startPort.feedback
+    const ancestors = isFeedbackSource ? new Set() : getAncestors(startNode)
     ancestors.add(startNode) // Add self to prevent self-connection
 
     const descendants = getDescendants(startNode)
@@ -765,17 +770,22 @@ function managePortVisibility(startPort, shouldHide){
                     // An action input is looking for an action output on another node.
                     isIllegal = !(targetPort.type === 'action' && targetNode !== startNode)
                 } else {
+                    // A `feedback: true` output may be wired from a
+                    // downstream input — that's the cycle-closing case
+                    // the compiler explicitly supports.
+                    const targetIsFeedback = !!targetPort.feedback
+                    const blocksCycle = !targetIsFeedback && descendants.has(targetNode)
                     // Data ports - check for direct match first
-                    if(targetPort.type === startPort.type && !descendants.has(targetNode)){
+                    if(targetPort.type === startPort.type && !blocksCycle){
                         isIllegal = false
                     }
                     // Cross-type audio-compatible (dragging from a float/audio
                     // input toward a compatible audio source).
-                    else if(audioTypeCompatible(targetPort, startPort) && !descendants.has(targetNode)){
+                    else if(audioTypeCompatible(targetPort, startPort) && !blocksCycle){
                         isIllegal = false
                     }
                     // Check for convertible types
-                    else if(canConvert(targetPort.type, startPort.type) && !descendants.has(targetNode)){
+                    else if(canConvert(targetPort.type, startPort.type) && !blocksCycle){
                         isIllegal = false
                         isConvertible = true
                     }

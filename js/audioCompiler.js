@@ -39,6 +39,20 @@
  *     Sink-only. Receives `ctx.upstream` (the pre-sink expression) and
  *     returns the final-sample expression assigned to ch0[i].
  *
+ *   output[k].feedback === true
+ *     Marks an output as past-only — its value comes from this node's
+ *     state, not from the current sample's input. Pass 1 stops walking
+ *     upstream from such an output, which lets cycles through this
+ *     node compile without infinite recursion. Pass 1.5 walks the
+ *     node's inputs separately so the feedback path still gets
+ *     emitted.
+ *
+ *   node.genAudioTail(ctx)
+ *     Required-with-feedback. Runs at the end of each loop iteration,
+ *     after the sink's _y is computed. Captures the just-computed
+ *     downstream values via ctx.in() and writes them into state for
+ *     the next iteration to read.
+ *
  * ctx surface:
  *   ctx.in(key)      Connected → upstream output var (`_out_n<id>_<key>`).
  *                    Unconnected float w/ control → smoothed param ref
@@ -48,6 +62,12 @@
  *   ctx.line(stmt)   Append a statement at this point in the loop body.
  *   ctx.tmp()        Fresh globally-unique temp name.
  *   ctx.upstream     (sink only) the expression for the pre-sink sample.
+ *   ctx.y            (tails only) the literal '_y' — the just-computed
+ *                    sink output sample. Use it from a sink's
+ *                    genAudioTail to capture rendered audio into state
+ *                    for a feedback output (`output.out` with
+ *                    feedback: true → tap the speaker output one
+ *                    sample later).
  *   ctx.micIdx       (mic nodes) the engine-input slot index assigned.
  *   ctx.sr / ctx.i   Literals 'sampleRate' / 'i'.
  */
@@ -85,8 +105,17 @@ class CompileContext {
         this.order = []           // nodeIds in post-order (topological)
         this.visiting = new Set()
 
-        // Pass 2 — emission. Lines accumulated here become the loop body.
+        // Pass 2 — emission. Lines accumulated here become the main loop
+        // body. Tail lines run at the end of each iteration, after the
+        // sink's _y is computed but before the sample is written; they
+        // capture downstream values into feedback-node state for the
+        // next iteration.
         this.lines = []
+        this.tailLines = []
+
+        // Nodes whose output is `feedback: true` and which therefore
+        // need their inputs walked in pass 1.5 and a tail emitted.
+        this.feedbackNodes = []
     }
 
     registerParam(node, inputKey){
@@ -131,23 +160,37 @@ class CompileContext {
     }
 
     markUsedOutput(node, outputKey){
-        if(this.visiting.has(node.id)){
-            throw new AudioCompileError(
-                `Feedback cycle at node ${node.slug}#${node.id}. ` +
-                `Audio feedback is not yet supported — break the cycle with an explicit delay.`
-            )
-        }
-        if(!(outputKey in (node.output || {}))){
+        const outPort = node.output?.[outputKey]
+        if(!outPort){
             throw new AudioCompileError(
                 `Node ${node.slug}#${node.id} has no output named '${outputKey}'.`
+            )
+        }
+        // A `feedback: true` output reads from state, not from this
+        // sample's input — so it can sit in a cycle without infinite
+        // recursion. Don't recurse into the node's inputs from here;
+        // pass 1.5 picks them up after the main walk.
+        const isFeedback = !!outPort.feedback
+        if(this.visiting.has(node.id) && !isFeedback){
+            throw new AudioCompileError(
+                `Feedback cycle at node ${node.slug}#${node.id}. ` +
+                `Break the cycle with an explicit delay (an output marked feedback: true).`
             )
         }
         const existing = this.usage.get(node.id)
         if(existing){
             existing.usedOutputs.add(outputKey)
+            // Still need to register as a feedback node if this output is one.
+            if(isFeedback && !this.feedbackNodes.includes(node)){
+                this.feedbackNodes.push(node)
+            }
             return
         }
-        this.visiting.add(node.id)
+        // Don't double-add to visiting if we entered via a path that
+        // already marked this node — happens when the sink itself is
+        // referenced as a feedback output during its own input walk.
+        const alreadyVisiting = this.visiting.has(node.id)
+        if(!alreadyVisiting) this.visiting.add(node.id)
         const entry = {node, usedOutputs: new Set([outputKey])}
         this.usage.set(node.id, entry)
         try {
@@ -155,11 +198,25 @@ class CompileContext {
             if(node.slug === 'audio-mic' && !this.micNodes.includes(node)){
                 this.micNodes.push(node)
             }
-            this._recurseInputs(node)
+            if(isFeedback){
+                if(!this.feedbackNodes.includes(node)) this.feedbackNodes.push(node)
+            } else {
+                this._recurseInputs(node)
+            }
         } finally {
-            this.visiting.delete(node.id)
+            if(!alreadyVisiting) this.visiting.delete(node.id)
         }
         this.order.push(node.id)
+    }
+
+    /** Pass 1.5 — walk the inputs of every feedback node so any nodes
+     *  on the feedback path that aren't otherwise reachable from the
+     *  sink still get emitted. Existing-usage nodes short-circuit
+     *  inside markUsedOutput, so already-walked subgraphs are cheap. */
+    walkFeedbackInputs(){
+        for(const node of this.feedbackNodes){
+            this._recurseInputs(node)
+        }
     }
 
     _recurseInputs(node){
@@ -173,16 +230,20 @@ class CompileContext {
 
     // --- Pass 2: emission ---
 
-    _makeCtx(node, {sinkUpstreamExpr = null} = {}){
+    _makeCtx(node, {sinkUpstreamExpr = null, lineSink = null} = {}){
         const nid = `n${node.id}`
         const micIdx = node.slug === 'audio-mic' ? this.micNodes.indexOf(node) : -1
         const cc = this
+        const sink = lineSink || cc.lines
 
         const ctx = {
             sr: 'sampleRate',
             i: 'i',
             nid,
             micIdx,
+            // The just-computed sink output sample. Only valid inside
+            // genAudioTail (tails run after `const _y = …;` is emitted).
+            y: '_y',
 
             in(inputKey){
                 const port = node.input?.[inputKey]
@@ -191,7 +252,12 @@ class CompileContext {
                     const upNid = `n${port.connection.parent.id}`
                     return `_out_${upNid}_${port.connection.key}`
                 }
-                if(port.type === 'float' && port.control){
+                // Knob inputs become smoothed params. `audio` and
+                // `float` are equivalent here — a knob is a constant
+                // audio signal (DC), and float is the legacy name kept
+                // for hybrid nodes (button, bpmclock) that also live
+                // in the video graph.
+                if((port.type === 'audio' || port.type === 'float') && port.control){
                     return cc.registerParam(node, inputKey)
                 }
                 return '0'
@@ -199,7 +265,7 @@ class CompileContext {
 
             state(f){ return `s.${nid}.${f}` },
             option(k){ return node.optionValues?.[k] ?? node.options?.[k]?.default },
-            line(stmt){ cc.lines.push(stmt) },
+            line(stmt){ sink.push(stmt) },
             tmp(){ return `_t_${nid}_${cc.tmpCounter++}` }
         }
         if(sinkUpstreamExpr !== null){
@@ -212,14 +278,25 @@ class CompileContext {
      *  scoped to this node and can't collide with another instance of
      *  the same node type. If the setup emitted no lines, drop the
      *  empty block to keep the body tidy. */
-    _withSetupBlock(setupFn){
-        const before = this.lines.length
-        this.lines.push(`{`)
+    _withSetupBlock(target, setupFn){
+        const before = target.length
+        target.push(`{`)
         setupFn()
-        if(this.lines.length === before + 1){
-            this.lines.pop()
+        if(target.length === before + 1){
+            target.pop()
         } else {
-            this.lines.push(`}`)
+            target.push(`}`)
+        }
+    }
+
+    /** Pass 3 — emit each feedback node's tail. Tails run after the
+     *  sink's _y is computed, so they can reference downstream values
+     *  (`_out_n<x>_<k>`) that closed the cycle this iteration. */
+    emitFeedbackTails(){
+        for(const node of this.feedbackNodes){
+            if(typeof node.genAudioTail !== 'function') continue
+            const ctx = this._makeCtx(node, {lineSink: this.tailLines})
+            this._withSetupBlock(this.tailLines, () => node.genAudioTail.call(node, ctx))
         }
     }
 
@@ -231,7 +308,7 @@ class CompileContext {
         const ctx = this._makeCtx(node)
 
         if(typeof node.genAudioSetup === 'function'){
-            this._withSetupBlock(() => node.genAudioSetup.call(node, ctx))
+            this._withSetupBlock(this.lines, () => node.genAudioSetup.call(node, ctx))
         }
 
         // Emit only requested outputs, in declaration order. Output
@@ -255,23 +332,14 @@ class CompileContext {
         }
     }
 
-    emitSink(sinkNode, upstreamExpr){
-        const nid = `n${sinkNode.id}`
-        this.stateInit[nid] = deepClone(sinkNode.audioState || {})
-        this.collectGates(sinkNode)
-
+    /** Final-expression emit for the sink. Setup + outputs are handled
+     *  by emitNode (the sink is treated as a regular node for those
+     *  purposes); this only runs genSinkAudio for the `_y` formula. */
+    emitSinkExpression(sinkNode, upstreamExpr){
+        if(typeof sinkNode.genSinkAudio !== 'function') return upstreamExpr
         const ctx = this._makeCtx(sinkNode, {sinkUpstreamExpr: upstreamExpr})
-
-        if(typeof sinkNode.genAudioSetup === 'function'){
-            this._withSetupBlock(() => sinkNode.genAudioSetup.call(sinkNode, ctx))
-        }
-
-        let finalExpr = upstreamExpr
-        if(typeof sinkNode.genSinkAudio === 'function'){
-            const result = sinkNode.genSinkAudio.call(sinkNode, ctx)
-            if(typeof result === 'string') finalExpr = result
-        }
-        return finalExpr
+        const result = sinkNode.genSinkAudio.call(sinkNode, ctx)
+        return (typeof result === 'string') ? result : upstreamExpr
     }
 }
 
@@ -292,8 +360,9 @@ function assembleBody(cc, finalExpr){
     lines.push(`for(let i = 0; i < blockSize; i++){`)
     if(updates.length) lines.push(...updates)
     lines.push(...cc.lines.map(s => `    ${s}`))
+    lines.push(`    const _y = ${finalExpr};`)
+    if(cc.tailLines.length) lines.push(...cc.tailLines.map(s => `    ${s}`))
     lines.push(
-        `    const _y = ${finalExpr};`,
         `    ch0[i] = _y;`,
         `    if(ch1) ch1[i] = _y;`,
         `}`
@@ -316,14 +385,35 @@ export function compileGraph(sinkNode, sinkInputKey = 'audio'){
     // compile and gets its outputs marked as used.
     cc.markSinkInputs(sinkNode)
 
-    // Pass 2 — emit traversed nodes in topological order, then the sink.
+    // Pass 1.5 — walk inputs of every feedback node, picking up
+    // anything reachable only via the cycle. New feedback nodes
+    // discovered during this pass get processed too because we iterate
+    // by length, not by snapshot.
+    cc.walkFeedbackInputs()
+
+    // The sink is treated like any other node for setup + output
+    // emission. If nothing referenced its outputs during pass 1/1.5,
+    // it still needs to be in the emit list so its setup runs and its
+    // state/gates get registered.
+    if(!cc.usage.has(sinkNode.id)){
+        cc.usage.set(sinkNode.id, {node: sinkNode, usedOutputs: new Set()})
+        cc.order.push(sinkNode.id)
+    }
+
+    // Pass 2 — emit traversed nodes (and the sink) in topological order.
     for(const nid of cc.order){
         const {node, usedOutputs} = cc.usage.get(nid)
         cc.emitNode(node, usedOutputs)
     }
 
+    // Sink's genSinkAudio runs after every node (including the sink
+    // itself) is emitted; it has access to all `_out_n<x>_<k>` consts.
     const upstreamExpr = `_out_n${srcPort.parent.id}_${srcPort.key}`
-    const finalExpr = cc.emitSink(sinkNode, upstreamExpr)
+    const finalExpr = cc.emitSinkExpression(sinkNode, upstreamExpr)
+
+    // Pass 3 — feedback tails. These run after `_y` is computed, so
+    // they can read the values that closed the cycle this iteration.
+    cc.emitFeedbackTails()
 
     // Reserved nid holds the per-param smoother carry-over. The engine's
     // state-merge logic preserves it across recompiles just like any

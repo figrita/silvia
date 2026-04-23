@@ -16,16 +16,35 @@ import {autowire, StringToFragment} from '../utils.js'
 registerNode({
     slug: 'synthout',
     icon: '📢',
-    label: 'Synth Out',
-    tooltip: 'Routes audio to the speakers and displays the waveform. Compile sink for the audio graph.',
+    label: 'Audio Output',
+    tooltip: 'Audio sink. Routes the compiled DSP graph to the speakers, displays the waveform, and exposes the rendered sample (z⁻¹) on its Out port for feedback patches.',
 
     input: {
         'audio': {label: 'Audio', type: 'audio', control: null},
-        'level': {label: 'Level', type: 'float', control: {default: 0.8, min: 0, max: 1, step: 0.01}}
+        'level': {label: 'Level', type: 'audio', control: {default: 0.8, min: 0, max: 1, step: 0.01}}
     },
-    output: {},
+    // The sink's own output: the rendered speaker sample, one sample
+    // delayed (z⁻¹ of `_y`). Marked `feedback: true` so the compiler
+    // allows cycles back into the sink's audio input. Use this to
+    // build "feedback through the speakers" patches — for longer taps,
+    // chain a Time Delay after this output.
+    output: {
+        'out': {
+            label: 'Out',
+            type: 'audio',
+            feedback: true,
+            genAudio(ctx){ return ctx.state('prev') }
+        }
+    },
 
-    audioState: {},
+    audioState: { prev: 0 },
+
+    // Captures the sink's just-computed sample into state for the
+    // next iteration's `out` to read. Runs after `const _y = ...;`
+    // is emitted, so ctx.y is in scope.
+    genAudioTail(ctx){
+        ctx.line(`${ctx.state('prev')} = ${ctx.y};`)
+    },
 
     elements: {
         scope: null,

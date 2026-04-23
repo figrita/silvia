@@ -14,7 +14,7 @@ registerNode({
 
     input: {
         'audio': {label: 'Audio', type: 'audio', control: null},
-        'gain':  {label: 'Gain',  type: 'float', control: {default: 1.0, min: 0, max: 2, step: 0.01}}
+        'gain':  {label: 'Gain',  type: 'audio', control: {default: 1.0, min: 0, max: 2, step: 0.01}}
     },
 
     output: {

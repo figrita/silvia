@@ -19,9 +19,9 @@ registerNode({
     workspaceType: 'audio',
 
     input: {
-        'freq':   {label: 'Freq',   type: 'float', control: {default: 220, min: 20, max: 20000, step: 0.01, unit: 'Hz', logScale: true}},
-        'detune': {label: 'Detune', type: 'float', control: {default: 0,   min: -1200, max: 1200, step: 1, unit: '¢'}},
-        'gain':   {label: 'Gain',   type: 'float', control: {default: 0.3, min: 0, max: 1, step: 0.01}}
+        'freq':   {label: 'Freq',   type: 'audio', control: {default: 220, min: 20, max: 20000, step: 0.01, unit: 'Hz', logScale: true}},
+        'detune': {label: 'Detune', type: 'audio', control: {default: 0,   min: -1200, max: 1200, step: 1, unit: '¢'}},
+        'gain':   {label: 'Gain',   type: 'audio', control: {default: 0.3, min: 0, max: 1, step: 0.01}}
     },
 
     output: {

@@ -51,8 +51,8 @@ registerNode({
 
     input: {
         'audio':     {label: 'Audio',     type: 'audio', control: null},
-        'cutoff':    {label: 'Cutoff',    type: 'float', control: {default: 1000, min: 20, max: 20000, step: 0.01, unit: 'Hz', logScale: true}},
-        'resonance': {label: 'Resonance', type: 'float', control: {default: 0.707, min: 0.1, max: 30, step: 0.01}}
+        'cutoff':    {label: 'Cutoff',    type: 'audio', control: {default: 1000, min: 20, max: 20000, step: 0.01, unit: 'Hz', logScale: true}},
+        'resonance': {label: 'Resonance', type: 'audio', control: {default: 0.707, min: 0.1, max: 30, step: 0.01}}
     },
 
     output: {

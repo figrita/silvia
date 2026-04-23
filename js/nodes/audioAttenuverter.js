@@ -12,15 +12,15 @@ registerNode({
     workspaceType: 'audio',
 
     input: {
-        'input':  {label: 'In',     type: 'float', control: null},
-        'scale':  {label: 'Scale',  type: 'float', control: {default: 1.0, min: -10, max: 10, step: 0.01}},
-        'offset': {label: 'Offset', type: 'float', control: {default: 0.0, min: -5000, max: 5000, step: 0.01}}
+        'input':  {label: 'In',     type: 'audio', control: null},
+        'scale':  {label: 'Scale',  type: 'audio', control: {default: 1.0, min: -10, max: 10, step: 0.01}},
+        'offset': {label: 'Offset', type: 'audio', control: {default: 0.0, min: -5000, max: 5000, step: 0.01}}
     },
 
     output: {
         'out': {
             label: 'Out',
-            type: 'float',
+            type: 'audio',
             genAudio(ctx){
                 return `(${ctx.in('input')}) * (${ctx.in('scale')}) + (${ctx.in('offset')})`
             }

@@ -1117,11 +1117,11 @@ export class SNode{
                     <div class="port ${input.type}" data-in-port="${key}"></div>
                     <div class="input-label">
                         <span>${input.label}</span>${input.samplingCost ? `<span class="sampling-cost-warning" data-tip="Samples this input ${input.samplingCost}x per pixel. Connect an Output node before this to rasterize to a framebuffer and avoid multiplying the upstream graph.">${iconHtml('alert-triangle', 12)}</span>` : ''}
-                        ${(input.type === 'float' && input.range) ? `<span class="input-range">${input.range}</span>` : ''}
+                        ${((input.type === 'float' || input.type === 'audio') && input.range) ? `<span class="input-range">${input.range}</span>` : ''}
                     </div>
                     ${!input.control ? '' : `
                     <div class="input-control">
-                        ${input.type === 'float' ?
+                        ${(input.type === 'float' || input.type === 'audio') ?
         `<s-number 
                             min="${nodeData?.controlRanges?.[key]?.min ?? input.control.min}" 
                             max="${nodeData?.controlRanges?.[key]?.max ?? input.control.max}" 
@@ -1148,7 +1148,7 @@ export class SNode{
         `<div class="node-output">
                 <div class="output-label">
                     <span>${output.label}</span>
-                    ${(output.type === 'float' && output.range) ? `<span class="output-range">${output.range}</span>` : ''}
+                    ${((output.type === 'float' || output.type === 'audio') && output.range) ? `<span class="output-range">${output.range}</span>` : ''}
                 </div>
                 <div class="port ${output.type}" data-out-port="${key}"></div>
             </div>`

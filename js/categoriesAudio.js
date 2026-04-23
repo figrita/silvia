@@ -17,7 +17,7 @@ const categoryStructure = [
     {
         name: 'Sources',
         icon: '🔊',
-        nodes: ['audio-mic']
+        nodes: ['audio-mic', 'audio-noise']
     },
     {
         name: 'Oscillators',
@@ -42,17 +42,17 @@ const categoryStructure = [
     {
         name: 'Modulation',
         icon: '🌀',
-        nodes: ['audio-lfo', 'audio-attenuverter']
+        nodes: ['audio-lfo', 'audio-attenuverter', 'audio-slew', 'audio-samplehold', 'audio-ringmod']
     },
     {
         name: 'Distortion',
         icon: '🔥',
-        nodes: []
+        nodes: ['audio-clip', 'audio-saturate', 'audio-bitcrush']
     },
     {
         name: 'Delay & Reverb',
         icon: '🏛️',
-        nodes: []
+        nodes: ['audio-echo', 'audio-delay']
     },
     {
         name: 'EQ',
@@ -62,7 +62,7 @@ const categoryStructure = [
     {
         name: 'Mixers',
         icon: '🎛️',
-        nodes: []
+        nodes: ['audio-mix', 'audio-mix4']
     },
     {
         name: 'CV / Modular',
@@ -77,12 +77,12 @@ const categoryStructure = [
     {
         name: 'Analysis',
         icon: '🔬',
-        nodes: []
+        nodes: ['audio-envfollow']
     },
     {
         name: 'Output',
         icon: '📢',
-        nodes: []
+        nodes: ['synthout']
     }
 ]
 
