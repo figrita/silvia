@@ -22,7 +22,14 @@ registerNode({
     input: {},
 
     output: {
-        'out': {label: 'Out', type: 'audio'}
+        'out': {
+            label: 'Out',
+            type: 'audio',
+            genAudio(ctx){
+                if(ctx.micIdx < 0) return '0'
+                return `((inputs[${ctx.micIdx}] && inputs[${ctx.micIdx}][0]) ? inputs[${ctx.micIdx}][0][i] : 0)`
+            }
+        }
     },
 
     elements: {
@@ -36,11 +43,6 @@ registerNode({
     },
 
     audioState: {},
-
-    genAudio(ctx){
-        if(ctx.micIdx < 0) return { out: '0' }
-        return { out: `((inputs[${ctx.micIdx}] && inputs[${ctx.micIdx}][0]) ? inputs[${ctx.micIdx}][0][i] : 0)` }
-    },
 
     onCreate(){
         const ctx = getAudioContext()

@@ -56,7 +56,11 @@ registerNode({
     },
 
     output: {
-        'out': {label: 'Out', type: 'audio'}
+        'out': {
+            label: 'Out',
+            type: 'audio',
+            genAudio(ctx){ return ctx.state('y') }
+        }
     },
 
     options: {
@@ -75,12 +79,11 @@ registerNode({
 
     audioState: { z1: 0, z2: 0, y: 0 },
 
-    genAudio(ctx){
+    genAudioSetup(ctx){
         const audio = ctx.in('audio')
         const cutoff = ctx.in('cutoff')
         const q = ctx.in('resonance')
-        const mode = ctx.option('mode')
-        const modeCode = MODE_COEFFS[mode] || MODE_COEFFS.lowpass
+        const modeCode = MODE_COEFFS[ctx.option('mode')] || MODE_COEFFS.lowpass
 
         const z1 = ctx.state('z1')
         const z2 = ctx.state('z2')
@@ -102,8 +105,6 @@ registerNode({
             ${z1} = _b1 * _x - _a1 * ${y} + ${z2};
             ${z2} = _b2 * _x - _a2 * ${y};
         `)
-
-        return { out: y }
     },
 
     onOptionChange(){ audioRuntime.invalidate() }

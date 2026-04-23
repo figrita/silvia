@@ -8,32 +8,45 @@ import {WorkspaceManager} from './workspaceManager.js'
 import {audioRuntime} from './audioRuntime.js'
 
 /**
- * True if this cable ends touches the audio graph — that is, at least one
- * endpoint is a node that participates in the compiled worklet (declares
- * genAudio or genSinkAudio). A graph edit on these triggers a worklet
+ * True if a node participates in the compiled worklet — declares
+ * genSinkAudio (sink), genAudioSetup (per-sample setup), or has at least
+ * one output port with genAudio (per-output expression). Used to decide
+ * whether a cable change should trigger a worklet recompile and whether
+ * audio↔float type bridging is allowed.
+ */
+function isAudioGraphNode(node){
+    if(!node) return false
+    if(node.genSinkAudio || node.genAudioSetup) return true
+    if(node.output){
+        for(const k in node.output){
+            if(node.output[k]?.genAudio) return true
+        }
+    }
+    return false
+}
+
+/**
+ * True if this cable touches the audio graph — at least one endpoint is
+ * an audio-graph node. A graph edit on these triggers a worklet
  * recompile; all other cables are pure video/GLSL.
  */
 function isAudioConnection(source, destination){
-    const s = source?.parent
-    const d = destination?.parent
-    return !!(s?.genAudio || s?.genSinkAudio || d?.genAudio || d?.genSinkAudio)
+    return isAudioGraphNode(source?.parent) || isAudioGraphNode(destination?.parent)
 }
 
 /**
  * Are these two ports connectable inside the compiled audio graph despite
  * their `type` labels differing? Audio and float are freely interchangeable
- * within the worklet (an LFO's float output can drive a VCA.audio input, an
- * oscillator can FM a filter.cutoff). Both endpoints must belong to nodes
- * that participate in audio codegen (declare genAudio or genSinkAudio).
+ * within the worklet (an LFO's float output can drive a VCA.audio input,
+ * an oscillator can FM a filter.cutoff). Both endpoints must belong to
+ * audio-graph nodes.
  */
 function audioTypeCompatible(portA, portB){
     if(portA.type === portB.type) return false
     const src  = portA.portType === 'output' ? portA : portB
     const dest = portA.portType === 'input'  ? portA : portB
     if(!src || !dest || src.portType !== 'output' || dest.portType !== 'input') return false
-    const srcIsAudioGraph  = !!(src.parent?.genAudio  || src.parent?.genSinkAudio)
-    const destIsAudioGraph = !!(dest.parent?.genAudio || dest.parent?.genSinkAudio)
-    if(!srcIsAudioGraph || !destIsAudioGraph) return false
+    if(!isAudioGraphNode(src.parent) || !isAudioGraphNode(dest.parent)) return false
     const isAudioish = (t) => t === 'audio' || t === 'float'
     return isAudioish(src.type) && isAudioish(dest.type)
 }

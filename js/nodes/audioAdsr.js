@@ -44,7 +44,11 @@ registerNode({
     output: {
         // Historical key name — keep it 'output' so patches saved by the
         // pre-codegen ADSR keep their cables after this refactor.
-        'output': {label: 'Out', type: 'float'}
+        'output': {
+            label: 'Out',
+            type: 'float',
+            genAudio(ctx){ return ctx.state('env') }
+        }
     },
 
     audioState: {
@@ -54,7 +58,7 @@ registerNode({
         env: 0
     },
 
-    genAudio(ctx){
+    genAudioSetup(ctx){
         const atk = ctx.in('attack')
         const dec = ctx.in('decay')
         const sus = ctx.in('sustain')
@@ -93,6 +97,5 @@ registerNode({
                 if(${env} < 1e-5){ ${env} = 0; ${st} = 0; }
             }
         `)
-        return { output: env }
     }
 })

@@ -18,14 +18,14 @@ registerNode({
     },
 
     output: {
-        'out': {label: 'Out', type: 'audio'}
+        'out': {
+            label: 'Out',
+            type: 'audio',
+            genAudio(ctx){
+                return `(${ctx.in('audio')}) * (${ctx.in('gain')})`
+            }
+        }
     },
 
-    audioState: {},
-
-    genAudio(ctx){
-        const audio = ctx.in('audio')
-        const gain = ctx.in('gain')
-        return { out: `(${audio}) * (${gain})` }
-    }
+    audioState: {}
 })

@@ -1,39 +1,55 @@
 /**
  * audioCompiler.js — visited-recursive, pull-based audio compiler.
  *
- * Mirrors js/compiler.js (video side). Starts from the sink's audio input,
- * recurses upstream via `cc.getOutput(node, outputKey)`, caches by nodeId so
- * each node emits exactly one function no matter how many downstream nodes
- * reference it. Control-knob reads on unconnected float inputs are funneled
- * through `cc.registerParam` into a central registry (the video side's
- * `uniforms` analogue).
+ * Pass 1 walks upstream from the sink, recording which (node, outputKey)
+ * pairs are referenced anywhere downstream. Pass 2 emits in topological
+ * order: optional node-level setup (genAudioSetup) followed by `const`
+ * declarations for each *requested* output, in declaration order. Outputs
+ * that aren't referenced are never evaluated — their genAudio is not
+ * called and no code is emitted for them.
+ *
+ * Per-output genAudio mirrors the video compiler's per-output genCode:
+ * each output port owns its own expression generator.
  *
  * Output shape:
  *   {
- *     body:       string,   // DSP body for new Function(s, p, inputs, ch0, ch1, blockSize, sampleRate, body)
- *     stateInit:  object,   // per-nid initial state, plus a reserved `_psmooth` slot
- *     params:     Map,      // name → {node, inputKey, init, min, max}; main-thread only
+ *     body:       string,   // for new Function(s, p, inputs, ch0, ch1,
+ *                            //                 blockSize, sampleRate, body)
+ *     stateInit:  object,   // per-nid initial state, plus reserved `_psmooth`
+ *     params:     Map,      // name → {node, inputKey, init, min, max}
  *     gateMap:    object,   // nid → {actionKey: initialValue}
- *     micNodes:   Node[],   // in discovery order; defines engine input slot indices
+ *     micNodes:   Node[],   // discovery order; defines engine input slots
  *     sinkNode:   Node
  *   }
  *
- * ctx surface in genAudio / genSinkAudio:
- *   ctx.in(key)      connected → arg name (`_in_<key>`) passed into the
- *                    node's function by the call site; unconnected float
- *                    with a control → `_v_<nid>_<key>` (outer-scope let,
- *                    accessed via closure); else → '0'.
- *   ctx.upstream     (sink only) the arg name receiving the graph's
- *                    pre-sink audio sample.
- *   ctx.state(f)     `s.<nid>.<f>`.
- *   ctx.option(k)    option value baked as a literal at compile time.
- *   ctx.line(stmt)   append a statement into this node's function body.
- *   ctx.tmp()        fresh globally-unique temp name.
- *   ctx.micIdx       mic nodes: the engine-input index assigned.
- *   ctx.sr / ctx.i   literals 'sampleRate' / 'i'.
+ * Node authoring:
+ *   output[k].genAudio(ctx)
+ *     Required for every declared output. Returns the expression string
+ *     used wherever this output is referenced. Called only for outputs
+ *     that are actually used downstream.
  *
- * genAudio must return exactly one output `{key: expr}`. Multi-output is
- * a follow-up — it throws AudioCompileError if a node returns more/less.
+ *   node.genAudioSetup(ctx)
+ *     Optional. Runs once per sample, before any of this node's outputs
+ *     are evaluated. Use it for shared state updates that multiple
+ *     outputs read from. Emit lines via ctx.line(); they're wrapped in
+ *     a scoping block so local const/let declarations don't leak across
+ *     nodes. Outputs read state via ctx.state(), not setup-locals.
+ *
+ *   node.genSinkAudio(ctx)
+ *     Sink-only. Receives `ctx.upstream` (the pre-sink expression) and
+ *     returns the final-sample expression assigned to ch0[i].
+ *
+ * ctx surface:
+ *   ctx.in(key)      Connected → upstream output var (`_out_n<id>_<key>`).
+ *                    Unconnected float w/ control → smoothed param ref
+ *                    (`_v_n<id>_<key>`). Else → '0'.
+ *   ctx.state(f)     `s.n<id>.<f>`.
+ *   ctx.option(k)    Option value baked at compile time (literal).
+ *   ctx.line(stmt)   Append a statement at this point in the loop body.
+ *   ctx.tmp()        Fresh globally-unique temp name.
+ *   ctx.upstream     (sink only) the expression for the pre-sink sample.
+ *   ctx.micIdx       (mic nodes) the engine-input slot index assigned.
+ *   ctx.sr / ctx.i   Literals 'sampleRate' / 'i'.
  */
 
 import {deepClone} from './utils.js'
@@ -56,34 +72,21 @@ function currentControlValue(node, inputKey){
     return port.control.default ?? 0
 }
 
-function collectGates(cc, node){
-    const nid = `n${node.id}`
-    const slot = cc.stateInit[nid]
-    if(!slot) return
-    for(const key in (node.input || {})){
-        const port = node.input[key]
-        if(port?.type === 'action' && key in slot){
-            cc.gateMap[nid] = cc.gateMap[nid] || {}
-            cc.gateMap[nid][key] = slot[key] ?? 0
-        }
-    }
-}
-
 class CompileContext {
     constructor(){
-        this.functions = []
-        this.callSites = []
-        this.visited = new Map()
-        this.visiting = new Set()
         this.params = new Map()
-        this.stateInit = {}
-        this.gateMap = {}
+        this.stateInit = Object.create(null)
+        this.gateMap = Object.create(null)
         this.micNodes = []
         this.tmpCounter = 0
-    }
 
-    freshTmp(nid){
-        return `_t_${nid}_${this.tmpCounter++}`
+        // Pass 1 — usage collection.
+        this.usage = new Map()    // nodeId → {node, usedOutputs: Set<outKey>}
+        this.order = []           // nodeIds in post-order (topological)
+        this.visiting = new Set()
+
+        // Pass 2 — emission. Lines accumulated here become the loop body.
+        this.lines = []
     }
 
     registerParam(node, inputKey){
@@ -100,146 +103,176 @@ class CompileContext {
         return `_v_${name}`
     }
 
-    getOutput(node, outputKey){
+    collectGates(node){
+        const nid = `n${node.id}`
+        const slot = this.stateInit[nid]
+        if(!slot) return
+        for(const key in (node.input || {})){
+            const port = node.input[key]
+            if(port?.type === 'action' && key in slot){
+                this.gateMap[nid] = this.gateMap[nid] || {}
+                this.gateMap[nid][key] = slot[key] ?? 0
+            }
+        }
+    }
+
+    // --- Pass 1: usage collection ---
+
+    /** Walk every connected input of the sink. The sink itself isn't a
+     *  producing node, but goes into `visiting` so any back-edge that
+     *  references it as an output source is caught as a cycle. */
+    markSinkInputs(sinkNode){
+        this.visiting.add(sinkNode.id)
+        try {
+            this._recurseInputs(sinkNode)
+        } finally {
+            this.visiting.delete(sinkNode.id)
+        }
+    }
+
+    markUsedOutput(node, outputKey){
         if(this.visiting.has(node.id)){
             throw new AudioCompileError(
                 `Feedback cycle at node ${node.slug}#${node.id}. ` +
                 `Audio feedback is not yet supported — break the cycle with an explicit delay.`
             )
         }
-        const cached = this.visited.get(node.id)
-        if(cached){
-            if(outputKey in cached) return cached[outputKey]
+        if(!(outputKey in (node.output || {}))){
             throw new AudioCompileError(
                 `Node ${node.slug}#${node.id} has no output named '${outputKey}'.`
             )
         }
+        const existing = this.usage.get(node.id)
+        if(existing){
+            existing.usedOutputs.add(outputKey)
+            return
+        }
         this.visiting.add(node.id)
+        const entry = {node, usedOutputs: new Set([outputKey])}
+        this.usage.set(node.id, entry)
         try {
-            if(node.slug === 'audio-mic'){
-                // Assign mic slot before emission so genAudio sees the right index.
+            // Mic slot index is assigned by discovery order in pass 1.
+            if(node.slug === 'audio-mic' && !this.micNodes.includes(node)){
                 this.micNodes.push(node)
             }
-            const emitted = emitNode(this, node)
-            this.functions.push(emitted.fnSource)
-            this.callSites.push(emitted.callSite)
-            const nid = `n${node.id}`
-            this.stateInit[nid] = deepClone(node.audioState || {})
-            collectGates(this, node)
-            this.visited.set(node.id, emitted.outputVars)
-            return emitted.outputVars[outputKey]
+            this._recurseInputs(node)
         } finally {
             this.visiting.delete(node.id)
         }
+        this.order.push(node.id)
     }
-}
 
-function makeNodeCtx(cc, node, nid, micIdx){
-    const inputArgs = new Map()   // argName → upstream expression at outer scope
-    const lines = []
-    const ctx = {
-        sr: 'sampleRate',
-        i: 'i',
-        nid,
-        micIdx,
+    _recurseInputs(node){
+        for(const key in (node.input || {})){
+            const port = node.input[key]
+            if(port?.connection){
+                this.markUsedOutput(port.connection.parent, port.connection.key)
+            }
+        }
+    }
 
-        in(inputKey){
-            const port = node.input?.[inputKey]
-            if(!port) return '0'
-            if(port.connection){
-                const argName = `_in_${inputKey}`
-                if(!inputArgs.has(argName)){
-                    // Recurse upstream; upstream's call site is pushed before ours
-                    // (post-order), so its output var is in scope where we're called.
-                    const upstreamExpr = cc.getOutput(port.connection.parent, port.connection.key)
-                    inputArgs.set(argName, upstreamExpr)
+    // --- Pass 2: emission ---
+
+    _makeCtx(node, {sinkUpstreamExpr = null} = {}){
+        const nid = `n${node.id}`
+        const micIdx = node.slug === 'audio-mic' ? this.micNodes.indexOf(node) : -1
+        const cc = this
+
+        const ctx = {
+            sr: 'sampleRate',
+            i: 'i',
+            nid,
+            micIdx,
+
+            in(inputKey){
+                const port = node.input?.[inputKey]
+                if(!port) return '0'
+                if(port.connection){
+                    const upNid = `n${port.connection.parent.id}`
+                    return `_out_${upNid}_${port.connection.key}`
                 }
-                return argName
+                if(port.type === 'float' && port.control){
+                    return cc.registerParam(node, inputKey)
+                }
+                return '0'
+            },
+
+            state(f){ return `s.${nid}.${f}` },
+            option(k){ return node.optionValues?.[k] ?? node.options?.[k]?.default },
+            line(stmt){ cc.lines.push(stmt) },
+            tmp(){ return `_t_${nid}_${cc.tmpCounter++}` }
+        }
+        if(sinkUpstreamExpr !== null){
+            ctx.upstream = sinkUpstreamExpr
+        }
+        return ctx
+    }
+
+    /** Wrap setup output in a block so any const/let it declares is
+     *  scoped to this node and can't collide with another instance of
+     *  the same node type. If the setup emitted no lines, drop the
+     *  empty block to keep the body tidy. */
+    _withSetupBlock(setupFn){
+        const before = this.lines.length
+        this.lines.push(`{`)
+        setupFn()
+        if(this.lines.length === before + 1){
+            this.lines.pop()
+        } else {
+            this.lines.push(`}`)
+        }
+    }
+
+    emitNode(node, usedOutputs){
+        const nid = `n${node.id}`
+        this.stateInit[nid] = deepClone(node.audioState || {})
+        this.collectGates(node)
+
+        const ctx = this._makeCtx(node)
+
+        if(typeof node.genAudioSetup === 'function'){
+            this._withSetupBlock(() => node.genAudioSetup.call(node, ctx))
+        }
+
+        // Emit only requested outputs, in declaration order. Output
+        // expressions read state and outer-scope params/upstream vars,
+        // so the per-node setup block scope above doesn't restrict them.
+        for(const outKey in (node.output || {})){
+            if(!usedOutputs.has(outKey)) continue
+            const outPort = node.output[outKey]
+            if(typeof outPort.genAudio !== 'function'){
+                throw new AudioCompileError(
+                    `Output '${outKey}' on ${node.slug}#${node.id} is missing genAudio.`
+                )
             }
-            if(port.type === 'float' && port.control){
-                return cc.registerParam(node, inputKey)
+            const expr = outPort.genAudio.call(node, ctx)
+            if(typeof expr !== 'string'){
+                throw new AudioCompileError(
+                    `Output '${outKey}' on ${node.slug}#${node.id} genAudio must return an expression string.`
+                )
             }
-            return '0'
-        },
-
-        state(f){ return `s.${nid}.${f}` },
-        option(k){ return node.optionValues?.[k] ?? node.options?.[k]?.default },
-        line(stmt){ lines.push(stmt) },
-        tmp(){ return cc.freshTmp(nid) }
-    }
-    return {ctx, inputArgs, lines}
-}
-
-function emitNode(cc, node){
-    const nid = `n${node.id}`
-    const micIdx = node.slug === 'audio-mic' ? (cc.micNodes.length - 1) : -1
-    const {ctx, inputArgs, lines} = makeNodeCtx(cc, node, nid, micIdx)
-
-    const outs = (typeof node.genAudio === 'function')
-        ? (node.genAudio.call(node, ctx) || {})
-        : {}
-    const outKeys = Object.keys(outs)
-    if(outKeys.length !== 1){
-        throw new AudioCompileError(
-            `Node ${node.slug}#${node.id} must return exactly one output from genAudio; got ${outKeys.length}.`
-        )
-    }
-    const outKey = outKeys[0]
-    const outExpr = outs[outKey]
-
-    const fnName = `${nid}_fn`
-    const callVar = `${nid}_${outKey}`
-    const argNames = [...inputArgs.keys()]
-    const argExprs = [...inputArgs.values()]
-    const sig = ['s', 'p', 'inputs', 'i', ...argNames].join(', ')
-    const fnSource = [
-        `function ${fnName}(${sig}){`,
-        ...lines.map(s => `    ${s}`),
-        `    return ${outExpr};`,
-        `}`
-    ].join('\n')
-    const callArgs = ['s', 'p', 'inputs', 'i', ...argExprs].join(', ')
-    const callSite = `const ${callVar} = ${fnName}(${callArgs});`
-
-    return {fnSource, callSite, outputVars: {[outKey]: callVar}}
-}
-
-function emitSinkNode(cc, sinkNode, upstreamExpr){
-    const nid = `n${sinkNode.id}`
-    const {ctx, inputArgs, lines} = makeNodeCtx(cc, sinkNode, nid, -1)
-
-    // Sinks read the pre-sink sample via ctx.upstream (string). We expose it
-    // as an arg so the sink function still encapsulates cleanly.
-    ctx.upstream = '_in_audio'
-    inputArgs.set('_in_audio', upstreamExpr)
-
-    // Audio-typed inputs on the sink also resolve to the upstream arg.
-    const baseIn = ctx.in
-    ctx.in = function(inputKey){
-        const port = sinkNode.input?.[inputKey]
-        if(port?.type === 'audio') return ctx.upstream
-        return baseIn.call(this, inputKey)
+            this.lines.push(`const _out_${nid}_${outKey} = ${expr};`)
+        }
     }
 
-    const finalExpr = (typeof sinkNode.genSinkAudio === 'function')
-        ? (sinkNode.genSinkAudio.call(sinkNode, ctx) || ctx.upstream)
-        : ctx.upstream
+    emitSink(sinkNode, upstreamExpr){
+        const nid = `n${sinkNode.id}`
+        this.stateInit[nid] = deepClone(sinkNode.audioState || {})
+        this.collectGates(sinkNode)
 
-    const fnName = `${nid}_fn`
-    const callVar = `${nid}_out`
-    const argNames = [...inputArgs.keys()]
-    const argExprs = [...inputArgs.values()]
-    const sig = ['s', 'p', 'inputs', 'i', ...argNames].join(', ')
-    const fnSource = [
-        `function ${fnName}(${sig}){`,
-        ...lines.map(s => `    ${s}`),
-        `    return ${finalExpr};`,
-        `}`
-    ].join('\n')
-    const callArgs = ['s', 'p', 'inputs', 'i', ...argExprs].join(', ')
-    cc.functions.push(fnSource)
-    cc.callSites.push(`const ${callVar} = ${fnName}(${callArgs});`)
-    return callVar
+        const ctx = this._makeCtx(sinkNode, {sinkUpstreamExpr: upstreamExpr})
+
+        if(typeof sinkNode.genAudioSetup === 'function'){
+            this._withSetupBlock(() => sinkNode.genAudioSetup.call(sinkNode, ctx))
+        }
+
+        let finalExpr = upstreamExpr
+        if(typeof sinkNode.genSinkAudio === 'function'){
+            const result = sinkNode.genSinkAudio.call(sinkNode, ctx)
+            if(typeof result === 'string') finalExpr = result
+        }
+        return finalExpr
+    }
 }
 
 function assembleBody(cc, finalExpr){
@@ -251,8 +284,6 @@ function assembleBody(cc, finalExpr){
     const lines = [
         `'use strict';`,
         `const K_SMOOTH = 1 - Math.exp(-1 / (sampleRate * 0.005));`,
-        ``,
-        ...cc.functions,
         ``
     ]
     if(hoists.length){
@@ -260,7 +291,7 @@ function assembleBody(cc, finalExpr){
     }
     lines.push(`for(let i = 0; i < blockSize; i++){`)
     if(updates.length) lines.push(...updates)
-    lines.push(...cc.callSites.map(s => `    ${s}`))
+    lines.push(...cc.lines.map(s => `    ${s}`))
     lines.push(
         `    const _y = ${finalExpr};`,
         `    ch0[i] = _y;`,
@@ -279,20 +310,24 @@ export function compileGraph(sinkNode, sinkInputKey = 'audio'){
     if(!srcPort) return null
 
     const cc = new CompileContext()
-    const upstreamExpr = cc.getOutput(srcPort.parent, srcPort.key)
 
-    let finalExpr = upstreamExpr
-    if(typeof sinkNode.genSinkAudio === 'function'){
-        finalExpr = emitSinkNode(cc, sinkNode, upstreamExpr)
+    // Pass 1 — walk every connected input of the sink so any node that
+    // contributes (audio path, modulated knobs) becomes part of the
+    // compile and gets its outputs marked as used.
+    cc.markSinkInputs(sinkNode)
+
+    // Pass 2 — emit traversed nodes in topological order, then the sink.
+    for(const nid of cc.order){
+        const {node, usedOutputs} = cc.usage.get(nid)
+        cc.emitNode(node, usedOutputs)
     }
 
-    const sinkNid = `n${sinkNode.id}`
-    cc.stateInit[sinkNid] = deepClone(sinkNode.audioState || {})
-    collectGates(cc, sinkNode)
+    const upstreamExpr = `_out_n${srcPort.parent.id}_${srcPort.key}`
+    const finalExpr = cc.emitSink(sinkNode, upstreamExpr)
 
     // Reserved nid holds the per-param smoother carry-over. The engine's
-    // state-merge logic preserves it across recompiles just like any other
-    // state slot, so sweeps through a graph edit stay zipper-free.
+    // state-merge logic preserves it across recompiles just like any
+    // other state slot, so sweeps through a graph edit stay zipper-free.
     const psmoothInit = {}
     for(const [name, spec] of cc.params){
         psmoothInit[name] = spec.init

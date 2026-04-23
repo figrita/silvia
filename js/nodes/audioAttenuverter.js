@@ -18,15 +18,14 @@ registerNode({
     },
 
     output: {
-        'out': {label: 'Out', type: 'float'}
+        'out': {
+            label: 'Out',
+            type: 'float',
+            genAudio(ctx){
+                return `(${ctx.in('input')}) * (${ctx.in('scale')}) + (${ctx.in('offset')})`
+            }
+        }
     },
 
-    audioState: {},
-
-    genAudio(ctx){
-        const i = ctx.in('input')
-        const s = ctx.in('scale')
-        const o = ctx.in('offset')
-        return { out: `(${i}) * (${s}) + (${o})` }
-    }
+    audioState: {}
 })

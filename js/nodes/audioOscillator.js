@@ -25,7 +25,23 @@ registerNode({
     },
 
     output: {
-        'out': {label: 'Out', type: 'audio'}
+        'out': {
+            label: 'Out',
+            type: 'audio',
+            genAudio(ctx){
+                const phase = ctx.state('phase')
+                const gain = ctx.in('gain')
+                let wavExpr
+                switch(ctx.option('waveform')){
+                    case 'square':   wavExpr = `(${phase} < 3.141592653589793 ? 1 : -1)`; break
+                    case 'sawtooth': wavExpr = `(${phase} / 3.141592653589793 - 1)`; break
+                    case 'triangle': wavExpr = `(2 * Math.abs(${phase} / 3.141592653589793 - 1) - 1)`; break
+                    case 'sine':
+                    default:         wavExpr = `Math.sin(${phase})`
+                }
+                return `(${wavExpr}) * (${gain})`
+            }
+        }
     },
 
     options: {
@@ -44,27 +60,14 @@ registerNode({
 
     audioState: { phase: 0 },
 
-    genAudio(ctx){
+    genAudioSetup(ctx){
         const freq = ctx.in('freq')
         const detune = ctx.in('detune')
-        const gain = ctx.in('gain')
         const phase = ctx.state('phase')
-        const wave = ctx.option('waveform')
-
         ctx.line(`const ef = (${freq}) * Math.pow(2, (${detune}) / 1200);`)
         ctx.line(`${phase} += ef * 6.283185307179586 / sampleRate;`)
         ctx.line(`if(${phase} >= 6.283185307179586) ${phase} -= 6.283185307179586;`)
         ctx.line(`else if(${phase} < 0) ${phase} += 6.283185307179586;`)
-
-        let wavExpr
-        switch(wave){
-            case 'square':   wavExpr = `(${phase} < 3.141592653589793 ? 1 : -1)`; break
-            case 'sawtooth': wavExpr = `(${phase} / 3.141592653589793 - 1)`; break
-            case 'triangle': wavExpr = `(2 * Math.abs(${phase} / 3.141592653589793 - 1) - 1)`; break
-            case 'sine':
-            default:         wavExpr = `Math.sin(${phase})`
-        }
-        return { out: `(${wavExpr}) * (${gain})` }
     },
 
     onOptionChange(){
