@@ -1,6 +1,6 @@
 import {registerNode} from '../registry.js'
 import {getAudioContext, ensureAudioRunning} from '../audioContext.js'
-import {audioRuntime, bindAudioControls} from '../audioRuntime.js'
+import {audioRuntime} from '../audioRuntime.js'
 import {autowire, StringToFragment} from '../utils.js'
 
 /**
@@ -55,7 +55,6 @@ registerNode({
         this.runtimeState.waveformData = new Uint8Array(analyser.fftSize)
 
         ensureAudioRunning().catch(() => {})
-        bindAudioControls(this)
         audioRuntime.registerSink(this)
 
         if(!this.customArea) return

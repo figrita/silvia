@@ -1,5 +1,5 @@
 import {registerNode} from '../registry.js'
-import {audioRuntime, bindAudioControls} from '../audioRuntime.js'
+import {audioRuntime} from '../audioRuntime.js'
 
 /**
  * Multimode biquad filter, direct-form-II transposed. Coefficients are
@@ -106,6 +106,5 @@ registerNode({
         return { out: y }
     },
 
-    onCreate(){ bindAudioControls(this) },
     onOptionChange(){ audioRuntime.invalidate() }
 })

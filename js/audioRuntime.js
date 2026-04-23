@@ -2,35 +2,29 @@
  * audioRuntime.js — lifecycle manager for the persistent audio engine.
  *
  * One AudioWorkletNode ("engine") lives for the lifetime of each SynthOut.
- * Graph changes don't tear it down: the compiler emits a new DSP body and
- * the runtime posts it to the engine, which swaps its `program` function
- * in place. Phase, envelope, and filter state survive the swap because
- * they live inside the engine's `this.state`.
+ * Graph changes don't tear it down: the compiler emits a new DSP body, the
+ * runtime posts it, and the engine crossfades programs click-free.
  *
  * Coordinates:
- *   • Which sinks (SynthOut nodes) are active.
- *   • One-shot registration of the engine AudioWorkletProcessor (per ctx).
- *   • Microtask-debounced recompile on graph changes (connect/disconnect,
- *     node add/remove, audio option change).
- *   • Parameter updates from UI knobs → postMessage to the matching engine.
- *   • Gate/action events (postMessage to every engine that owns that nid).
- *   • Mic audio input routing (external MediaStreamSources → engine inputs).
+ *   • Active sinks (SynthOut nodes).
+ *   • One-shot registration of the AudioWorkletProcessor per ctx.
+ *   • Microtask-debounced recompile on graph changes.
+ *   • Central wiring of UI knobs → engine params (replaces the old
+ *     per-node bindAudioControls opt-in).
+ *   • Gate/action events forwarded to every engine that tracks the nid.
+ *   • Mic audio input routing (MediaStreamSource → engine input slot).
+ *   • AudioCompileError caught silently; previous program keeps playing.
  */
 
 import {getAudioContext, ensureAudioRunning} from './audioContext.js'
-import {compileGraph} from './audioCompiler.js'
+import {compileGraph, AudioCompileError} from './audioCompiler.js'
 import {AUDIO_ENGINE_SOURCE} from './audioEngine.js'
 
-// Hard cap on simultaneous mic inputs per engine. numberOfInputs can't be
-// changed after construction, so this needs to be set up-front. Eight is
-// more than enough for live patching; exceeding it logs a warning and the
-// extra mics are silent.
 const MAX_MIC_INPUTS = 8
 
 class AudioRuntime {
     constructor(){
         this.sinks = new Set()
-        // sinkNode → { engine, micConnections, paramNames, gateMap }
         this.engines = new Map()
         this._dirty = false
         this._scheduled = false
@@ -48,11 +42,10 @@ class AudioRuntime {
     }
 
     /**
-     * Flag the graph as dirty. A single recompile pass runs on the next
-     * microtask; if another invalidate lands while that pass is in the
-     * middle of an `await` (addModule is async on first call), the flag
-     * survives until the current pass completes, then another pass runs.
-     * This serializes compiles and never drops an edit.
+     * Flag the graph dirty. A single recompile pass runs on the next
+     * microtask; another invalidate while that pass is awaiting just keeps
+     * the flag set so another pass follows. Compiles serialize, no edit is
+     * ever dropped.
      */
     invalidate(){
         this._dirty = true
@@ -75,7 +68,6 @@ class AudioRuntime {
         if(!ctx) return
         try { await this._ensureEngineModule(ctx) }
         catch(e){ console.warn('audioRuntime: engine module load failed:', e); return }
-
         for(const sink of this.sinks){
             try { await this._recompileOne(sink) }
             catch(e){ console.warn('audioRuntime recompile failed:', e) }
@@ -108,19 +100,39 @@ class AudioRuntime {
                 engine,
                 micConnections: [],
                 paramNames: new Set(),
-                gateMap: {}
+                gateMap: {},
+                paramListeners: []
             }
             this.engines.set(sinkNode, entry)
             sinkNode._onWorkletReady?.(engine)
         }
 
-        const compiled = compileGraph(sinkNode)
+        let compiled
+        try {
+            compiled = compileGraph(sinkNode)
+        } catch(err){
+            if(err instanceof AudioCompileError){
+                console.warn('audio compile error:', err.message)
+                return
+            }
+            throw err
+        }
 
         if(!compiled){
-            entry.engine.port.postMessage({type: 'silence'})
+            // Normal "nothing connected" path — use a silence body so the
+            // engine still crossfades from whatever was playing to zero.
+            entry.engine.port.postMessage({
+                type: 'program',
+                body: "'use strict'; ch0.fill(0); if(ch1) ch1.fill(0);",
+                stateInit: {},
+                paramNames: [],
+                paramInit: {},
+                gateMap: {}
+            })
             this._updateMicConnections(entry, [])
             entry.paramNames = new Set()
             entry.gateMap = {}
+            this._clearParamListeners(entry)
             return
         }
 
@@ -131,25 +143,60 @@ class AudioRuntime {
             )
         }
 
+        const paramNames = [...compiled.params.keys()]
+        const paramInit = {}
+        for(const [name, spec] of compiled.params){
+            paramInit[name] = spec.init
+        }
+
         entry.engine.port.postMessage({
             type: 'program',
             body: compiled.body,
             stateInit: compiled.stateInit,
-            paramNames: compiled.paramNames,
-            paramInit: compiled.paramInit
+            paramNames,
+            paramInit,
+            gateMap: compiled.gateMap
         })
-        entry.paramNames = new Set(compiled.paramNames)
+        entry.paramNames = new Set(paramNames)
         entry.gateMap = compiled.gateMap
 
+        this._attachParamListeners(entry, compiled.params)
         this._updateMicConnections(entry, compiled.micNodes)
 
         ensureAudioRunning().catch(() => {})
     }
 
+    _clearParamListeners(entry){
+        for(const {el, handler} of entry.paramListeners){
+            try { el.removeEventListener('input', handler) } catch(e){}
+        }
+        entry.paramListeners = []
+    }
+
+    /**
+     * Replace this sink's knob→engine listeners. Called on every recompile.
+     * Knob DOM elements are looked up per-param; connected inputs are
+     * filtered at event time (the graph drives them, not the knob).
+     */
+    _attachParamListeners(entry, params){
+        this._clearParamListeners(entry)
+        for(const [, spec] of params){
+            const el = spec.node.nodeEl?.querySelector(`[data-input-el="${spec.inputKey}"]`)
+            if(!el) continue
+            const node = spec.node
+            const key = spec.inputKey
+            const handler = (e) => {
+                if(node.input?.[key]?.connection) return
+                const v = parseFloat(e.target.value)
+                if(!Number.isFinite(v)) return
+                audioRuntime.setNodeParam(node.id, key, v)
+            }
+            el.addEventListener('input', handler)
+            entry.paramListeners.push({el, handler})
+        }
+    }
+
     _updateMicConnections(entry, micNodes){
-        // Tear down previous mic wiring. The GainNodes themselves are owned
-        // by the mic nodes and persist across recompiles; we only touch
-        // their connection to the engine.
         for(const c of entry.micConnections){
             try { c.src.disconnect(c.sink, 0, c.idx) } catch(e){}
         }
@@ -167,6 +214,7 @@ class AudioRuntime {
     _tearDown(sinkNode){
         const entry = this.engines.get(sinkNode)
         if(!entry) return
+        this._clearParamListeners(entry)
         for(const c of entry.micConnections){
             try { c.src.disconnect(c.sink, 0, c.idx) } catch(e){}
         }
@@ -176,9 +224,9 @@ class AudioRuntime {
     }
 
     /**
-     * Push a knob value into every engine that uses the matching param.
-     * The engine smooths toward the target with τ ≈ 5 ms per block, so
-     * knob drags are zipper-free without any main-thread automation.
+     * Push a knob value to every engine using this param. Smoothing happens
+     * inside the compiled body (per-sample one-pole), so drags are
+     * zipper-free with no main-thread automation.
      */
     setNodeParam(nodeId, inputKey, value){
         const name = `n${nodeId}_${inputKey}`
@@ -189,7 +237,9 @@ class AudioRuntime {
     }
 
     /**
-     * Forward a gate/trigger event to every engine that tracks this node.
+     * Forward a gate/trigger to every engine that tracks this node. During
+     * a fade both programs receive the write, so the event doesn't split
+     * across the crossfade boundary.
      */
     postGate(nodeId, inputKey, value){
         const nid = `n${nodeId}`
@@ -200,35 +250,9 @@ class AudioRuntime {
         }
     }
 
-    /**
-     * The engine node tied to a given sink (or null if none).
-     */
     workletFor(sinkNode){
         return this.engines.get(sinkNode)?.engine || null
     }
 }
 
 export const audioRuntime = new AudioRuntime()
-
-/**
- * Hook up an audio node's s-number controls so dragging a knob posts the
- * new value to the engine. Connected float inputs are driven by the graph
- * and don't need UI routing — skip them.
- *
- * Call from an audio node's onCreate.
- */
-export function bindAudioControls(snode){
-    if(!snode?.nodeEl) return
-    for(const key in (snode.input || {})){
-        const port = snode.input[key]
-        if(port?.type !== 'float' || !port.control) continue
-        const ctrl = snode.nodeEl.querySelector(`[data-input-el="${key}"]`)
-        if(!ctrl) continue
-        ctrl.addEventListener('input', (e) => {
-            if(snode.input[key].connection) return
-            const v = parseFloat(e.target.value)
-            if(!Number.isFinite(v)) return
-            audioRuntime.setNodeParam(snode.id, key, v)
-        })
-    }
-}

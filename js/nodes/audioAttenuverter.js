@@ -1,6 +1,4 @@
 import {registerNode} from '../registry.js'
-import {bindAudioControls} from '../audioRuntime.js'
-
 /**
  * Attenuverter — out = in * scale + offset, per-sample. Negative scale
  * inverts; bias an LFO's ±1 swing into a ±5000 Hz cutoff spread around 2000 Hz,
@@ -30,7 +28,5 @@ registerNode({
         const s = ctx.in('scale')
         const o = ctx.in('offset')
         return { out: `(${i}) * (${s}) + (${o})` }
-    },
-
-    onCreate(){ bindAudioControls(this) }
+    }
 })

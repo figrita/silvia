@@ -1,144 +1,197 @@
 /**
  * audioEngine.js — persistent AudioWorklet for every SynthOut.
  *
- * One processor class ('silvia-audio-engine') is registered once per
- * AudioContext. Every SynthOut owns a single AudioWorkletNode instance of
- * this class and keeps it for its entire lifetime. DSP topology changes
- * arrive as program bodies posted over the port; internal state (phase
- * accumulators, envelope levels, etc.) never crosses a node boundary.
+ * One processor ('silvia-audio-engine') registered once per AudioContext.
+ * Each SynthOut owns a single AudioWorkletNode that lives for the sink's
+ * entire lifetime. Topology changes arrive as program bodies posted on the
+ * port; the engine double-buffers and crossfades between programs so cable
+ * edits and option changes never click.
  *
- * The source is shipped as a string so the runtime can addModule() a
- * blob URL — no static path resolution required.
- *
- * Message protocol (main → worklet):
+ * Messages (main → worklet):
  *   {type: 'program', body, stateInit, paramNames, paramInit, gateMap}
- *                                 load a new DSP body; merge state with
- *                                 stateInit keeping existing nid.field
- *                                 values, adding new ones, dropping removed
- *                                 nids. paramNames lists params the body
- *                                 reads from `p`; paramInit seeds unseen
- *                                 params with their defaults.
- *   {type: 'param', name, value}  knob update; stored as target for one-pole
- *                                 smoothing (τ ~5ms, applied once per block).
- *   {type: 'gate', nid, key, val} action input (ADSR gate etc.) — writes
- *                                 directly into state[nid][key].
- *   {type: 'silence'}             drop the current program; output zero.
+ *       Load a new DSP body. If a fade is already in flight, supersede
+ *       pending program (latest wins). Otherwise start a ~10 ms equal-power
+ *       crossfade from the active program to the incoming one.
+ *   {type: 'param', name, value}
+ *       Update a param target. Smoothing happens per-sample inside the
+ *       compiled body (K_SMOOTH ≈ 5 ms one-pole).
+ *   {type: 'gate', nid, key, value}
+ *       Write directly into state[nid][key] on BOTH programs during a fade
+ *       so the event isn't split across the crossfade boundary.
+ *   {type: 'silence'}
+ *       Drop current program and output zeros (teardown path; normal null
+ *       compiles come through as a program with a silence body so the swap
+ *       still crossfades).
  *
- * Body contract: a function of the form
- *   (s, p, inputs, ch0, ch1, blockSize, sampleRate) => void
- * whose body writes blockSize samples into ch0 (and ch1 if non-null).
+ * Body contract: (s, p, inputs, ch0, ch1, blockSize, sampleRate) → void.
+ * The body writes blockSize samples into ch0 (and ch1 if non-null) and
+ * updates `s.*` in place. `p` is a shared plain object the engine mutates
+ * on 'param' messages; the body smooths per-sample into `s._psmooth.*`.
  */
 export const AUDIO_ENGINE_SOURCE = `
+const SILENCE_BODY = "'use strict'; ch0.fill(0); if(ch1) ch1.fill(0);";
+
+function silenceSlot(){
+    const fn = new Function(
+        's', 'p', 'inputs', 'ch0', 'ch1', 'blockSize', 'sampleRate',
+        SILENCE_BODY
+    );
+    return { fn, state: Object.create(null) };
+}
+
+function mergeState(prevState, stateInit){
+    const next = Object.create(null);
+    for(const nid in stateInit){
+        const slotInit = stateInit[nid];
+        const prev = prevState ? prevState[nid] : null;
+        const slot = Object.create(null);
+        for(const k in slotInit){
+            slot[k] = (prev && (k in prev)) ? prev[k] : slotInit[k];
+        }
+        next[nid] = slot;
+    }
+    return next;
+}
+
 class SilviaEngine extends AudioWorkletProcessor {
     constructor(){
-        super()
-        this.state = Object.create(null)
-        this.pTarget = Object.create(null)
-        this.pSmooth = Object.create(null)
-        this.pNames = []
-        this.program = null
-        // Per-block one-pole smoother. τ = 5 ms; block = 128 samples at
-        // typical 48 kHz → k ≈ 0.41, ~20 ms to 95% on a hard step.
-        this.smoothK = 1 - Math.exp(-128 / (sampleRate * 0.005))
-        this.port.onmessage = (e) => this._onMessage(e.data)
+        super();
+        this.FADE_SAMPLES = Math.max(32, Math.round(sampleRate * 0.010));
+        this.params = Object.create(null);
+        this.programs = [silenceSlot(), null];
+        this.fade = null;                  // {samples, position} during a swap
+        this.programQueue = null;          // latest pending; older ones discarded
+        this._scratchA0 = new Float32Array(128);
+        this._scratchA1 = new Float32Array(128);
+        this._scratchB0 = new Float32Array(128);
+        this._scratchB1 = new Float32Array(128);
+        this.port.onmessage = (e) => this._onMessage(e.data);
     }
 
     _onMessage(m){
-        if(!m) return
+        if(!m) return;
         switch(m.type){
-            case 'program': this._loadProgram(m); break
-            case 'param': {
-                this.pTarget[m.name] = m.value
-                if(!(m.name in this.pSmooth)) this.pSmooth[m.name] = m.value
-                break
-            }
+            case 'program':
+                if(this.fade) this.programQueue = m;
+                else this._startFade(m);
+                break;
+            case 'param':
+                this.params[m.name] = m.value;
+                break;
             case 'gate': {
-                const slot = this.state[m.nid]
-                if(slot && m.key in slot) slot[m.key] = m.value
-                break
+                const a = this.programs[0] && this.programs[0].state[m.nid];
+                if(a && (m.key in a)) a[m.key] = m.value;
+                const b = this.programs[1] && this.programs[1].state[m.nid];
+                if(b && (m.key in b)) b[m.key] = m.value;
+                break;
             }
-            case 'silence': this.program = null; break
+            case 'silence':
+                this.programs[0] = silenceSlot();
+                this.programs[1] = null;
+                this.fade = null;
+                this.programQueue = null;
+                this.params = Object.create(null);
+                break;
         }
     }
 
-    _loadProgram(m){
-        // State merge: keep values for nid.field pairs that still exist,
-        // seed new ones from stateInit, drop nids that are no longer in
-        // the graph. This is why phase/envelope survive recompiles.
-        const nextState = Object.create(null)
-        const init = m.stateInit || {}
-        for(const nid in init){
-            const slotInit = init[nid]
-            const prev = this.state[nid]
-            const slot = Object.create(null)
-            for(const k in slotInit){
-                slot[k] = (prev && k in prev) ? prev[k] : slotInit[k]
-            }
-            nextState[nid] = slot
+    _startFade(m){
+        const names = m.paramNames || [];
+        const pInit = m.paramInit || {};
+        // Reconcile the shared target object: keep current targets for
+        // names still present, seed new names from their defaults, drop
+        // names that vanished from the new compile.
+        const nextP = Object.create(null);
+        for(let i = 0; i < names.length; i++){
+            const n = names[i];
+            nextP[n] = (n in this.params) ? this.params[n] : (pInit[n] != null ? pInit[n] : 0);
         }
-        this.state = nextState
+        this.params = nextP;
 
-        // Params: keep target/smoothed for names still in the program.
-        // New names seed from paramInit (default value) and start ungapped
-        // (smooth = target) so first block has no ramp-up from zero.
-        const names = m.paramNames || []
-        const pInit = m.paramInit || {}
-        const nextT = Object.create(null)
-        const nextS = Object.create(null)
-        for(const n of names){
-            const t = (n in this.pTarget) ? this.pTarget[n] : (pInit[n] ?? 0)
-            const s = (n in this.pSmooth) ? this.pSmooth[n] : t
-            nextT[n] = t
-            nextS[n] = s
-        }
-        this.pTarget = nextT
-        this.pSmooth = nextS
-        this.pNames = names
+        const active = this.programs[0];
+        const state = mergeState(active ? active.state : null, m.stateInit || {});
 
+        let fn;
         try {
-            this.program = new Function(
+            fn = new Function(
                 's', 'p', 'inputs', 'ch0', 'ch1', 'blockSize', 'sampleRate',
                 m.body
-            )
+            );
         } catch(err){
-            console.error('[silvia-audio-engine] failed to compile body:', err)
-            console.error('body was:', m.body)
-            this.program = null
+            console.error('[silvia-audio-engine] failed to compile body:', err);
+            console.error('body was:', m.body);
+            return;
+        }
+
+        this.programs[1] = { fn, state };
+        this.fade = { samples: this.FADE_SAMPLES, position: 0 };
+    }
+
+    _ensureScratch(blockSize){
+        if(this._scratchA0.length === blockSize) return;
+        this._scratchA0 = new Float32Array(blockSize);
+        this._scratchA1 = new Float32Array(blockSize);
+        this._scratchB0 = new Float32Array(blockSize);
+        this._scratchB1 = new Float32Array(blockSize);
+    }
+
+    _runOrZero(slot, inputs, ch0, ch1, blockSize, label){
+        try {
+            slot.fn(slot.state, this.params, inputs, ch0, ch1, blockSize, sampleRate);
+        } catch(err){
+            console.error('[silvia-audio-engine] ' + label + ' threw:', err);
+            ch0.fill(0);
+            if(ch1) ch1.fill(0);
         }
     }
 
     process(inputs, outputs){
-        const out0 = outputs[0]
-        if(!out0 || !out0[0]) return true
-        const ch0 = out0[0]
-        const blockSize = ch0.length
-        const ch1 = out0.length > 1 ? out0[1] : null
-        const prog = this.program
-        if(!prog){
-            ch0.fill(0)
-            if(ch1) ch1.fill(0)
-            return true
+        const out0 = outputs[0];
+        if(!out0 || !out0[0]) return true;
+        const ch0 = out0[0];
+        const blockSize = ch0.length;
+        const ch1 = out0.length > 1 ? out0[1] : null;
+
+        if(!this.fade){
+            this._runOrZero(this.programs[0], inputs, ch0, ch1, blockSize, 'active');
+            return true;
         }
 
-        const k = this.smoothK
-        const names = this.pNames
-        const tgt = this.pTarget
-        const sm  = this.pSmooth
-        for(let j = 0; j < names.length; j++){
-            const n = names[j]
-            sm[n] += (tgt[n] - sm[n]) * k
-        }
+        this._ensureScratch(blockSize);
+        const tmpA0 = this._scratchA0;
+        const tmpA1 = ch1 ? this._scratchA1 : null;
+        const tmpB0 = this._scratchB0;
+        const tmpB1 = ch1 ? this._scratchB1 : null;
 
-        try {
-            prog(this.state, sm, inputs, ch0, ch1, blockSize, sampleRate)
-        } catch(err){
-            console.error('[silvia-audio-engine] program threw:', err)
-            this.program = null
-            ch0.fill(0)
-            if(ch1) ch1.fill(0)
+        this._runOrZero(this.programs[0], inputs, tmpA0, tmpA1, blockSize, 'active/fade');
+        this._runOrZero(this.programs[1], inputs, tmpB0, tmpB1, blockSize, 'incoming/fade');
+
+        const fadeLen = this.fade.samples;
+        let pos = this.fade.position;
+        const HALF_PI = Math.PI * 0.5;
+        for(let i = 0; i < blockSize; i++){
+            const t = pos >= fadeLen ? 1 : pos / fadeLen;
+            const gA = Math.cos(t * HALF_PI);
+            const gB = Math.sin(t * HALF_PI);
+            ch0[i] = tmpA0[i] * gA + tmpB0[i] * gB;
+            if(ch1) ch1[i] = tmpA1[i] * gA + tmpB1[i] * gB;
+            pos++;
         }
-        return true
+        this.fade.position = pos;
+
+        if(pos >= fadeLen){
+            this.programs[0] = this.programs[1];
+            this.programs[1] = null;
+            this.fade = null;
+            if(this.programQueue){
+                const q = this.programQueue;
+                this.programQueue = null;
+                this._startFade(q);
+            }
+        }
+        return true;
     }
 }
-registerProcessor('silvia-audio-engine', SilviaEngine)
+
+registerProcessor('silvia-audio-engine', SilviaEngine);
 `

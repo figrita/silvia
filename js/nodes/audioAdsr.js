@@ -1,5 +1,5 @@
 import {registerNode} from '../registry.js'
-import {audioRuntime, bindAudioControls} from '../audioRuntime.js'
+import {audioRuntime} from '../audioRuntime.js'
 
 /**
  * Analog-style ADSR envelope.
@@ -94,7 +94,5 @@ registerNode({
             }
         `)
         return { output: env }
-    },
-
-    onCreate(){ bindAudioControls(this) }
+    }
 })

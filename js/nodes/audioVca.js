@@ -1,6 +1,4 @@
 import {registerNode} from '../registry.js'
-import {bindAudioControls} from '../audioRuntime.js'
-
 /**
  * VCA — per-sample multiplication of the audio input by a CV gain. Audio
  * passes right through when the Gain input is at 1.0; anything below 1
@@ -29,7 +27,5 @@ registerNode({
         const audio = ctx.in('audio')
         const gain = ctx.in('gain')
         return { out: `(${audio}) * (${gain})` }
-    },
-
-    onCreate(){ bindAudioControls(this) }
+    }
 })

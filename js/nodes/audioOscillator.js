@@ -1,5 +1,5 @@
 import {registerNode} from '../registry.js'
-import {audioRuntime, bindAudioControls} from '../audioRuntime.js'
+import {audioRuntime} from '../audioRuntime.js'
 
 /**
  * Audio Oscillator — a single polyphase voice whose sample-by-sample math
@@ -65,10 +65,6 @@ registerNode({
             default:         wavExpr = `Math.sin(${phase})`
         }
         return { out: `(${wavExpr}) * (${gain})` }
-    },
-
-    onCreate(){
-        bindAudioControls(this)
     },
 
     onOptionChange(){

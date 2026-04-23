@@ -1,5 +1,5 @@
 import {registerNode} from '../registry.js'
-import {audioRuntime, bindAudioControls} from '../audioRuntime.js'
+import {audioRuntime} from '../audioRuntime.js'
 
 /**
  * LFO — low-frequency oscillator for modulation. Output is bipolar: a sine
@@ -63,6 +63,5 @@ registerNode({
         return { out: `(${wavExpr}) * (${amp})` }
     },
 
-    onCreate(){ bindAudioControls(this) },
     onOptionChange(){ audioRuntime.invalidate() }
 })
