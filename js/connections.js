@@ -900,6 +900,14 @@ function getAncestors(startNode){
             if(inputPort.connection){
                 const parentNode = inputPort.connection.parent
                 if(parentNode.slug === 'output'){return}
+                // Feedback-marked output on the parent ⇒ the edge
+                // carries past-sample state, not a current-sample
+                // dependency. The node upstream is therefore not a
+                // real ancestor for cycle-prevention purposes — the
+                // compiler resolves these cycles via genAudioTail.
+                // This is the audio analog of the slug === 'output'
+                // escape above, generalized to any feedback output.
+                if(inputPort.connection.feedback){return}
                 if(!visited.has(parentNode)){
                     visited.add(parentNode)
                     ancestors.add(parentNode)

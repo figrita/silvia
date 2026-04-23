@@ -42,6 +42,42 @@
     }
 }
 
+.synthout-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: monospace;
+    font-size: 11px;
+}
+
+.synthout-rec-btn {
+    font-family: monospace;
+    font-size: 11px;
+    background: hsl(var(--audio-hue), calc(var(--audio-sat) * 0.4), 20%);
+    color: var(--text-primary);
+    border: 1px solid hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.7));
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.synthout-rec-btn:hover {
+    background: hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.4));
+}
+
+.synthout-rec-btn.recording {
+    background: hsla(0, 80%, 45%, 0.7);
+    border-color: hsl(0, 90%, 55%);
+    color: #fff;
+}
+
+.synthout-status {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
 .synthout-level-row {
     display: flex;
     align-items: center;

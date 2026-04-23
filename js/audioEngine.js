@@ -65,6 +65,7 @@ class SilviaEngine extends AudioWorkletProcessor {
         this._scratchA1 = new Float32Array(128);
         this._scratchB0 = new Float32Array(128);
         this._scratchB1 = new Float32Array(128);
+        this.recording = false;
         this.port.onmessage = (e) => this._onMessage(e.data);
     }
 
@@ -91,6 +92,13 @@ class SilviaEngine extends AudioWorkletProcessor {
                 this.fade = null;
                 this.programQueue = null;
                 this.params = Object.create(null);
+                break;
+            case 'record-start':
+                this.recording = true;
+                break;
+            case 'record-stop':
+                this.recording = false;
+                this.port.postMessage({type: 'record-done'});
                 break;
         }
     }
@@ -145,6 +153,15 @@ class SilviaEngine extends AudioWorkletProcessor {
         }
     }
 
+    _capture(ch0){
+        // Clone ch0 and transfer ownership so main thread holds the buffer
+        // without copying. Output is mono (ch1 mirrors ch0 in the body),
+        // so a single-channel capture is exact.
+        const rec = new Float32Array(ch0.length);
+        rec.set(ch0);
+        this.port.postMessage({type: 'record-data', samples: rec}, [rec.buffer]);
+    }
+
     process(inputs, outputs){
         const out0 = outputs[0];
         if(!out0 || !out0[0]) return true;
@@ -154,6 +171,7 @@ class SilviaEngine extends AudioWorkletProcessor {
 
         if(!this.fade){
             this._runOrZero(this.programs[0], inputs, ch0, ch1, blockSize, 'active');
+            if(this.recording) this._capture(ch0);
             return true;
         }
 
@@ -189,6 +207,7 @@ class SilviaEngine extends AudioWorkletProcessor {
                 this._startFade(q);
             }
         }
+        if(this.recording) this._capture(ch0);
         return true;
     }
 }

@@ -1426,6 +1426,11 @@ export function getDescendants(startNode){
     while(queue.length > 0){
         const currentNode = queue.shift()
         Object.values(currentNode.output).forEach(outputPort => {
+            // A feedback output delivers past-sample state, not a
+            // live dependency. Its consumers aren't real descendants
+            // for cycle-prevention purposes — the compiler handles
+            // those cycles via genAudioTail.
+            if(outputPort.feedback) return
             for(const connection of Connection.connections){
                 if(connection.source === outputPort){
                     const childNode = connection.destination.parent
