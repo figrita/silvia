@@ -114,7 +114,6 @@ class SilviaEngine extends AudioWorkletProcessor {
             const n = names[i];
             nextP[n] = (n in this.params) ? this.params[n] : (pInit[n] != null ? pInit[n] : 0);
         }
-        this.params = nextP;
 
         const active = this.programs[0];
         const state = mergeState(active ? active.state : null, m.stateInit || {});
@@ -126,11 +125,15 @@ class SilviaEngine extends AudioWorkletProcessor {
                 m.body
             );
         } catch(err){
+            // Leave this.params and this.programs untouched on compile
+            // failure — the previous program keeps playing with its
+            // existing param targets, consistent with runtime behaviour.
             console.error('[silvia-audio-engine] failed to compile body:', err);
             console.error('body was:', m.body);
             return;
         }
 
+        this.params = nextP;
         this.programs[1] = { fn, state };
         this.fade = { samples: this.FADE_SAMPLES, position: 0 };
     }
@@ -153,13 +156,21 @@ class SilviaEngine extends AudioWorkletProcessor {
         }
     }
 
-    _capture(ch0){
-        // Clone ch0 and transfer ownership so main thread holds the buffer
-        // without copying. Output is mono (ch1 mirrors ch0 in the body),
-        // so a single-channel capture is exact.
-        const rec = new Float32Array(ch0.length);
-        rec.set(ch0);
-        this.port.postMessage({type: 'record-data', samples: rec}, [rec.buffer]);
+    _capture(ch0, ch1){
+        // Clone both channels and transfer ownership so the main thread
+        // holds each buffer without copying. ch1 is always present for
+        // the engine's output (channelCount is declared 2 at init), but
+        // defend against a null in case the host browser deviates.
+        const r0 = new Float32Array(ch0.length);
+        r0.set(ch0);
+        const transfers = [r0.buffer];
+        let r1 = null;
+        if(ch1){
+            r1 = new Float32Array(ch1.length);
+            r1.set(ch1);
+            transfers.push(r1.buffer);
+        }
+        this.port.postMessage({type: 'record-data', ch0: r0, ch1: r1}, transfers);
     }
 
     process(inputs, outputs){
@@ -171,7 +182,7 @@ class SilviaEngine extends AudioWorkletProcessor {
 
         if(!this.fade){
             this._runOrZero(this.programs[0], inputs, ch0, ch1, blockSize, 'active');
-            if(this.recording) this._capture(ch0);
+            if(this.recording) this._capture(ch0, ch1);
             return true;
         }
 
@@ -207,7 +218,7 @@ class SilviaEngine extends AudioWorkletProcessor {
                 this._startFade(q);
             }
         }
-        if(this.recording) this._capture(ch0);
+        if(this.recording) this._capture(ch0, ch1);
         return true;
     }
 }

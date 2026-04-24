@@ -80,6 +80,19 @@ const categoryStructure = [
         nodes: ['audio-envfollow']
     },
     {
+        name: 'Math',
+        icon: '➕',
+        nodes: [
+            'audio-add', 'audio-subtract', 'audio-multiply', 'audio-divide',
+            'audio-modulo', 'audio-power',
+            'audio-min', 'audio-max', 'audio-clamp', 'audio-lerp',
+            'audio-negate', 'audio-abs', 'audio-sign', 'audio-sqrt',
+            'audio-log', 'audio-exp', 'audio-tanh',
+            'audio-sin', 'audio-cos', 'audio-atan2',
+            'audio-floor', 'audio-ceil', 'audio-round'
+        ]
+    },
+    {
         name: 'Output',
         icon: '📢',
         nodes: ['synthout']

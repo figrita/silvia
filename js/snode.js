@@ -6,6 +6,7 @@ import {midiManager} from './midiManager.js'
 import {settings} from './settings.js'
 import {WorkspaceManager} from './workspaceManager.js'
 import {iconHtml} from './icons.js'
+import {audioRuntime} from './audioRuntime.js'
 
 const editor = document.getElementById('editor')
 
@@ -371,6 +372,25 @@ export class SNode{
 
     getOption(key){
         return this.optionValues[key]
+    }
+
+    /**
+     * Current numeric value of an input's control. For connected inputs
+     * the upstream graph is authoritative; callers that need the live
+     * value when a cable is patched should check `input.connection` first.
+     * Reads from the DOM knob when rendered, falls back to the port's
+     * default. Centralizing this lets subclasses or custom widgets
+     * override the source without reaching through `nodeEl.querySelector`.
+     */
+    getInputValue(inKey){
+        const port = this.input?.[inKey]
+        if(!port?.control) return 0
+        const el = this.nodeEl?.querySelector(`[data-input-el="${inKey}"]`)
+        if(el){
+            const v = parseFloat(el.value)
+            if(Number.isFinite(v)) return v
+        }
+        return port.control.default ?? 0
     }
 
     getInput(inKey, cc, uv = 'uv'){
@@ -1397,6 +1417,13 @@ export class SNode{
                     ? Number(e.target.value)
                     : e.target.value
                 if(this.onOptionChange){ this.onOptionChange(key, this.optionValues[key]) }
+                // Audio nodes bake option values into the compiled DSP
+                // body; any change requires a recompile. Opt out with
+                // `manualAudioInvalidate: true` on the node definition
+                // for nodes that want to gate their own invalidations.
+                if(this.workspaceType === 'audio' && !this.manualAudioInvalidate){
+                    audioRuntime.invalidate()
+                }
                 SNode.refreshDownstreamOutputs(this)
             })
         })

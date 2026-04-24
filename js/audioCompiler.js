@@ -40,18 +40,31 @@
  *     returns the final-sample expression assigned to ch0[i].
  *
  *   output[k].feedback === true
- *     Marks an output as past-only — its value comes from this node's
- *     state, not from the current sample's input. Pass 1 stops walking
- *     upstream from such an output, which lets cycles through this
- *     node compile without infinite recursion. Pass 1.5 walks the
- *     node's inputs separately so the feedback path still gets
- *     emitted.
+ *     Marks an output as past-only — its value is forward-declared at
+ *     the TOP of the per-sample loop from this node's state, so
+ *     consumers that emit before this node can still reference it.
+ *     Semantically this means the output reads state as captured at
+ *     the start of the iteration, i.e. from the previous sample's
+ *     tail. Pass 1 stops walking upstream from such an output so
+ *     cycles compile without infinite recursion; pass 1.5 walks the
+ *     node's inputs separately and defers the node's position in
+ *     `order` until after those upstreams, so modulators (e.g. an LFO
+ *     into delay.time) emit before the feedback node's setup reads
+ *     them.
  *
  *   node.genAudioTail(ctx)
  *     Required-with-feedback. Runs at the end of each loop iteration,
  *     after the sink's _y is computed. Captures the just-computed
  *     downstream values via ctx.in() and writes them into state for
  *     the next iteration to read.
+ *
+ *   node.audioStateAllocator(sampleRate) → {fields}
+ *     Optional main-thread hook for state that depends on sampleRate
+ *     or that's cheaper to compute once (wavetables, impulse responses,
+ *     biquad coefficient tables). Returned fields are merged into the
+ *     node's stateInit. Typed arrays pass through by reference;
+ *     everything else is deep-cloned. mergeState preserves the result
+ *     across recompiles so the allocation is one-time per node.
  *
  * ctx surface:
  *   ctx.in(key)      Connected → upstream output var (`_out_n<id>_<key>`).
@@ -61,6 +74,30 @@
  *   ctx.option(k)    Option value baked at compile time (literal).
  *   ctx.line(stmt)   Append a statement at this point in the loop body.
  *   ctx.tmp()        Fresh globally-unique temp name.
+ *   ctx.ring(key)    Ring-buffer helper. Requires the state field to be
+ *                    declared as `{type: 'ring', seconds|samples: N}`;
+ *                    the compiler emits lazy pow2 allocation and the
+ *                    hidden head/mask fields. Returns inline-emitting
+ *                    primitives:
+ *                      .length        → `s.n<id>.<key>.length`
+ *                      .read(off)     → sample `off` samples back
+ *                                        (bitmask wraps negatives)
+ *                      .write(v)      → write at head, no advance
+ *                      .advance()     → bump head by one with wrap
+ *                      .push(v)       → write + advance, one statement
+ *                      .head          → the head l-value if you need it
+ *                    All strings are plain JS — no per-sample calls.
+ *   ctx.phasor(rate[, stateKey])
+ *                    Emit per-sample advance + wrap of a phase
+ *                    accumulator; returns the phase expression.
+ *                    Default state field is 'phase'.
+ *   ctx.waveform(phaseExpr, shape)
+ *                    Return a waveform expression evaluated at phase
+ *                    (radians, `[0, TAU)`). Shapes: 'sine', 'square',
+ *                    'sawtooth', 'triangle'.
+ *   ctx.literal(v)   JSON-stringify a compile-time value for safe
+ *                    embedding in generated code. Prefer this over
+ *                    `${ctx.option('x')}` when x may be a string.
  *   ctx.upstream     (sink only) the expression for the pre-sink sample.
  *   ctx.y            (tails only) the literal '_y' — the just-computed
  *                    sink output sample. Use it from a sink's
@@ -70,6 +107,16 @@
  *                    sample later).
  *   ctx.micIdx       (mic nodes) the engine-input slot index assigned.
  *   ctx.sr / ctx.i   Literals 'sampleRate' / 'i'.
+ *
+ * Body-scope constants (emitted once in the preamble, visible to
+ * every expression): PI, TAU, HALF_PI, INV_PI.
+ *
+ * Smoothing overrides per port:
+ *   port.control.smoothMs  Custom time constant in ms (default 5).
+ *   port.control.smooth: false
+ *                         Skip smoothing entirely; expression reads
+ *                         p.<name> directly. Use for gate-like /
+ *                         stepped controls that should snap.
  */
 
 import {deepClone} from './utils.js'
@@ -81,19 +128,70 @@ export class AudioCompileError extends Error {
     }
 }
 
-function currentControlValue(node, inputKey){
-    const port = node.input?.[inputKey]
-    if(!port?.control) return 0
-    const ctrlEl = node.nodeEl?.querySelector(`[data-input-el="${inputKey}"]`)
-    if(ctrlEl){
-        const v = parseFloat(ctrlEl.value)
-        if(Number.isFinite(v)) return v
+/**
+ * Typed-array-safe clone for audio state. The node-authoring surface may
+ * hand us Float32Arrays (from audioStateAllocator, or eventually from
+ * declarative buffer types) that deepClone would iterate the wrong way.
+ * We pass those by reference — they're freshly minted per compile, so
+ * sharing isn't a concern. Plain objects still get a recursive clone.
+ */
+function cloneAudioState(src){
+    const out = {}
+    for(const k in src){
+        const v = src[k]
+        if(ArrayBuffer.isView(v)) out[k] = v
+        else if(v === null || typeof v !== 'object') out[k] = v
+        else out[k] = deepClone(v)
     }
-    return port.control.default ?? 0
+    return out
+}
+
+/**
+ * Split a node's audioState into plain fields + ring-buffer declarations.
+ *
+ * A field declared as `{type: 'ring', seconds: N}` (or `{type: 'ring',
+ * samples: N}`) becomes three real state fields under the bufKey:
+ *   <bufKey>         — the Float32Array (null until first-sample alloc)
+ *   _<bufKey>Head    — write-head index, wraps via bitmask
+ *   _<bufKey>Mask    — length - 1 (buffer is padded to next pow2)
+ *
+ * The spec object itself never reaches the worklet; it drives the emitter.
+ */
+function extractRings(audioState){
+    const rings = []
+    const plainInit = {}
+    for(const k in (audioState || {})){
+        const v = audioState[k]
+        if(v && typeof v === 'object' && !ArrayBuffer.isView(v) && v.type === 'ring'){
+            if(typeof v.seconds !== 'number' && typeof v.samples !== 'number'){
+                throw new AudioCompileError(
+                    `Ring state '${k}' must specify 'seconds' or 'samples'.`
+                )
+            }
+            rings.push({bufKey: k, spec: v})
+            plainInit[k] = null
+            plainInit[`_${k}Head`] = 0
+            plainInit[`_${k}Mask`] = 0
+        } else {
+            plainInit[k] = v
+        }
+    }
+    return {stateInit: cloneAudioState(plainInit), rings}
+}
+
+function currentControlValue(node, inputKey){
+    // Ask the node for its live input value. SNode.getInputValue reads
+    // the DOM when the node is rendered and falls back to the port
+    // default; nodes with custom controls can override the hook.
+    if(typeof node.getInputValue === 'function'){
+        return node.getInputValue(inputKey)
+    }
+    return node.input?.[inputKey]?.control?.default ?? 0
 }
 
 class CompileContext {
-    constructor(){
+    constructor(sampleRate = 0){
+        this.sampleRate = sampleRate
         this.params = new Map()
         this.stateInit = Object.create(null)
         this.gateMap = Object.create(null)
@@ -116,20 +214,54 @@ class CompileContext {
         // Nodes whose output is `feedback: true` and which therefore
         // need their inputs walked in pass 1.5 and a tail emitted.
         this.feedbackNodes = []
+
+        // Forward-declarations for feedback outputs. These read state
+        // only, so they're emitted at the top of the per-sample loop —
+        // before any consumer runs — letting nodes that reference a
+        // feedback output compile in topological order without the
+        // feedback node itself having to be emitted first.
+        // (Their value is the state from the previous iteration, which
+        // is the semantics of `feedback: true` anyway — "past-only".)
+        this.feedbackDecls = []
+
+        // Deduped `order` push. A node reached via both a normal and a
+        // feedback output would otherwise get pushed twice (once from
+        // markUsedOutput, once from walkFeedbackInputs).
+        this._orderSet = new Set()
+
+        // Ring-buffer declarations per node, collected during emit.
+        // Keyed by node.id → Array<{bufKey, spec}>. ctx.ring(key)
+        // looks its node up here to build the read/push helpers.
+        this._rings = new Map()
+    }
+
+    _pushOrder(nodeId){
+        if(this._orderSet.has(nodeId)) return
+        this._orderSet.add(nodeId)
+        this.order.push(nodeId)
     }
 
     registerParam(node, inputKey){
         const name = `n${node.id}_${inputKey}`
         if(!this.params.has(name)){
             const port = node.input[inputKey]
+            const ctrl = port.control || {}
+            // `smooth: false` → expression references p.<name> directly
+            // (gate-like params, quantizer steps, bitcrush depth — they
+            // should snap). Otherwise params get a per-sample one-pole
+            // lowpass with τ = smoothMs (default 5 ms).
+            const smoothed = ctrl.smooth !== false
+            const smoothMs = Number.isFinite(ctrl.smoothMs) ? ctrl.smoothMs : 5
             this.params.set(name, {
                 node, inputKey,
                 init: currentControlValue(node, inputKey),
-                min: port.control?.min,
-                max: port.control?.max
+                min: ctrl.min,
+                max: ctrl.max,
+                smoothed,
+                smoothMs
             })
         }
-        return `_v_${name}`
+        return this.params.get(name).smoothed ? `_v_${name}` : `p.${name}`
     }
 
     collectGates(node){
@@ -206,16 +338,29 @@ class CompileContext {
         } finally {
             if(!alreadyVisiting) this.visiting.delete(node.id)
         }
-        this.order.push(node.id)
+        // Feedback-only discoveries defer their order push until pass
+        // 1.5 has walked their inputs — otherwise any modulators reached
+        // through those inputs (e.g. an LFO into delay.time) end up
+        // emitted *after* the feedback node that reads them, and the
+        // generated body hits TDZ on the forward reference.
+        if(!isFeedback) this._pushOrder(node.id)
     }
 
     /** Pass 1.5 — walk the inputs of every feedback node so any nodes
      *  on the feedback path that aren't otherwise reachable from the
      *  sink still get emitted. Existing-usage nodes short-circuit
-     *  inside markUsedOutput, so already-walked subgraphs are cheap. */
+     *  inside markUsedOutput, so already-walked subgraphs are cheap.
+     *
+     *  After draining the walk, push feedback nodes in reverse
+     *  discovery order so that nested feedback chains (Y consumes X's
+     *  feedback output, where both are feedback nodes) emit their
+     *  setup in dependency order — innermost first. */
     walkFeedbackInputs(){
-        for(const node of this.feedbackNodes){
-            this._recurseInputs(node)
+        for(let i = 0; i < this.feedbackNodes.length; i++){
+            this._recurseInputs(this.feedbackNodes[i])
+        }
+        for(let i = this.feedbackNodes.length - 1; i >= 0; i--){
+            this._pushOrder(this.feedbackNodes[i].id)
         }
     }
 
@@ -266,7 +411,110 @@ class CompileContext {
             state(f){ return `s.${nid}.${f}` },
             option(k){ return node.optionValues?.[k] ?? node.options?.[k]?.default },
             line(stmt){ sink.push(stmt) },
-            tmp(){ return `_t_${nid}_${cc.tmpCounter++}` }
+            tmp(){ return `_t_${nid}_${cc.tmpCounter++}` },
+
+            /**
+             * Ring-buffer helper. Returns inline-emitting read/write
+             * primitives for a state field declared as
+             * `{type: 'ring', seconds|samples: N}`. All returned
+             * strings are plain JS expressions/statements — no
+             * per-sample function calls, no indirection.
+             *
+             *   r.length              `s.n<id>.<key>.length`
+             *   r.read(offsetExpr)    sample from `offsetExpr` samples
+             *                         back; negative/large offsets
+             *                         wrap automatically via bitmask.
+             *   r.write(valueExpr)    write to head (no advance).
+             *   r.advance()           bump head by one (wrap).
+             *   r.push(valueExpr)     write + advance as one statement.
+             *   r.head                the head index l-value if you
+             *                         need to manipulate it directly.
+             */
+            ring(bufKey){
+                const rings = cc._rings.get(node.id) || []
+                if(!rings.some(r => r.bufKey === bufKey)){
+                    throw new AudioCompileError(
+                        `ctx.ring('${bufKey}') on ${node.slug}#${node.id} ` +
+                        `requires audioState.${bufKey} to be declared as ` +
+                        `{type: 'ring', seconds|samples: N}.`
+                    )
+                }
+                const buf  = `s.${nid}.${bufKey}`
+                const head = `s.${nid}._${bufKey}Head`
+                const mask = `s.${nid}._${bufKey}Mask`
+                return {
+                    length: `${buf}.length`,
+                    head,
+                    read(offsetExpr){
+                        return `${buf}[((${head}) - (${offsetExpr})) & ${mask}]`
+                    },
+                    write(valueExpr){
+                        return `${buf}[${head}] = (${valueExpr});`
+                    },
+                    advance(){
+                        return `${head} = (${head} + 1) & ${mask};`
+                    },
+                    push(valueExpr){
+                        return `${buf}[${head}] = (${valueExpr}); ${head} = (${head} + 1) & ${mask};`
+                    }
+                }
+            },
+
+            /**
+             * Phasor — emits the per-sample advance + wrap for a phase
+             * accumulator and returns the phase expression so callers
+             * can evaluate a waveform on it. The node must declare the
+             * phase field in its audioState:
+             *
+             *   audioState: { phase: 0 }
+             *   genAudioSetup(ctx){
+             *       const phase = ctx.phasor(ctx.in('freq'))
+             *       ctx.line(`${ctx.state('out')} = Math.sin(${phase});`)
+             *   }
+             *
+             * The phase advances by `rate * TAU / sampleRate` per sample
+             * and wraps to `[0, TAU)` in both directions (supports
+             * negative rates for reverse sweeps). Override the state
+             * field name with the second argument for nodes that
+             * carry multiple phasors.
+             */
+            phasor(rateExpr, stateKey = 'phase'){
+                const phase = `s.${nid}.${stateKey}`
+                sink.push(`${phase} += (${rateExpr}) * TAU / sampleRate;`)
+                sink.push(`if(${phase} >= TAU) ${phase} -= TAU;`)
+                sink.push(`else if(${phase} < 0) ${phase} += TAU;`)
+                return phase
+            },
+
+            /**
+             * Waveform — evaluate a named shape at a phase expression
+             * (phase is in radians, `[0, TAU)`). Supported shapes:
+             * 'sine', 'square', 'sawtooth', 'triangle'. Unknown names
+             * fall back to sine so new shapes can be added without
+             * breaking saved patches.
+             */
+            waveform(phaseExpr, shape){
+                switch(shape){
+                    case 'square':   return `((${phaseExpr}) < PI ? 1 : -1)`
+                    case 'sawtooth': return `((${phaseExpr}) * INV_PI - 1)`
+                    case 'triangle': return `(2 * Math.abs((${phaseExpr}) * INV_PI - 1) - 1)`
+                    case 'sine':
+                    default:         return `Math.sin(${phaseExpr})`
+                }
+            },
+
+            /**
+             * Bake any JS-literal-compatible value into generated code.
+             * Strings get quoted, numbers/booleans/null pass through,
+             * plain objects JSON-stringify. Use this for option values
+             * and config that need to appear inside emitted code, to
+             * avoid the silent-undefined trap when an author inlines
+             * `${ctx.option('x')}` into a template where x is a string.
+             */
+            literal(value){
+                if(value === undefined) return 'undefined'
+                return JSON.stringify(value)
+            }
         }
         if(sinkUpstreamExpr !== null){
             ctx.upstream = sinkUpstreamExpr
@@ -302,8 +550,43 @@ class CompileContext {
 
     emitNode(node, usedOutputs){
         const nid = `n${node.id}`
-        this.stateInit[nid] = deepClone(node.audioState || {})
+        const {stateInit, rings} = extractRings(node.audioState)
+
+        // Optional main-thread hook for state that can't be expressed
+        // declaratively — precomputed wavetables, impulse responses,
+        // coefficient tables. Runs once per compile; mergeState in the
+        // worklet preserves the resulting typed arrays across
+        // recompiles so the allocation cost is one-time per node.
+        if(typeof node.audioStateAllocator === 'function'){
+            const extra = node.audioStateAllocator.call(node, this.sampleRate)
+            if(extra && typeof extra === 'object'){
+                for(const k in extra){
+                    const v = extra[k]
+                    stateInit[k] = ArrayBuffer.isView(v) ? v : deepClone(v)
+                }
+            }
+        }
+
+        this.stateInit[nid] = stateInit
+        if(rings.length) this._rings.set(node.id, rings)
         this.collectGates(node)
+
+        // Ring buffers allocate lazily on first sample (because length
+        // depends on sampleRate). Pad to next pow2 so reads/writes can
+        // use `& mask` instead of `% length`; the bitmask also
+        // correctly wraps negative offsets in JS integer coercion.
+        for(const {bufKey, spec} of rings){
+            const buf  = `s.${nid}.${bufKey}`
+            const mask = `s.${nid}._${bufKey}Mask`
+            const reqExpr = spec.samples != null
+                ? `(${spec.samples} | 0)`
+                : `(Math.ceil((${spec.seconds}) * sampleRate) + 1)`
+            this.lines.push(
+                `if(!${buf}){ const _req = Math.max(2, ${reqExpr}); ` +
+                `const _len = 1 << (32 - Math.clz32(_req - 1)); ` +
+                `${buf} = new Float32Array(_len); ${mask} = _len - 1; }`
+            )
+        }
 
         const ctx = this._makeCtx(node)
 
@@ -328,7 +611,15 @@ class CompileContext {
                     `Output '${outKey}' on ${node.slug}#${node.id} genAudio must return an expression string.`
                 )
             }
-            this.lines.push(`const _out_${nid}_${outKey} = ${expr};`)
+            // feedback outputs read state only; hoist them to the top
+            // of the loop body so consumers can reference them even
+            // when their emit order places them before this node.
+            const line = `const _out_${nid}_${outKey} = ${expr};`
+            if(outPort.feedback){
+                this.feedbackDecls.push(line)
+            } else {
+                this.lines.push(line)
+            }
         }
     }
 
@@ -344,21 +635,41 @@ class CompileContext {
 }
 
 function assembleBody(cc, finalExpr){
-    const names = [...cc.params.keys()]
-    const hoists  = names.map(n => `let _v_${n} = s._psmooth.${n};`)
-    const updates = names.map(n => `    _v_${n} += (p.${n} - _v_${n}) * K_SMOOTH;`)
-    const writes  = names.map(n => `s._psmooth.${n} = _v_${n};`)
+    // Only smoothed params pay for the per-sample lowpass + _psmooth
+    // carry-over. `smooth: false` params reference `p.<name>` directly
+    // at their use sites, with no hoist/update/writeback here.
+    const smoothed = [...cc.params].filter(([, s]) => s.smoothed)
+    const kDecls = smoothed.map(([name, spec]) => {
+        const tauSec = spec.smoothMs / 1000
+        return `const K_SMOOTH_${name} = 1 - Math.exp(-1 / (sampleRate * ${tauSec}));`
+    })
+    const hoists  = smoothed.map(([name]) => `let _v_${name} = s._psmooth.${name};`)
+    const updates = smoothed.map(([name]) => `    _v_${name} += (p.${name} - _v_${name}) * K_SMOOTH_${name};`)
+    const writes  = smoothed.map(([name]) => `s._psmooth.${name} = _v_${name};`)
 
     const lines = [
         `'use strict';`,
-        `const K_SMOOTH = 1 - Math.exp(-1 / (sampleRate * 0.005));`,
-        ``
+        // Math constants hoisted once per body so nodes don't have to
+        // inline 6.283185... everywhere. Available to every emitted
+        // expression inside the main loop.
+        `const PI = Math.PI;`,
+        `const TAU = 6.283185307179586;`,
+        `const HALF_PI = 1.5707963267948966;`,
+        `const INV_PI = 0.3183098861837907;`
     ]
+    if(kDecls.length) lines.push(...kDecls)
+    lines.push(``)
     if(hoists.length){
         lines.push(...hoists, ``)
     }
     lines.push(`for(let i = 0; i < blockSize; i++){`)
     if(updates.length) lines.push(...updates)
+    // Feedback outputs are forward-declared here so consumers that
+    // emit before the feedback node (e.g. a Mix reading delay.out
+    // while an LFO modulates delay.time) can still reference them.
+    // They read state captured at the top of the loop — i.e. from the
+    // previous iteration — which is the "past-only" contract anyway.
+    if(cc.feedbackDecls.length) lines.push(...cc.feedbackDecls.map(s => `    ${s}`))
     lines.push(...cc.lines.map(s => `    ${s}`))
     lines.push(`    const _y = ${finalExpr};`)
     if(cc.tailLines.length) lines.push(...cc.tailLines.map(s => `    ${s}`))
@@ -373,12 +684,12 @@ function assembleBody(cc, finalExpr){
     return lines.join('\n')
 }
 
-export function compileGraph(sinkNode, sinkInputKey = 'audio'){
+export function compileGraph(sinkNode, sinkInputKey = 'audio', sampleRate = 0){
     const sinkPort = sinkNode.input?.[sinkInputKey]
     const srcPort = sinkPort?.connection
     if(!srcPort) return null
 
-    const cc = new CompileContext()
+    const cc = new CompileContext(sampleRate)
 
     // Pass 1 — walk every connected input of the sink so any node that
     // contributes (audio path, modulated knobs) becomes part of the
@@ -397,7 +708,12 @@ export function compileGraph(sinkNode, sinkInputKey = 'audio'){
     // state/gates get registered.
     if(!cc.usage.has(sinkNode.id)){
         cc.usage.set(sinkNode.id, {node: sinkNode, usedOutputs: new Set()})
-        cc.order.push(sinkNode.id)
+        cc._pushOrder(sinkNode.id)
+    } else {
+        // The sink may have been discovered only via a feedback path
+        // during pass 1/1.5 (which defers its order push). Ensure it's
+        // in the emit list before pass 2 iterates.
+        cc._pushOrder(sinkNode.id)
     }
 
     // Pass 2 — emit traversed nodes (and the sink) in topological order.
@@ -418,9 +734,10 @@ export function compileGraph(sinkNode, sinkInputKey = 'audio'){
     // Reserved nid holds the per-param smoother carry-over. The engine's
     // state-merge logic preserves it across recompiles just like any
     // other state slot, so sweeps through a graph edit stay zipper-free.
+    // Unsmoothed params read `p.<name>` directly and don't need a slot.
     const psmoothInit = {}
     for(const [name, spec] of cc.params){
-        psmoothInit[name] = spec.init
+        if(spec.smoothed) psmoothInit[name] = spec.init
     }
     cc.stateInit._psmooth = psmoothInit
 

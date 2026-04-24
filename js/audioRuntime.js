@@ -109,14 +109,18 @@ class AudioRuntime {
 
         let compiled
         try {
-            compiled = compileGraph(sinkNode)
+            compiled = compileGraph(sinkNode, 'audio', ctx.sampleRate)
         } catch(err){
             if(err instanceof AudioCompileError){
                 console.warn('audio compile error:', err.message)
+                // Surface the error on the sink so the user notices — the
+                // previous program keeps playing, which is easy to miss.
+                sinkNode._setAudioCompileError?.(err.message)
                 return
             }
             throw err
         }
+        sinkNode._setAudioCompileError?.(null)
 
         if(!compiled){
             // Normal "nothing connected" path — use a silence body so the
@@ -227,8 +231,13 @@ class AudioRuntime {
      * Push a knob value to every engine using this param. Smoothing happens
      * inside the compiled body (per-sample one-pole), so drags are
      * zipper-free with no main-thread automation.
+     *
+     * NaN/Infinity are dropped at the boundary: a single poisoned value
+     * (bad MIDI mapping, divide-by-zero upstream) would otherwise pin an
+     * entire program until the next recompile.
      */
     setNodeParam(nodeId, inputKey, value){
+        if(!Number.isFinite(value)) return
         const name = `n${nodeId}_${inputKey}`
         for(const entry of this.engines.values()){
             if(!entry.paramNames.has(name)) continue
@@ -239,9 +248,11 @@ class AudioRuntime {
     /**
      * Forward a gate/trigger to every engine that tracks this node. During
      * a fade both programs receive the write, so the event doesn't split
-     * across the crossfade boundary.
+     * across the crossfade boundary. Non-finite values are dropped for the
+     * same reason as setNodeParam.
      */
     postGate(nodeId, inputKey, value){
+        if(!Number.isFinite(value)) return
         const nid = `n${nodeId}`
         for(const entry of this.engines.values()){
             if(!entry.gateMap[nid]) continue
