@@ -14,8 +14,8 @@ import {autowire, StringToFragment} from '../../utils.js'
  *     WebM/Opus via MediaStreamDestination + MediaRecorder)
  *
  * The `out` output port is `feedback: true` — it exposes the rendered
- * sample one sample delayed, enabling feedback-through-the-speakers
- * patches without a manual cycle wire.
+ * stereo sample (per channel) one sample delayed, enabling feedback-
+ * through-the-speakers patches without a manual cycle wire.
  */
 
 function getTimestampFilename(prefix, ext){
@@ -101,7 +101,7 @@ registerNode({
             label: 'Out',
             type: 'audio',
             feedback: true,
-            genAudio(ctx){ return ctx.state('prev') }
+            genAudio(ctx){ return {l: ctx.state('prevL'), r: ctx.state('prevR')} }
         }
     },
 
@@ -126,10 +126,11 @@ registerNode({
         }
     },
 
-    audioState: { prev: 0 },
+    audioState: { prevL: 0, prevR: 0 },
 
     genAudioTail(ctx){
-        ctx.line(`${ctx.state('prev')} = ${ctx.y};`)
+        ctx.line(`${ctx.state('prevL')} = ${ctx.yL};`)
+        ctx.line(`${ctx.state('prevR')} = ${ctx.yR};`)
     },
 
     elements: {
@@ -158,8 +159,11 @@ registerNode({
     },
 
     genSinkAudio(ctx){
-        const level = ctx.in('level')
-        return `(${ctx.upstream}) * (${level})`
+        const level = ctx.inL('level')
+        return {
+            l: `(${ctx.upstream.l}) * (${level})`,
+            r: `(${ctx.upstream.r}) * (${level})`
+        }
     },
 
     onCreate(){

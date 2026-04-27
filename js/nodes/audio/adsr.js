@@ -11,6 +11,9 @@ import {audioRuntime} from '../../audioRuntime.js'
  *   stage    — 0 idle | 1 attack | 2 decay | 3 sustain | 4 release.
  *   env      — the envelope's current level (this is the output).
  *
+ * Mono CV: the envelope is one value per sample, emitted on both L and R.
+ * Patch into VCA.gain to get a stereo VCA driven by a single envelope.
+ *
  * Shape:
  *   attack  linear ramp toward max at a constant rate (max / atk / SR).
  *   decay   exponential approach to sustain level, τ = dec / 5.
@@ -23,7 +26,7 @@ registerNode({
     slug: 'audio-adsr',
     icon: '🎹',
     label: 'ADSR',
-    tooltip: 'Per-sample ADSR. Linear attack, exponential decay/release. No clicks on retrigger.',
+    tooltip: 'Per-sample ADSR. Linear attack, exponential decay/release. Mono CV (same on L and R).',
     workspaceType: 'audio',
 
     input: {
@@ -47,7 +50,10 @@ registerNode({
         'output': {
             label: 'Out',
             type: 'audio',
-            genAudio(ctx){ return ctx.state('env') }
+            genAudio(ctx){
+                const env = ctx.state('env')
+                return {l: env, r: env}
+            }
         }
     },
 
@@ -59,11 +65,11 @@ registerNode({
     },
 
     genAudioSetup(ctx){
-        const atk = ctx.in('attack')
-        const dec = ctx.in('decay')
-        const sus = ctx.in('sustain')
-        const rel = ctx.in('release')
-        const max = ctx.in('max')
+        const atk = ctx.inL('attack')
+        const dec = ctx.inL('decay')
+        const sus = ctx.inL('sustain')
+        const rel = ctx.inL('release')
+        const max = ctx.inL('max')
 
         const gate = ctx.state('gate')
         const lg   = ctx.state('lastGate')

@@ -2,9 +2,9 @@ import {registerNode} from '../../registry.js'
 
 /**
  * LFO — low-frequency oscillator for modulation. Output is bipolar: a sine
- * at amplitude 1.0 swings from -1 to +1. Run it into an Attenuverter to
- * center it around a useful base before hitting a filter cutoff, or
- * straight into a VCA.gain to ping-pong the volume.
+ * at amplitude 1.0 swings from -1 to +1. Mono CV — the same value is
+ * emitted on L and R, since modulation sources usually drive scalar
+ * params (filter cutoff, VCA gain) where L/R have no separate meaning.
  *
  * Rate goes all the way up to 200 Hz, so this doubles as an audio-rate
  * modulator when you want to bend the "LFO" label.
@@ -13,7 +13,7 @@ registerNode({
     slug: 'audio-lfo',
     icon: '🌀',
     label: 'LFO',
-    tooltip: 'Low-frequency oscillator for modulation. Bipolar output, sample-accurate.',
+    tooltip: 'Low-frequency oscillator for modulation. Bipolar mono CV, sample-accurate.',
     workspaceType: 'audio',
 
     input: {
@@ -27,7 +27,8 @@ registerNode({
             type: 'audio',
             genAudio(ctx){
                 const wav = ctx.waveform(ctx.state('phase'), ctx.option('waveform'))
-                return `(${wav}) * (${ctx.in('amplitude')})`
+                const expr = `(${wav}) * (${ctx.inL('amplitude')})`
+                return {l: expr, r: expr}
             }
         }
     },
@@ -49,6 +50,6 @@ registerNode({
     audioState: { phase: 0 },
 
     genAudioSetup(ctx){
-        ctx.phasor(ctx.in('rate'))
+        ctx.phasor(ctx.inL('rate'))
     }
 })

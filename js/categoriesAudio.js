@@ -45,6 +45,11 @@ const categoryStructure = [
         nodes: ['audio-lfo', 'audio-attenuverter', 'audio-slew', 'audio-samplehold', 'audio-ringmod']
     },
     {
+        name: 'Spatial',
+        icon: '🌐',
+        nodes: ['audio-pan', 'audio-hrtf']
+    },
+    {
         name: 'Distortion',
         icon: '🔥',
         nodes: ['audio-clip', 'audio-saturate', 'audio-bitcrush']

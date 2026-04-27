@@ -2,14 +2,18 @@ import {registerNode} from '../../registry.js'
 /**
  * VCA — per-sample multiplication of the audio input by a CV gain. Audio
  * passes right through when the Gain input is at 1.0; anything below 1
- * attenuates, anything above it amplifies. Typical patch: ADSR or LFO into
- * Gain, oscillator into Audio.
+ * attenuates, anything above it amplifies. Stereo: each channel is
+ * scaled by the gain CV's matching channel — for a mono CV (knob, ADSR,
+ * LFO), both channels share the same scalar; for stereo CV, each side
+ * tracks independently.
+ *
+ * Typical patch: ADSR or LFO into Gain, oscillator into Audio.
  */
 registerNode({
     slug: 'audio-vca',
     icon: '🎚️',
     label: 'VCA',
-    tooltip: 'Voltage-controlled amplifier. Out = Audio * Gain, sample-accurate.',
+    tooltip: 'Voltage-controlled amplifier. Out = Audio * Gain per channel, sample-accurate.',
     workspaceType: 'audio',
 
     input: {
@@ -22,7 +26,12 @@ registerNode({
             label: 'Out',
             type: 'audio',
             genAudio(ctx){
-                return `(${ctx.in('audio')}) * (${ctx.in('gain')})`
+                const a = ctx.in('audio')
+                const g = ctx.in('gain')
+                return {
+                    l: `(${a.l}) * (${g.l})`,
+                    r: `(${a.r}) * (${g.r})`
+                }
             }
         }
     },

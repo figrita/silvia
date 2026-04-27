@@ -2,7 +2,9 @@ import {registerNode} from '../../registry.js'
 
 /**
  * Mix — sums two audio signals with independent gains. Stateless,
- * sample-accurate. Out = A·gainA + B·gainB.
+ * sample-accurate, stereo: each side computed from the matching channels
+ * of A and B, scaled by the matching channels of the gains. Out = A·gainA
+ * + B·gainB per channel.
  *
  * The bridge node for feedback patches: run A from your dry source, B
  * from a VCA fed by the delay's output, and the Mix output back into
@@ -12,7 +14,7 @@ registerNode({
     slug: 'audio-mix',
     icon: '➕',
     label: 'Mix',
-    tooltip: 'Sums two audio signals with independent gains. Out = A·gainA + B·gainB.',
+    tooltip: 'Sums two audio signals with independent gains, per channel. Out = A·gainA + B·gainB.',
     workspaceType: 'audio',
 
     input: {
@@ -27,7 +29,14 @@ registerNode({
             label: 'Out',
             type: 'audio',
             genAudio(ctx){
-                return `(${ctx.in('a')}) * (${ctx.in('gainA')}) + (${ctx.in('b')}) * (${ctx.in('gainB')})`
+                const a = ctx.in('a')
+                const b = ctx.in('b')
+                const gA = ctx.in('gainA')
+                const gB = ctx.in('gainB')
+                return {
+                    l: `(${a.l}) * (${gA.l}) + (${b.l}) * (${gB.l})`,
+                    r: `(${a.r}) * (${gA.r}) + (${b.r}) * (${gB.r})`
+                }
             }
         }
     },

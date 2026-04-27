@@ -1,8 +1,8 @@
 import {registerNode} from '../../registry.js'
 
 /**
- * Mix 4 — sums four audio signals with independent gains. Stateless.
- * Out = A·gA + B·gB + C·gC + D·gD.
+ * Mix 4 — sums four audio signals with independent gains. Stateless,
+ * stereo per channel. Out = A·gA + B·gB + C·gC + D·gD on each side.
  *
  * For just two signals use the simpler Mix node. Use this when chaining
  * multiple oscillators into a single voice, summing percussion layers,
@@ -13,7 +13,7 @@ registerNode({
     slug: 'audio-mix4',
     icon: '🟰',
     label: 'Mix 4',
-    tooltip: 'Sums four audio signals with independent gains. Out = A·gA + B·gB + C·gC + D·gD.',
+    tooltip: 'Sums four audio signals with independent gains, per channel. Out = A·gA + B·gB + C·gC + D·gD.',
     workspaceType: 'audio',
 
     input: {
@@ -32,10 +32,14 @@ registerNode({
             label: 'Out',
             type: 'audio',
             genAudio(ctx){
-                return `(${ctx.in('a')}) * (${ctx.in('gainA')}) + ` +
-                       `(${ctx.in('b')}) * (${ctx.in('gainB')}) + ` +
-                       `(${ctx.in('c')}) * (${ctx.in('gainC')}) + ` +
-                       `(${ctx.in('d')}) * (${ctx.in('gainD')})`
+                const a = ctx.in('a'),  b = ctx.in('b')
+                const c = ctx.in('c'),  d = ctx.in('d')
+                const gA = ctx.in('gainA'), gB = ctx.in('gainB')
+                const gC = ctx.in('gainC'), gD = ctx.in('gainD')
+                return {
+                    l: `(${a.l}) * (${gA.l}) + (${b.l}) * (${gB.l}) + (${c.l}) * (${gC.l}) + (${d.l}) * (${gD.l})`,
+                    r: `(${a.r}) * (${gA.r}) + (${b.r}) * (${gB.r}) + (${c.r}) * (${gC.r}) + (${d.r}) * (${gD.r})`
+                }
             }
         }
     },

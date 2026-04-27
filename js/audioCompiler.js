@@ -11,6 +11,16 @@
  * Per-output genAudio mirrors the video compiler's per-output genCode:
  * each output port owns its own expression generator.
  *
+ * Stereo model: every audio output is a stereo pair. Each output emits
+ * TWO consts per sample:
+ *     _out_n<id>_<key>L
+ *     _out_n<id>_<key>R
+ * Authors return `{l, r}` from genAudio / genSinkAudio. Reading an
+ * upstream value via ctx.in(key) yields `{l, r}` likewise. ctx.inL and
+ * ctx.inR are shorthand for the single-channel string when only one side
+ * is needed (e.g. a mono CV consumer). Knob-driven inputs are mono CV —
+ * the same smoothed param expression is returned in both .l and .r.
+ *
  * Output shape:
  *   {
  *     body:       string,   // for new Function(s, p, inputs, ch0, ch1,
@@ -23,10 +33,10 @@
  *   }
  *
  * Node authoring:
- *   output[k].genAudio(ctx)
- *     Required for every declared output. Returns the expression string
- *     used wherever this output is referenced. Called only for outputs
- *     that are actually used downstream.
+ *   output[k].genAudio(ctx) → {l: string, r: string}
+ *     Required for every declared output. Return two expression strings,
+ *     one per channel. Mono nodes typically return the same expression
+ *     in both fields (or share a state/temp computed in genAudioSetup).
  *
  *   node.genAudioSetup(ctx)
  *     Optional. Runs once per sample, before any of this node's outputs
@@ -35,14 +45,15 @@
  *     a scoping block so local const/let declarations don't leak across
  *     nodes. Outputs read state via ctx.state(), not setup-locals.
  *
- *   node.genSinkAudio(ctx)
- *     Sink-only. Receives `ctx.upstream` (the pre-sink expression) and
- *     returns the final-sample expression assigned to ch0[i].
+ *   node.genSinkAudio(ctx) → {l: string, r: string}
+ *     Sink-only. Receives `ctx.upstream = {l, r}` (the pre-sink stereo
+ *     expression) and returns the final-sample expression assigned to
+ *     ch0[i] / ch1[i].
  *
  *   output[k].feedback === true
- *     Marks an output as past-only — its value is forward-declared at
- *     the TOP of the per-sample loop from this node's state, so
- *     consumers that emit before this node can still reference it.
+ *     Marks an output as past-only — its (stereo) value is forward-
+ *     declared at the TOP of the per-sample loop from this node's state,
+ *     so consumers that emit before this node can still reference it.
  *     Semantically this means the output reads state as captured at
  *     the start of the iteration, i.e. from the previous sample's
  *     tail. Pass 1 stops walking upstream from such an output so
@@ -54,9 +65,10 @@
  *
  *   node.genAudioTail(ctx)
  *     Required-with-feedback. Runs at the end of each loop iteration,
- *     after the sink's _y is computed. Captures the just-computed
+ *     after the sink's _yL/_yR are computed. Captures the just-computed
  *     downstream values via ctx.in() and writes them into state for
- *     the next iteration to read.
+ *     the next iteration to read. Use ctx.yL / ctx.yR to reference the
+ *     just-rendered sink samples.
  *
  *   node.audioStateAllocator(sampleRate) → {fields}
  *     Optional main-thread hook for state that depends on sampleRate
@@ -67,9 +79,11 @@
  *     across recompiles so the allocation is one-time per node.
  *
  * ctx surface:
- *   ctx.in(key)      Connected → upstream output var (`_out_n<id>_<key>`).
+ *   ctx.in(key)      Connected → `{l: '_out_n<id>_<k>L', r: '_out_n<id>_<k>R'}`.
  *                    Unconnected float w/ control → smoothed param ref
- *                    (`_v_n<id>_<key>`). Else → '0'.
+ *                    in both .l and .r. Else → {l: '0', r: '0'}.
+ *   ctx.inL(key)     Shorthand for ctx.in(key).l.
+ *   ctx.inR(key)     Shorthand for ctx.in(key).r.
  *   ctx.state(f)     `s.n<id>.<f>`.
  *   ctx.option(k)    Option value baked at compile time (literal).
  *   ctx.line(stmt)   Append a statement at this point in the loop body.
@@ -98,11 +112,11 @@
  *   ctx.literal(v)   JSON-stringify a compile-time value for safe
  *                    embedding in generated code. Prefer this over
  *                    `${ctx.option('x')}` when x may be a string.
- *   ctx.upstream     (sink only) the expression for the pre-sink sample.
- *   ctx.y            (tails only) the literal '_y' — the just-computed
- *                    sink output sample. Use it from a sink's
- *                    genAudioTail to capture rendered audio into state
- *                    for a feedback output (`output.out` with
+ *   ctx.upstream     (sink only) `{l, r}` for the pre-sink stereo sample.
+ *   ctx.yL / ctx.yR  (tails only) the literals '_yL' / '_yR' — the
+ *                    just-computed sink output samples. Use them from a
+ *                    sink's genAudioTail to capture rendered audio into
+ *                    state for a feedback output (`output.out` with
  *                    feedback: true → tap the speaker output one
  *                    sample later).
  *   ctx.micIdx       (mic nodes) the engine-input slot index assigned.
@@ -205,8 +219,8 @@ class CompileContext {
 
         // Pass 2 — emission. Lines accumulated here become the main loop
         // body. Tail lines run at the end of each iteration, after the
-        // sink's _y is computed but before the sample is written; they
-        // capture downstream values into feedback-node state for the
+        // sink's _yL/_yR are computed but before the samples are written;
+        // they capture downstream values into feedback-node state for the
         // next iteration.
         this.lines = []
         this.tailLines = []
@@ -381,32 +395,40 @@ class CompileContext {
         const cc = this
         const sink = lineSink || cc.lines
 
+        const readIn = (inputKey) => {
+            const port = node.input?.[inputKey]
+            if(!port) return {l: '0', r: '0'}
+            if(port.connection){
+                const upNid = `n${port.connection.parent.id}`
+                const base = `_out_${upNid}_${port.connection.key}`
+                return {l: `${base}L`, r: `${base}R`}
+            }
+            // Knob inputs become smoothed (or unsmoothed) params. `audio`
+            // and `float` are equivalent here — a knob is a constant CV,
+            // and float is the legacy name kept for hybrid nodes (button,
+            // bpmclock) that also live in the video graph. Knob CV is
+            // mono — same expression in both .l and .r.
+            if((port.type === 'audio' || port.type === 'float') && port.control){
+                const p = cc.registerParam(node, inputKey)
+                return {l: p, r: p}
+            }
+            return {l: '0', r: '0'}
+        }
+
         const ctx = {
             sr: 'sampleRate',
             i: 'i',
             nid,
             micIdx,
-            // The just-computed sink output sample. Only valid inside
-            // genAudioTail (tails run after `const _y = …;` is emitted).
-            y: '_y',
+            // The just-computed sink output samples. Only valid inside
+            // genAudioTail (tails run after `const _yL = …; const _yR = …;`
+            // is emitted).
+            yL: '_yL',
+            yR: '_yR',
 
-            in(inputKey){
-                const port = node.input?.[inputKey]
-                if(!port) return '0'
-                if(port.connection){
-                    const upNid = `n${port.connection.parent.id}`
-                    return `_out_${upNid}_${port.connection.key}`
-                }
-                // Knob inputs become smoothed params. `audio` and
-                // `float` are equivalent here — a knob is a constant
-                // audio signal (DC), and float is the legacy name kept
-                // for hybrid nodes (button, bpmclock) that also live
-                // in the video graph.
-                if((port.type === 'audio' || port.type === 'float') && port.control){
-                    return cc.registerParam(node, inputKey)
-                }
-                return '0'
-            },
+            in: readIn,
+            inL(inputKey){ return readIn(inputKey).l },
+            inR(inputKey){ return readIn(inputKey).r },
 
             state(f){ return `s.${nid}.${f}` },
             option(k){ return node.optionValues?.[k] ?? node.options?.[k]?.default },
@@ -468,7 +490,7 @@ class CompileContext {
              *
              *   audioState: { phase: 0 }
              *   genAudioSetup(ctx){
-             *       const phase = ctx.phasor(ctx.in('freq'))
+             *       const phase = ctx.phasor(ctx.inL('freq'))
              *       ctx.line(`${ctx.state('out')} = Math.sin(${phase});`)
              *   }
              *
@@ -538,8 +560,9 @@ class CompileContext {
     }
 
     /** Pass 3 — emit each feedback node's tail. Tails run after the
-     *  sink's _y is computed, so they can reference downstream values
-     *  (`_out_n<x>_<k>`) that closed the cycle this iteration. */
+     *  sink's _yL/_yR are computed, so they can reference downstream
+     *  values (`_out_n<x>_<k>L`, `_out_n<x>_<k>R`) that closed the
+     *  cycle this iteration. */
     emitFeedbackTails(){
         for(const node of this.feedbackNodes){
             if(typeof node.genAudioTail !== 'function') continue
@@ -606,31 +629,36 @@ class CompileContext {
                 )
             }
             const expr = outPort.genAudio.call(node, ctx)
-            if(typeof expr !== 'string'){
+            if(!expr || typeof expr.l !== 'string' || typeof expr.r !== 'string'){
                 throw new AudioCompileError(
-                    `Output '${outKey}' on ${node.slug}#${node.id} genAudio must return an expression string.`
+                    `Output '${outKey}' on ${node.slug}#${node.id} ` +
+                    `genAudio must return {l, r} expression strings (got ${typeof expr}).`
                 )
             }
             // feedback outputs read state only; hoist them to the top
             // of the loop body so consumers can reference them even
             // when their emit order places them before this node.
-            const line = `const _out_${nid}_${outKey} = ${expr};`
+            const lineL = `const _out_${nid}_${outKey}L = ${expr.l};`
+            const lineR = `const _out_${nid}_${outKey}R = ${expr.r};`
             if(outPort.feedback){
-                this.feedbackDecls.push(line)
+                this.feedbackDecls.push(lineL, lineR)
             } else {
-                this.lines.push(line)
+                this.lines.push(lineL, lineR)
             }
         }
     }
 
     /** Final-expression emit for the sink. Setup + outputs are handled
      *  by emitNode (the sink is treated as a regular node for those
-     *  purposes); this only runs genSinkAudio for the `_y` formula. */
-    emitSinkExpression(sinkNode, upstreamExpr){
-        if(typeof sinkNode.genSinkAudio !== 'function') return upstreamExpr
-        const ctx = this._makeCtx(sinkNode, {sinkUpstreamExpr: upstreamExpr})
+     *  purposes); this only runs genSinkAudio for the `_yL`/`_yR` formulas. */
+    emitSinkExpression(sinkNode, upstream){
+        if(typeof sinkNode.genSinkAudio !== 'function') return upstream
+        const ctx = this._makeCtx(sinkNode, {sinkUpstreamExpr: upstream})
         const result = sinkNode.genSinkAudio.call(sinkNode, ctx)
-        return (typeof result === 'string') ? result : upstreamExpr
+        if(!result || typeof result.l !== 'string' || typeof result.r !== 'string'){
+            return upstream
+        }
+        return result
     }
 }
 
@@ -671,11 +699,12 @@ function assembleBody(cc, finalExpr){
     // previous iteration — which is the "past-only" contract anyway.
     if(cc.feedbackDecls.length) lines.push(...cc.feedbackDecls.map(s => `    ${s}`))
     lines.push(...cc.lines.map(s => `    ${s}`))
-    lines.push(`    const _y = ${finalExpr};`)
+    lines.push(`    const _yL = ${finalExpr.l};`)
+    lines.push(`    const _yR = ${finalExpr.r};`)
     if(cc.tailLines.length) lines.push(...cc.tailLines.map(s => `    ${s}`))
     lines.push(
-        `    ch0[i] = _y;`,
-        `    if(ch1) ch1[i] = _y;`,
+        `    ch0[i] = _yL;`,
+        `    if(ch1) ch1[i] = _yR;`,
         `}`
     )
     if(writes.length){
@@ -723,12 +752,13 @@ export function compileGraph(sinkNode, sinkInputKey = 'audio', sampleRate = 0){
     }
 
     // Sink's genSinkAudio runs after every node (including the sink
-    // itself) is emitted; it has access to all `_out_n<x>_<k>` consts.
-    const upstreamExpr = `_out_n${srcPort.parent.id}_${srcPort.key}`
-    const finalExpr = cc.emitSinkExpression(sinkNode, upstreamExpr)
+    // itself) is emitted; it has access to all `_out_n<x>_<k>L/R` consts.
+    const upstreamBase = `_out_n${srcPort.parent.id}_${srcPort.key}`
+    const upstream = {l: `${upstreamBase}L`, r: `${upstreamBase}R`}
+    const finalExpr = cc.emitSinkExpression(sinkNode, upstream)
 
-    // Pass 3 — feedback tails. These run after `_y` is computed, so
-    // they can read the values that closed the cycle this iteration.
+    // Pass 3 — feedback tails. These run after `_yL`/`_yR` are computed,
+    // so they can read the values that closed the cycle this iteration.
     cc.emitFeedbackTails()
 
     // Reserved nid holds the per-param smoother carry-over. The engine's

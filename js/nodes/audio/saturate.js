@@ -6,6 +6,9 @@ import {registerNode} from '../../registry.js'
  * off as the input approaches ±1. Higher drive pushes harder into the
  * curve, adding harmonic warmth before things get crunchy.
  *
+ * Stereo: tanh applied to L and R independently — the curve is memoryless
+ * so there's no cross-channel coupling to worry about.
+ *
  * Differs from Clip→Soft in that there is no threshold knob and no
  * normalization — the curve is always y = tanh(x · drive). For a
  * limiter, use Clip; for "warming," use this.
@@ -14,7 +17,7 @@ registerNode({
     slug: 'audio-saturate',
     icon: '🟠',
     label: 'Saturate',
-    tooltip: 'Tanh waveshaper. Adds harmonic warmth; pushes into soft-saturation as Drive increases.',
+    tooltip: 'Tanh waveshaper, per channel. Adds harmonic warmth; pushes into soft-saturation as Drive increases.',
     workspaceType: 'audio',
 
     input: {
@@ -27,7 +30,12 @@ registerNode({
             label: 'Out',
             type: 'audio',
             genAudio(ctx){
-                return `Math.tanh((${ctx.in('audio')}) * (${ctx.in('drive')}))`
+                const a = ctx.in('audio')
+                const d = ctx.in('drive')
+                return {
+                    l: `Math.tanh((${a.l}) * (${d.l}))`,
+                    r: `Math.tanh((${a.r}) * (${d.r}))`
+                }
             }
         }
     },

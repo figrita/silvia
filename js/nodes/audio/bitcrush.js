@@ -1,11 +1,15 @@
 import {registerNode} from '../../registry.js'
 
 /**
- * Bitcrush — lo-fi degradation. Two independent axes:
+ * Bitcrush — lo-fi degradation, per channel. Two independent axes:
  *   • Bits  — quantize amplitude to 2^bits steps (1 = square, 16 = clean).
  *   • Rate  — sample-rate reduction. 1.0 keeps every sample; 0.1 only
  *             updates the held output once every ~10 samples (≈ 4.8kHz
  *             effective at a 48kHz context).
+ *
+ * The sample-rate counter is shared across channels so L and R latch
+ * together — preserves stereo phase, keeps the lo-fi "pixel grid"
+ * coherent across the field.
  *
  * Combine for classic 8-bit Game Boy / Casio FZ aesthetics, or push
  * Bits to 1 for a square-ish noise generator out of any input.
@@ -14,7 +18,7 @@ registerNode({
     slug: 'audio-bitcrush',
     icon: '📉',
     label: 'Bitcrush',
-    tooltip: 'Lo-fi degradation: bit-depth reduction + sample-rate reduction. Both CV-modulatable.',
+    tooltip: 'Lo-fi degradation: bit-depth reduction + sample-rate reduction. Both CV-modulatable. Stereo, latched in lockstep.',
     workspaceType: 'audio',
 
     input: {
@@ -27,26 +31,29 @@ registerNode({
         'out': {
             label: 'Out',
             type: 'audio',
-            genAudio(ctx){ return ctx.state('held') }
+            genAudio(ctx){ return {l: ctx.state('heldL'), r: ctx.state('heldR')} }
         }
     },
 
     audioState: {
-        held: 0,
+        heldL: 0,
+        heldR: 0,
         counter: 0
     },
 
     genAudioSetup(ctx){
-        const audio = ctx.in('audio')
-        const bits = ctx.in('bits')
-        const rate = ctx.in('rate')
-        const held = ctx.state('held')
+        const a = ctx.in('audio')
+        const bits = ctx.inL('bits')
+        const rate = ctx.inL('rate')
+        const heldL = ctx.state('heldL')
+        const heldR = ctx.state('heldR')
         const counter = ctx.state('counter')
         ctx.line(`
             ${counter} -= Math.max(0.001, ${rate});
             if(${counter} <= 0){
                 const _q = Math.pow(2, Math.max(1, Math.min(16, ${bits})) - 1);
-                ${held} = Math.round((${audio}) * _q) / _q;
+                ${heldL} = Math.round((${a.l}) * _q) / _q;
+                ${heldR} = Math.round((${a.r}) * _q) / _q;
                 ${counter} += 1;
             }
         `)
