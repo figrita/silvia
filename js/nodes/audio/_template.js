@@ -18,14 +18,12 @@ import {audioRuntime} from '../../audioRuntime.js'
  *   • The compiler walks upstream from the SynthOut sink and emits a
  *     single per-sample JS loop into the AudioWorklet processor.
  *   • Your node contributes code via `genAudioSetup` (runs per sample,
- *     before outputs) and `output[k].genAudio` (returns `{l, r}` —
- *     two expression strings, one per stereo channel).
+ *     before outputs) and `output[k].genAudio` (returns an expression
+ *     string used downstream).
  *   • State lives on `s.n<id>.<field>`; the engine preserves state
- *     across recompiles so edits don't click. For stereo state, declare
- *     two fields (e.g. `yL`, `yR`) — there's no auto-shadowing.
+ *     across recompiles so edits don't click.
  *   • Params (knob values with `control`) are push-messaged from main
- *     thread and auto-smoothed unless you opt out. Knob CV is mono —
- *     ctx.in(key) returns the same expression in both .l and .r.
+ *     thread and auto-smoothed unless you opt out.
  */
 registerNode({
     slug: 'audio-template',
@@ -59,45 +57,32 @@ registerNode({
     },
 
     // ─── Outputs ────────────────────────────────────────────────────────
-    // Every declared output needs a genAudio(ctx) that returns
-    // `{l, r}` — two expression strings, one per stereo channel. The
-    // compiler emits two consts per output (`_out_n<id>_<key>L` and
-    // `..._<key>R`), and downstream consumers read whichever side they
-    // need via ctx.in(key).l / ctx.in(key).r.
+    // Every declared output needs a genAudio(ctx) that returns an expression
+    // string. The compiler calls it ONLY if the output is referenced
+    // downstream — unused outputs cost nothing.
     //
-    // Mono nodes (oscillators, envelopes, CV producers) typically return
-    // the same expression in both fields, sometimes shared via a state
-    // field computed once in setup.
-    //
-    // feedback: true → "past-only" output; reads from state, not the
-    //   current sample's input. Pairs with genAudioTail below. This is
-    //   the escape hatch for cycles (delay lines, self-resonant filters).
+    // feedback: true → "past-only" output; reads from state, not the current
+    //   sample's input. Pairs with genAudioTail below. This is the escape
+    //   hatch for cycles (delay lines, self-resonant filters).
     output: {
         'out': {
             label: 'Out',
             type: 'audio',
             genAudio(ctx){
-                // Combine setup-produced state with live upstream audio,
-                // independently per channel.
-                const dry = ctx.in('audio')           // {l, r}
-                const wet = ctx.state('y')            // shared mono filter
-                const mix = ctx.in('mix')             // {l, r} (knob → l===r)
-                return {
-                    l: `(${dry.l}) * (1 - (${mix.l})) + (${wet}) * (${mix.l})`,
-                    r: `(${dry.r}) * (1 - (${mix.r})) + (${wet}) * (${mix.r})`
-                }
+                // Combine setup-produced state with live upstream audio.
+                // The _out_* variable is what downstream nodes read.
+                const dry = ctx.in('audio')
+                const wet = ctx.state('y')
+                const mix = ctx.in('mix')
+                return `(${dry}) * (1 - (${mix})) + (${wet}) * (${mix})`
             }
         },
         'step': {
             label: 'Step',
             type: 'audio',
             // Second output exposing the current step index as CV.
-            // Cheap — the compiler only emits this const if someone wires
-            // it. Mono CV: same value emitted on both channels.
-            genAudio(ctx){
-                const idx = ctx.state('stepIdx')
-                return {l: idx, r: idx}
-            }
+            // Cheap — the compiler only emits this const if someone wires it.
+            genAudio(ctx){ return ctx.state('stepIdx') }
         }
     },
 
@@ -121,10 +106,7 @@ registerNode({
     },
 
     // ─── State ──────────────────────────────────────────────────────────
-    // Plain values get deep-cloned per instance. Stereo nodes typically
-    // declare two fields per channel (e.g. yL, yR). There's no auto-
-    // shadowing — you choose which state is mono (shared) and which is
-    // stereo (split).
+    // Plain values get deep-cloned per instance.
     //
     // {type: 'ring', seconds|samples: N} declares a ring buffer. The
     // compiler lazy-allocates (pow2-padded Float32Array) on first sample
@@ -136,7 +118,7 @@ registerNode({
     // the compiler can register it as a gate; the engine writes the
     // current value there when postGate is called.
     audioState: {
-        phase: 0,              // for ctx.phasor — mono LFO phase
+        phase: 0,              // for ctx.phasor
         y: 0,                  // filter state / general-purpose sample store
         trigger: 0,            // gate field (read by audioCompiler.collectGates)
         lastTrigger: 0,        // edge detection
@@ -175,21 +157,20 @@ registerNode({
     genAudioSetup(ctx){
         // ctx.phasor — advances `s.<nid>.phase` by rate and wraps to
         // [0, TAU). Returns the phase expression so you can feed it to
-        // ctx.waveform immediately. Knob CV (freq, ctx.inL is fine since
-        // knob values are mono — same expression in .l and .r).
-        const lfoPhase = ctx.phasor(ctx.inL('freq'))
+        // ctx.waveform immediately.
+        const lfoPhase = ctx.phasor(ctx.in('freq'))
 
         // ctx.waveform — a named shape evaluated at a phase expression.
         // ctx.option returns the current option value at compile time;
         // changing it triggers a recompile.
         const lfo = ctx.waveform(lfoPhase, ctx.option('waveform'))
 
-        // ctx.in returns {l, r} — for knob inputs both are the same
-        // smoothed param expression. ctx.inL / ctx.inR are shorthand
-        // when you only need one side (typical for CV).
-        const depth = ctx.inL('depth')
-        const cutoff = ctx.inL('cutoff')
-        const audio = ctx.in('audio')   // stereo source: {l, r}
+        // ctx.in for a param returns either the smoothed var name
+        // (_v_n<id>_depth) or, for smooth:false params, p.<name> directly.
+        // You never need to know which — just use the returned expression.
+        const depth = ctx.in('depth')
+        const cutoff = ctx.in('cutoff')
+        const audio = ctx.in('audio')
 
         // Body-scope constants: PI, TAU, HALF_PI, INV_PI are emitted once
         // per body preamble. Don't inline 6.283185... ever again.
@@ -221,26 +202,18 @@ registerNode({
         const tmp = ctx.tmp()
 
         // Now the actual DSP. Block is scoped so these locals don't leak.
-        // The mono filter sums the stereo input to mono before processing
-        // (this template's `y` is shared); a real stereo filter would
-        // declare yL/yR and process each channel separately.
         ctx.line(`
             // Rising-edge gate → step counter advances, wrapping at Steps.
-            const _steps = Math.max(1, Math.min(32, Math.round(${ctx.inL('steps')} || ${defaultSteps})));
+            const _steps = Math.max(1, Math.min(32, Math.round(${ctx.in('steps')} || ${defaultSteps})));
             if(${trg} > 0.5 && ${lt} < 0.5){
                 ${idx} = (${idx} + 1) % _steps;
             }
             ${lt} = ${trg};
 
-            // Mono-sum the stereo audio for the shared filter, then mix the
-            // tap back in — this is just a demo; usually you'd keep the
-            // signal stereo and process each channel independently.
-            const _xMono = ((${audio.l}) + (${audio.r})) * 0.5;
-
             // LFO-modulated lowpass: cutoff = base + lfo*depth*base.
             const ${tmp} = Math.max(20, Math.min(sampleRate * 0.45, (${cutoff}) * (1 + (${lfo}) * (${depth}))));
             const _g = 1 - Math.exp(-TAU * ${tmp} / sampleRate);
-            ${y} += (_xMono + ${delayedSamp} * 0.35 - ${y}) * _g;
+            ${y} += ((${audio}) + ${delayedSamp} * 0.35 - ${y}) * _g;
 
             // Feed the filtered sample back into the ring for the tap above.
             ${r.push(y)}
@@ -248,28 +221,22 @@ registerNode({
     },
 
     // ─── Feedback tail (optional) ──────────────────────────────────────
-    // Runs after the sink's _yL/_yR are computed. Use this from a node
-    // with a `feedback: true` output to capture downstream values into
-    // state for the next sample. If no output is marked feedback:true,
-    // delete this hook. ctx.yL / ctx.yR reference the rendered samples.
+    // Runs after the sink's _y is computed. Use this from a node with a
+    // `feedback: true` output to capture downstream values into state
+    // for the next sample. If no output is marked feedback:true, delete
+    // this hook.
     //
     // genAudioTail(ctx){
-    //     ctx.line(`${ctx.state('prevL')} = ${ctx.yL};`)
-    //     ctx.line(`${ctx.state('prevR')} = ${ctx.yR};`)
+    //     ctx.line(`${ctx.state('prev')} = ${ctx.y};`)
     // },
 
     // ─── Sink-only hook (SynthOut-style nodes) ─────────────────────────
-    // genSinkAudio receives ctx.upstream = {l, r} (the pre-sink stereo
-    // expression) and returns {l, r} for the final-sample expressions
-    // assigned to ch0[i] / ch1[i]. Delete unless you're building a
-    // custom audio sink.
+    // genSinkAudio receives ctx.upstream (the pre-sink sample expression)
+    // and returns the final-sample expression. Delete unless you're
+    // building a custom audio sink.
     //
     // genSinkAudio(ctx){
-    //     const level = ctx.inL('level')
-    //     return {
-    //         l: `(${ctx.upstream.l}) * (${level})`,
-    //         r: `(${ctx.upstream.r}) * (${level})`
-    //     }
+    //     return `(${ctx.upstream}) * (${ctx.in('level')})`
     // },
 
     // ─── Lifecycle hooks ────────────────────────────────────────────────

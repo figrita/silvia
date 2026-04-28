@@ -6,10 +6,6 @@ import {registerNode} from '../../registry.js'
  * in the graph. Phase accumulator lives in worklet state so phase survives
  * recompiles (cable edits, option changes), keeping modulation coherent.
  *
- * Mono source: the same waveform is emitted on both stereo channels. For
- * a wider sound, fan two oscillators with slightly detuned freq into a
- * Pan or run them through Mix at hard L/R gains.
- *
  * Frequency, detune and gain are exposed as CV-capable inputs: leave them
  * knob-driven or patch an LFO/ADSR in. Waveform is a baked-in option
  * (recompile on change).
@@ -18,7 +14,7 @@ registerNode({
     slug: 'audio-osc',
     icon: '〰️',
     label: 'Oscillator',
-    tooltip: 'Single-voice oscillator, sample-accurate. Mono — same wave on L and R. Freq/Detune/Gain take CV.',
+    tooltip: 'Single-voice oscillator, sample-accurate. Freq/Detune/Gain take CV.',
     workspaceType: 'audio',
 
     input: {
@@ -33,8 +29,7 @@ registerNode({
             type: 'audio',
             genAudio(ctx){
                 const wav = ctx.waveform(ctx.state('phase'), ctx.option('waveform'))
-                const expr = `(${wav}) * (${ctx.inL('gain')})`
-                return {l: expr, r: expr}
+                return `(${wav}) * (${ctx.in('gain')})`
             }
         }
     },
@@ -56,8 +51,8 @@ registerNode({
     audioState: { phase: 0 },
 
     genAudioSetup(ctx){
-        const freq = ctx.inL('freq')
-        const detune = ctx.inL('detune')
+        const freq = ctx.in('freq')
+        const detune = ctx.in('detune')
         ctx.phasor(`(${freq}) * Math.pow(2, (${detune}) / 1200)`)
     }
 })

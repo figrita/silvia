@@ -1,19 +1,14 @@
 import {registerNode} from '../../registry.js'
 /**
- * Attenuverter — out = in * scale + offset, per-sample, per-channel.
- * Negative scale inverts; bias an LFO's ±1 swing into a ±5000 Hz cutoff
- * spread around 2000 Hz, or flip an envelope upside down, etc. Both
- * knobs take CV themselves.
- *
- * Stateless. Stereo: each channel is shaped independently by the matching
- * channel of scale and offset. With mono knobs/CV the same transform
- * lands on both sides.
+ * Attenuverter — out = in * scale + offset, per-sample. Negative scale
+ * inverts; bias an LFO's ±1 swing into a ±5000 Hz cutoff spread around 2000 Hz,
+ * or flip an envelope upside down, etc. Both knobs take CV themselves.
  */
 registerNode({
     slug: 'audio-attenuverter',
     icon: '⚖️',
     label: 'Attenuverter',
-    tooltip: 'Scale + offset a CV signal per channel. Out = In × Scale + Offset, sample-accurate.',
+    tooltip: 'Scale + offset a CV signal. Out = In × Scale + Offset, sample-accurate.',
     workspaceType: 'audio',
 
     input: {
@@ -27,13 +22,7 @@ registerNode({
             label: 'Out',
             type: 'audio',
             genAudio(ctx){
-                const x = ctx.in('input')
-                const s = ctx.in('scale')
-                const o = ctx.in('offset')
-                return {
-                    l: `(${x.l}) * (${s.l}) + (${o.l})`,
-                    r: `(${x.r}) * (${s.r}) + (${o.r})`
-                }
+                return `(${ctx.in('input')}) * (${ctx.in('scale')}) + (${ctx.in('offset')})`
             }
         }
     },

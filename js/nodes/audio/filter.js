@@ -6,13 +6,6 @@ import {registerNode} from '../../registry.js'
  * sample-accurate. Four modes, baked into the worklet at compile time so
  * the per-sample path has no branch per-mode.
  *
- * Stereo: independent biquad state per channel (z1/z2/y doubled into L/R)
- * so a stereo input maintains its image; a mono input gets identical
- * filtering on both sides. Cutoff and resonance are mono CV — the same
- * coefficients drive both channels, which is the natural choice for an
- * EQ-style filter (a stereo cutoff would split the image as the freq
- * sweeps).
- *
  * Resonance goes up to 30 — high values self-oscillate, intentionally,
  * for filter sweeps.
  */
@@ -52,7 +45,7 @@ registerNode({
     slug: 'audio-filter',
     icon: '🌊',
     label: 'Filter',
-    tooltip: 'Biquad filter (LP/HP/BP/Notch), stereo. Cutoff and resonance take CV; high Q self-oscillates.',
+    tooltip: 'Biquad filter (LP/HP/BP/Notch). Cutoff and resonance take CV; high Q self-oscillates.',
     workspaceType: 'audio',
 
     input: {
@@ -65,7 +58,7 @@ registerNode({
         'out': {
             label: 'Out',
             type: 'audio',
-            genAudio(ctx){ return {l: ctx.state('yL'), r: ctx.state('yR')} }
+            genAudio(ctx){ return ctx.state('y') }
         }
     },
 
@@ -83,16 +76,17 @@ registerNode({
         }
     },
 
-    audioState: { z1L: 0, z2L: 0, yL: 0, z1R: 0, z2R: 0, yR: 0 },
+    audioState: { z1: 0, z2: 0, y: 0 },
 
     genAudioSetup(ctx){
-        const a = ctx.in('audio')
-        const cutoff = ctx.inL('cutoff')
-        const q = ctx.inL('resonance')
+        const audio = ctx.in('audio')
+        const cutoff = ctx.in('cutoff')
+        const q = ctx.in('resonance')
         const modeCode = MODE_COEFFS[ctx.option('mode')] || MODE_COEFFS.lowpass
 
-        const z1L = ctx.state('z1L'), z2L = ctx.state('z2L'), yL = ctx.state('yL')
-        const z1R = ctx.state('z1R'), z2R = ctx.state('z2R'), yR = ctx.state('yR')
+        const z1 = ctx.state('z1')
+        const z2 = ctx.state('z2')
+        const y  = ctx.state('y')
 
         ctx.line(`
             const _f = Math.max(20, Math.min(sampleRate * 0.5 - 20, ${cutoff}));
@@ -105,14 +99,10 @@ registerNode({
             ${modeCode}
             _b0 /= _a0; _b1 /= _a0; _b2 /= _a0;
             _a1 /= _a0; _a2 /= _a0;
-            const _xL = ${a.l};
-            const _xR = ${a.r};
-            ${yL}  = _b0 * _xL + ${z1L};
-            ${z1L} = _b1 * _xL - _a1 * ${yL} + ${z2L};
-            ${z2L} = _b2 * _xL - _a2 * ${yL};
-            ${yR}  = _b0 * _xR + ${z1R};
-            ${z1R} = _b1 * _xR - _a1 * ${yR} + ${z2R};
-            ${z2R} = _b2 * _xR - _a2 * ${yR};
+            const _x = ${audio};
+            ${y}  = _b0 * _x + ${z1};
+            ${z1} = _b1 * _x - _a1 * ${y} + ${z2};
+            ${z2} = _b2 * _x - _a2 * ${y};
         `)
     }
 })

@@ -6,10 +6,6 @@ import {registerNode} from '../../registry.js'
  * and difference frequencies (f1+f2 and |f1-f2|) with the original
  * tones suppressed: the classic "robot voice" / Daleks effect.
  *
- * Stereo: L of A multiplied by L of B, R of A by R of B. With mono
- * inputs both channels carry the same product; with stereo inputs the
- * modulation differs per side, useful for animated stereo textures.
- *
  * Also useful as a four-quadrant amplitude modulator (LFO into B,
  * audio into A) for tremolo and stuttering effects.
  */
@@ -17,7 +13,7 @@ registerNode({
     slug: 'audio-ringmod',
     icon: '💍',
     label: 'Ring Mod',
-    tooltip: 'Multiplies two audio signals per channel. Sum and difference frequencies, no carriers — classic ring-mod sound.',
+    tooltip: 'Multiplies two audio signals. Sum and difference frequencies, no carriers — classic ring-mod sound.',
     workspaceType: 'audio',
 
     input: {
@@ -30,12 +26,7 @@ registerNode({
             label: 'Out',
             type: 'audio',
             genAudio(ctx){
-                const a = ctx.in('a')
-                const b = ctx.in('b')
-                return {
-                    l: `(${a.l}) * (${b.l})`,
-                    r: `(${a.r}) * (${b.r})`
-                }
+                return `(${ctx.in('a')}) * (${ctx.in('b')})`
             }
         }
     },

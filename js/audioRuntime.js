@@ -125,10 +125,20 @@ class AudioRuntime {
         if(!compiled){
             // Normal "nothing connected" path — use a silence body so the
             // engine still crossfades from whatever was playing to zero.
+            //
+            // Re-ship the previous compile's stateInit, *not* an empty
+            // object: the engine's mergeState only copies prev[k] when
+            // (k in stateInit). An empty stateInit therefore drops every
+            // node's state on the floor — fine for stateless graphs, but
+            // a multi-input sink like fourtrack with recorded buffers
+            // would have its tape wiped the instant the last input was
+            // briefly disconnected. Preserving the schema (with each
+            // field's *initial* value) means mergeState still finds the
+            // keys and picks the existing prev values.
             entry.engine.port.postMessage({
                 type: 'program',
                 body: "'use strict'; ch0.fill(0); if(ch1) ch1.fill(0);",
-                stateInit: {},
+                stateInit: entry.lastStateInit || {},
                 paramNames: [],
                 paramInit: {},
                 gateMap: {}
@@ -139,6 +149,8 @@ class AudioRuntime {
             this._clearParamListeners(entry)
             return
         }
+        // Cache so the next silence-body pass can preserve state.
+        entry.lastStateInit = compiled.stateInit
 
         if(compiled.micNodes.length > MAX_MIC_INPUTS){
             console.warn(
@@ -152,6 +164,25 @@ class AudioRuntime {
         for(const [name, spec] of compiled.params){
             paramInit[name] = spec.init
         }
+
+        // Identical-body short-circuit. Many "graph changes" (adding an
+        // unconnected node, dragging, anything that just touches DOM
+        // bookkeeping) don't actually alter the compiled DSP body for
+        // a given sink. Posting a new program message starts a fresh
+        // ~10 ms crossfade where both old and new programs run on
+        // shared state — for sinks in feedback loops that doubles up
+        // the feedback step every time and stacks audible artifacts
+        // when edits land back-to-back. If the body string is
+        // unchanged, the new compile is functionally identical, so we
+        // refresh the cheap side-bands (mic wiring, knob listeners,
+        // smoother init) and leave the engine alone.
+        if(compiled.body === entry.lastBody){
+            this._attachParamListeners(entry, compiled.params)
+            this._updateMicConnections(entry, compiled.micNodes)
+            ensureAudioRunning().catch(() => {})
+            return
+        }
+        entry.lastBody = compiled.body
 
         entry.engine.port.postMessage({
             type: 'program',

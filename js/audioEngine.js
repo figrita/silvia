@@ -36,7 +36,9 @@ function silenceSlot(){
         's', 'p', 'inputs', 'ch0', 'ch1', 'blockSize', 'sampleRate',
         SILENCE_BODY
     );
-    return { fn, state: Object.create(null) };
+    // paramNames present on every slot so the post-fade param GC can
+    // ask the surviving program what it still references.
+    return { fn, state: Object.create(null), paramNames: new Set() };
 }
 
 function mergeState(prevState, stateInit){
@@ -100,19 +102,73 @@ class SilviaEngine extends AudioWorkletProcessor {
                 this.recording = false;
                 this.port.postMessage({type: 'record-done'});
                 break;
+            case 'updateState': {
+                // Mutate state fields without recompiling. Both programs
+                // get the write during a fade so the change isn't split
+                // across the crossfade boundary (same shape as 'gate').
+                if(!m.updates) break;
+                const a = this.programs[0] && this.programs[0].state[m.nid];
+                if(a){
+                    for(const key in m.updates){
+                        if(key in a) a[key] = m.updates[key];
+                    }
+                }
+                const b = this.programs[1] && this.programs[1].state[m.nid];
+                if(b){
+                    for(const key in m.updates){
+                        if(key in b) b[key] = m.updates[key];
+                    }
+                }
+                break;
+            }
+            case 'snapshot': {
+                // Cheap raw copy of named Float32Array state fields back
+                // to the main thread. Used by fourtrack to poll its 256-
+                // bin peak accumulators (tiny payload, ~4 KB).
+                const slot = this.programs[0] && this.programs[0].state[m.nid];
+                if(!slot){
+                    this.port.postMessage({type: 'snapshot-data', nid: m.nid, fields: {}});
+                    break;
+                }
+                const fields = m.fields || [];
+                const out = {};
+                const transfers = [];
+                for(let f = 0; f < fields.length; f++){
+                    const buf = slot[fields[f]];
+                    if(!(buf instanceof Float32Array)) continue;
+                    const copy = new Float32Array(buf.length);
+                    copy.set(buf);
+                    out[fields[f]] = copy;
+                    transfers.push(copy.buffer);
+                }
+                this.port.postMessage({type: 'snapshot-data', nid: m.nid, fields: out}, transfers);
+                break;
+            }
         }
     }
 
     _startFade(m){
         const names = m.paramNames || [];
         const pInit = m.paramInit || {};
-        // Reconcile the shared target object: keep current targets for
-        // names still present, seed new names from their defaults, drop
-        // names that vanished from the new compile.
-        const nextP = Object.create(null);
+        // Seed any *new* names with their defaults but DO NOT drop
+        // params that vanished from the new compile. During the ~10 ms
+        // crossfade, programs[0] is still the previous body and may
+        // still reference those vanished params (e.g. an oscillator
+        // the user just disconnected). Dropping them turned p.X into
+        // undefined; the body's _v_X += (undefined - _v_X)*K becomes
+        // NaN, which propagates through the old body's outputs and —
+        // if the old graph was feeding fourtrack on an armed track —
+        // gets written into the tape buffer as NaN. After the fade
+        // swap the new body reads those NaNs back and the engine
+        // outputs silence forever. Keeping stale params alive until
+        // their last referencing program is gone costs O(params) bytes
+        // and is functionally invisible (new programs only reference
+        // their own param names).
         for(let i = 0; i < names.length; i++){
             const n = names[i];
-            nextP[n] = (n in this.params) ? this.params[n] : (pInit[n] != null ? pInit[n] : 0);
+            if(!(n in this.params)){
+                this.params[n] = pInit[n] != null ? pInit[n] : 0;
+            }
         }
 
         const active = this.programs[0];
@@ -133,8 +189,7 @@ class SilviaEngine extends AudioWorkletProcessor {
             return;
         }
 
-        this.params = nextP;
-        this.programs[1] = { fn, state };
+        this.programs[1] = { fn, state, paramNames: new Set(names) };
         this.fade = { samples: this.FADE_SAMPLES, position: 0 };
     }
 
@@ -212,6 +267,20 @@ class SilviaEngine extends AudioWorkletProcessor {
             this.programs[0] = this.programs[1];
             this.programs[1] = null;
             this.fade = null;
+            // Param GC: drop entries that the surviving program no
+            // longer references. Stale params were preserved through
+            // the fade so the outgoing body could still read them
+            // safely (otherwise p.X → undefined → NaN → corrupted
+            // tape buffer); now that the outgoing body is gone we
+            // can let them go. Without this sweep, a disconnect-then-
+            // reconnect of the same node would resume from the stale
+            // value instead of re-initializing from the live knob.
+            const live = this.programs[0].paramNames;
+            if(live){
+                for(const k in this.params){
+                    if(!live.has(k)) delete this.params[k];
+                }
+            }
             if(this.programQueue){
                 const q = this.programQueue;
                 this.programQueue = null;

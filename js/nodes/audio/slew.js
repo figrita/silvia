@@ -3,8 +3,7 @@ import {registerNode} from '../../registry.js'
 /**
  * Slew — asymmetric slew limiter / portamento / glide. Smooths a CV
  * with separately tunable rise (input increasing) and fall (input
- * decreasing) time constants, processed independently per channel.
- * Useful for:
+ * decreasing) time constants. Useful for:
  *   • Glide between sequencer notes (rise = fall = 30–200 ms)
  *   • Smoothing a stepped LFO (audio-rate input → smooth lag)
  *   • One-pole low-pass on a CV (rise = fall, set the corner via 1/(2π·t))
@@ -15,7 +14,7 @@ registerNode({
     slug: 'audio-slew',
     icon: '📐',
     label: 'Slew',
-    tooltip: 'Asymmetric slew limiter, per channel. Independent rise/fall time constants for glide, smoothing, and lag.',
+    tooltip: 'Asymmetric slew limiter. Independent rise/fall time constants for glide, smoothing, and lag.',
     workspaceType: 'audio',
 
     input: {
@@ -28,27 +27,22 @@ registerNode({
         'out': {
             label: 'Out',
             type: 'audio',
-            genAudio(ctx){ return {l: ctx.state('outL'), r: ctx.state('outR')} }
+            genAudio(ctx){ return ctx.state('out') }
         }
     },
 
-    audioState: { outL: 0, outR: 0 },
+    audioState: { out: 0 },
 
     genAudioSetup(ctx){
-        const x = ctx.in('input')
-        const rise = ctx.inL('rise')
-        const fall = ctx.inL('fall')
-        const outL = ctx.state('outL')
-        const outR = ctx.state('outR')
+        const input = ctx.in('input')
+        const rise = ctx.in('rise')
+        const fall = ctx.in('fall')
+        const out = ctx.state('out')
         ctx.line(`
-            const _dL = (${x.l}) - ${outL};
-            const _dR = (${x.r}) - ${outR};
-            const _tL = (_dL > 0) ? Math.max(0.0001, ${rise}) : Math.max(0.0001, ${fall});
-            const _tR = (_dR > 0) ? Math.max(0.0001, ${rise}) : Math.max(0.0001, ${fall});
-            const _kL = 1 - Math.exp(-1 / (sampleRate * _tL));
-            const _kR = 1 - Math.exp(-1 / (sampleRate * _tR));
-            ${outL} += _dL * _kL;
-            ${outR} += _dR * _kR;
+            const _delta = (${input}) - ${out};
+            const _t = (_delta > 0) ? Math.max(0.0001, ${rise}) : Math.max(0.0001, ${fall});
+            const _k = 1 - Math.exp(-1 / (sampleRate * _t));
+            ${out} = ${out} + _delta * _k;
         `)
     }
 })

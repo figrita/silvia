@@ -1,0 +1,239 @@
+/* styles/fourtrack.css
+ *
+ * Four-Track cassette recorder custom-area UI. Markup lives in
+ * js/nodes/audio/fourtrack.js. Follows the project's audio-node visual
+ * language: 2px corners on containers, 4px on buttons/inputs, 4px spatial
+ * grid, theme-aware colors keyed off --audio-hue.
+ */
+
+.ft-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    min-width: 320px;
+    background: hsl(var(--audio-hue), 20%, 8%);
+    border-radius: 0 0 12px 12px;
+    font-size: 11px;
+    color: var(--text-primary);
+}
+
+.ft-transport {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    background: hsl(var(--audio-hue), 20%, 6%);
+    border-radius: 2px;
+}
+
+.ft-tbtn {
+    font-family: monospace;
+    font-size: 11px;
+    background: hsl(var(--audio-hue), calc(var(--audio-sat) * 0.4), 20%);
+    color: var(--text-primary);
+    border: 1px solid hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.7));
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.ft-tbtn:hover {
+    background: hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.4));
+}
+
+.ft-time {
+    margin-left: auto;
+    padding: 4px 8px;
+    background: hsl(var(--audio-hue), 30%, 4%);
+    color: hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 1.1));
+    border-radius: 2px;
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.ft-tracks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+
+.ft-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px;
+    background: hsl(var(--audio-hue), 18%, 12%);
+    border-radius: 2px;
+    border-left: 2px solid hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.6));
+}
+
+.ft-strip[data-track="1"] { border-left-color: hsl(  0, 70%, 55%); }
+.ft-strip[data-track="2"] { border-left-color: hsl(180, 60%, 50%); }
+.ft-strip[data-track="3"] { border-left-color: hsl( 50, 80%, 55%); }
+.ft-strip[data-track="4"] { border-left-color: hsl(140, 50%, 55%); }
+
+.ft-strip-head {
+    font-family: monospace;
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.ft-timeline {
+    width: 100%;
+    height: 56px;
+    background: hsl(var(--audio-hue), 30%, 4%);
+    border: 1px solid hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.4));
+    border-radius: 2px;
+    image-rendering: pixelated;
+    cursor: crosshair;
+    display: block;
+}
+
+.ft-strip-btns {
+    display: flex;
+    gap: 4px;
+}
+
+.ft-rec,
+.ft-mode,
+.ft-mute,
+.ft-solo {
+    flex: 1;
+    font-family: monospace;
+    font-size: 10px;
+    background: hsl(var(--audio-hue), calc(var(--audio-sat) * 0.4), 20%);
+    color: var(--text-primary);
+    border: 1px solid hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.7));
+    padding: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.ft-rec:hover,
+.ft-mode:hover,
+.ft-mute:hover,
+.ft-solo:hover {
+    background: hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.4));
+}
+
+.ft-rec.armed {
+    background: hsla(0, 80%, 45%, 0.7);
+    border-color: hsl(0, 90%, 55%);
+    color: #fff;
+    font-weight: bold;
+}
+
+.ft-mode.replace {
+    background: hsl(280, 60%, 40%);
+    border-color: hsl(280, 70%, 55%);
+    color: #fff;
+    font-weight: bold;
+}
+
+.ft-mute.active {
+    background: hsl(var(--audio-hue), 10%, 35%);
+    border-color: hsl(var(--audio-hue), 10%, 50%);
+}
+
+.ft-solo.active {
+    background: hsl(50, 80%, 50%);
+    border-color: hsl(50, 80%, 60%);
+    color: #000;
+    font-weight: bold;
+}
+
+.ft-strip-knobs {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 8px;
+    align-items: center;
+    font-size: 10px;
+}
+
+.ft-strip-knobs label {
+    color: var(--text-muted);
+    text-align: right;
+}
+
+.ft-strip-knobs s-number {
+    width: 100%;
+}
+
+.ft-master {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px;
+    background: hsl(var(--audio-hue), 18%, 14%);
+    border-radius: 2px;
+    border-top: 2px solid hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.7));
+}
+
+.ft-master-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.ft-master-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.ft-bounce,
+.ft-tape-btn {
+    font-family: monospace;
+    font-size: 10px;
+    background: hsl(var(--audio-hue), calc(var(--audio-sat) * 0.4), 20%);
+    color: var(--text-primary);
+    border: 1px solid hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.7));
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.ft-bounce:hover,
+.ft-tape-btn:hover {
+    background: hsl(var(--audio-hue), var(--audio-sat), calc(var(--audio-light) * 0.4));
+}
+
+.ft-bounce.bouncing {
+    background: hsla(0, 80%, 45%, 0.7);
+    border-color: hsl(0, 90%, 55%);
+    color: #fff;
+}
+
+.ft-master-knobs {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 8px;
+    align-items: center;
+    font-size: 11px;
+}
+
+.ft-master-knobs label {
+    color: var(--text-muted);
+    text-align: right;
+}
+
+.ft-master-knobs s-number {
+    width: 100%;
+}

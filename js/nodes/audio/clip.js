@@ -1,7 +1,7 @@
 import {registerNode} from '../../registry.js'
 
 /**
- * Clip — three flavors of amplitude limiting, applied per channel.
+ * Clip — three flavors of amplitude limiting.
  *   • Soft  — tanh waveshaper. Smooth, "tube-like" rolloff at the top.
  *   • Hard  — straight clamp at ±threshold. Brick-wall, gritty.
  *   • Fold  — wavefolding. Anything past threshold gets reflected back,
@@ -9,15 +9,12 @@ import {registerNode} from '../../registry.js'
  *
  * Drive scales the input before the shaper, so any mode can be pushed
  * harder without touching the source level.
- *
- * State is doubled per channel (`outL`, `outR`) so L and R can carry
- * independent transformations without one stomping the other.
  */
 registerNode({
     slug: 'audio-clip',
     icon: '✂️',
     label: 'Clip',
-    tooltip: 'Soft, hard, or wavefolding amplitude limiter. Drive sets pre-gain; threshold sets the limit. Per channel.',
+    tooltip: 'Soft, hard, or wavefolding amplitude limiter. Drive sets pre-gain; threshold sets the limit.',
     workspaceType: 'audio',
 
     input: {
@@ -30,7 +27,7 @@ registerNode({
         'out': {
             label: 'Out',
             type: 'audio',
-            genAudio(ctx){ return {l: ctx.state('outL'), r: ctx.state('outR')} }
+            genAudio(ctx){ return ctx.state('out') }
         }
     },
 
@@ -47,54 +44,41 @@ registerNode({
         }
     },
 
-    audioState: { outL: 0, outR: 0 },
+    audioState: { out: 0 },
 
     genAudioSetup(ctx){
-        const a = ctx.in('audio')
-        const d = ctx.in('drive')
-        const t = ctx.in('threshold')
-        const outL = ctx.state('outL')
-        const outR = ctx.state('outR')
+        const audio = ctx.in('audio')
+        const drive = ctx.in('drive')
+        const thresh = ctx.in('threshold')
+        const out = ctx.state('out')
         switch(ctx.option('mode')){
             case 'hard':
                 ctx.line(`
-                    const _xL = (${a.l}) * (${d.l});
-                    const _xR = (${a.r}) * (${d.r});
-                    const _tL = Math.max(0.001, ${t.l});
-                    const _tR = Math.max(0.001, ${t.r});
-                    ${outL} = _xL > _tL ? _tL : (_xL < -_tL ? -_tL : _xL);
-                    ${outR} = _xR > _tR ? _tR : (_xR < -_tR ? -_tR : _xR);
+                    const _x = (${audio}) * (${drive});
+                    const _t = Math.max(0.001, ${thresh});
+                    ${out} = _x > _t ? _t : (_x < -_t ? -_t : _x);
                 `)
                 break
             case 'fold':
                 // Bounded reflection — at most 8 folds, plenty for any
                 // reasonable drive setting.
                 ctx.line(`
-                    let _yL = (${a.l}) * (${d.l});
-                    let _yR = (${a.r}) * (${d.r});
-                    const _tL = Math.max(0.001, ${t.l});
-                    const _tR = Math.max(0.001, ${t.r});
-                    for(let _k = 0; _k < 8 && (_yL > _tL || _yL < -_tL); _k++){
-                        if(_yL > _tL) _yL = 2 * _tL - _yL;
-                        else _yL = -2 * _tL - _yL;
+                    const _x = (${audio}) * (${drive});
+                    const _t = Math.max(0.001, ${thresh});
+                    let _y = _x;
+                    for(let _k = 0; _k < 8 && (_y > _t || _y < -_t); _k++){
+                        if(_y > _t) _y = 2 * _t - _y;
+                        else _y = -2 * _t - _y;
                     }
-                    for(let _k = 0; _k < 8 && (_yR > _tR || _yR < -_tR); _k++){
-                        if(_yR > _tR) _yR = 2 * _tR - _yR;
-                        else _yR = -2 * _tR - _yR;
-                    }
-                    ${outL} = _yL;
-                    ${outR} = _yR;
+                    ${out} = _y;
                 `)
                 break
             case 'soft':
             default:
                 ctx.line(`
-                    const _xL = (${a.l}) * (${d.l});
-                    const _xR = (${a.r}) * (${d.r});
-                    const _tL = Math.max(0.001, ${t.l});
-                    const _tR = Math.max(0.001, ${t.r});
-                    ${outL} = _tL * Math.tanh(_xL / _tL);
-                    ${outR} = _tR * Math.tanh(_xR / _tR);
+                    const _x = (${audio}) * (${drive});
+                    const _t = Math.max(0.001, ${thresh});
+                    ${out} = _t * Math.tanh(_x / _t);
                 `)
         }
     }

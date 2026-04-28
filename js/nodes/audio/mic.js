@@ -6,13 +6,8 @@ import {autowire, StringToFragment} from '../../utils.js'
  * Microphone input. Owns a per-instance MediaStream + MediaStreamSourceNode
  * that feeds a persistent GainNode. The audio compiler sees this node in the
  * graph and assigns it a worklet-input slot; the runtime connects this
- * GainNode to that slot so the raw mic samples appear in `inputs[idx][...]`
+ * GainNode to that slot so the raw mic samples appear in `inputs[idx][0]`
  * inside the processor's `process()`.
- *
- * Stereo: if the upstream MediaStream provides two channels, L is
- * `inputs[idx][0]` and R is `inputs[idx][1]`; for mono mics the worklet
- * exposes only channel 0 and we duplicate it to R so downstream nodes
- * always see a stereo signal.
  *
  * Browser permission happens on the Enable button click — a trusted user
  * gesture on every browser.
@@ -31,14 +26,8 @@ registerNode({
             label: 'Out',
             type: 'audio',
             genAudio(ctx){
-                if(ctx.micIdx < 0) return {l: '0', r: '0'}
-                const idx = ctx.micIdx
-                const ch0 = `((inputs[${idx}] && inputs[${idx}][0]) ? inputs[${idx}][0][i] : 0)`
-                // Fall back to channel 0 when the source is mono — the
-                // worklet only exposes the channels actually sent up by
-                // the MediaStream, so a mono mic has no `inputs[idx][1]`.
-                const ch1 = `((inputs[${idx}] && inputs[${idx}][1]) ? inputs[${idx}][1][i] : ${ch0})`
-                return {l: ch0, r: ch1}
+                if(ctx.micIdx < 0) return '0'
+                return `((inputs[${ctx.micIdx}] && inputs[${ctx.micIdx}][0]) ? inputs[${ctx.micIdx}][0][i] : 0)`
             }
         }
     },
