@@ -177,7 +177,7 @@ class SilviaEngine extends AudioWorkletProcessor {
         let fn;
         try {
             fn = new Function(
-                's', 'p', 'inputs', 'ch0', 'ch1', 'blockSize', 'sampleRate',
+                's', 'p', 'inputs', 'ch0', 'ch1', 'blockSize', 'sampleRate', 'ownsSharedWrites',
                 m.body
             );
         } catch(err){
@@ -201,9 +201,9 @@ class SilviaEngine extends AudioWorkletProcessor {
         this._scratchB1 = new Float32Array(blockSize);
     }
 
-    _runOrZero(slot, inputs, ch0, ch1, blockSize, label){
+    _runOrZero(slot, inputs, ch0, ch1, blockSize, label, ownsSharedWrites){
         try {
-            slot.fn(slot.state, this.params, inputs, ch0, ch1, blockSize, sampleRate);
+            slot.fn(slot.state, this.params, inputs, ch0, ch1, blockSize, sampleRate, ownsSharedWrites);
         } catch(err){
             console.error('[silvia-audio-engine] ' + label + ' threw:', err);
             ch0.fill(0);
@@ -236,7 +236,9 @@ class SilviaEngine extends AudioWorkletProcessor {
         const ch1 = out0.length > 1 ? out0[1] : null;
 
         if(!this.fade){
-            this._runOrZero(this.programs[0], inputs, ch0, ch1, blockSize, 'active');
+            // No fade in flight: programs[0] is the only one running, so
+            // it owns every shared-buffer write.
+            this._runOrZero(this.programs[0], inputs, ch0, ch1, blockSize, 'active', true);
             if(this.recording) this._capture(ch0, ch1);
             return true;
         }
@@ -247,8 +249,19 @@ class SilviaEngine extends AudioWorkletProcessor {
         const tmpB0 = this._scratchB0;
         const tmpB1 = ch1 ? this._scratchB1 : null;
 
-        this._runOrZero(this.programs[0], inputs, tmpA0, tmpA1, blockSize, 'active/fade');
-        this._runOrZero(this.programs[1], inputs, tmpB0, tmpB1, blockSize, 'incoming/fade');
+        // During the crossfade, only the incoming program (programs[1])
+        // commits writes to state that's shared *by reference* between
+        // programs — primarily Float32Array buffers, which mergeState
+        // passes through unchanged. Bodies gate those writes on
+        // ownsSharedWrites so a recompile mid-stream doesn't corrupt
+        // the buffer (e.g. fourtrack OVERDUB-mode accumulation reading
+        // its own prior write through the shared tape). Numbers in
+        // state — playhead, phase, filter memory scalars, ring-buffer
+        // heads — are already per-program after mergeState's
+        // value-copy, so both bodies advance them independently to the
+        // same end value; those don't need guarding.
+        this._runOrZero(this.programs[0], inputs, tmpA0, tmpA1, blockSize, 'active/fade',   false);
+        this._runOrZero(this.programs[1], inputs, tmpB0, tmpB1, blockSize, 'incoming/fade', true);
 
         const fadeLen = this.fade.samples;
         let pos = this.fade.position;

@@ -744,7 +744,13 @@ function assembleBody(cc, finalExpr){
         lines.push(`    ch0[i] = _y;`, `    if(ch1) ch1[i] = _y;`, `}`)
     }
     if(writes.length){
-        lines.push(``, ...writes)
+        // Carry the smoother values back into _psmooth state. Both
+        // programs run their own local _v_<name> through the block
+        // (independent let-bindings, identical math), so writing back
+        // from both is wasted work — last write wins anyway. Gate on
+        // ownsSharedWrites so only the surviving program updates the
+        // carry.
+        lines.push(``, `if(ownsSharedWrites){`, ...writes.map(s => `    ${s}`), `}`)
     }
     return lines.join('\n')
 }

@@ -417,6 +417,18 @@ registerNode({
             // Mode-specific buffer write. Reading the buffer AFTER the
             // write means the monitor (_t<i>) reflects whichever mode
             // we're in without an extra branch.
+            //
+            // Gate the write on ownsSharedWrites: track buffers are
+            // shared by reference between the outgoing and incoming
+            // programs during a recompile crossfade, so without the
+            // guard both bodies hit the same buffer for ~10 ms.
+            // OVERDUB (`+=`) is the loud failure — the input is summed
+            // in twice, an audible amplitude bump on every graph edit.
+            // REPLACE looks idempotent but isn't: the second writer
+            // reads the first writer's output through the shared
+            // buffer, so the result is X·(1−e)² + in·e·(2−e) instead
+            // of X·(1−e) + in·e — a quieter but real divergence. The
+            // gate fixes both.
             const writeExpr = t.mode === 'replace'
                 ? `${buf}[_idx${i}] * (1 - ${env}) + ${input} * ${env}`
                 : `${buf}[_idx${i}] + ${input} * ${env}`
@@ -431,7 +443,7 @@ registerNode({
                         const _d = _tgt - ${env};
                         ${env} += _d > _punchStep ? _punchStep : (_d < -_punchStep ? -_punchStep : _d);
                     }
-                    if(${env} > 0.0001){
+                    if(ownsSharedWrites && ${env} > 0.0001){
                         ${buf}[_idx${i}] = ${writeExpr};
                     }
                     _t${i} = ${buf}[_idx${i}];
