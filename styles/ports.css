@@ -28,6 +28,13 @@
         background: var(--port-audio-bg);
     }
 
+    &.midi {
+        background: var(--port-midi-bg);
+        border-radius: 25%;
+        width: 1rem;
+        height: 1rem;
+    }
+
     &.hidden {
         opacity: 0.4;
         pointer-events: none;

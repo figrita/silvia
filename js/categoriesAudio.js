@@ -75,6 +75,11 @@ const categoryStructure = [
         nodes: ['euclideanrhythm', 'clockdivider']
     },
     {
+        name: 'MIDI',
+        icon: '🎹',
+        nodes: ['audio-midi-keyboard', 'audio-midi-note', 'audio-midi-gate', 'audio-monosynth', 'audio-minimono']
+    },
+    {
         name: 'Analysis',
         icon: '🔬',
         nodes: ['audio-envfollow']

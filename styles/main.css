@@ -51,6 +51,10 @@
     --audio-sat: 75%;
     --audio-light: 55%;
 
+    --midi-hue: 295;
+    --midi-sat: 70%;
+    --midi-light: 60%;
+
     /* Calculated saturation levels for consistent theming */
     --theme-sat-subtle: calc(var(--theme-sat) * 0.05);   /* 3% at 60% base */
     --theme-sat-low: calc(var(--theme-sat) * 0.08);      /* 5% at 60% base */
@@ -95,6 +99,7 @@
     --port-color-bg: linear-gradient(140deg, hsla(var(--color-hue), var(--theme-sat-norm), 100%, 1), hsl(var(--color-hue), var(--color-sat), calc(var(--color-light) * 1.1)) 50%) hsl(var(--color-hue), var(--color-sat), var(--color-light));
     --port-action-bg: linear-gradient(140deg, hsla(var(--event-hue), var(--theme-sat-strong), 100%, 0.5), hsl(var(--event-hue), var(--event-sat), var(--event-light)) 50%), hsl(var(--event-hue), var(--event-sat), var(--event-light));
     --port-audio-bg: linear-gradient(140deg, hsla(var(--audio-hue), var(--theme-sat-strong), 100%, 0.5), hsl(var(--audio-hue), var(--audio-sat), var(--audio-light)) 50%), hsl(var(--audio-hue), var(--audio-sat), var(--audio-light));
+    --port-midi-bg: linear-gradient(140deg, hsla(var(--midi-hue), var(--theme-sat-strong), 100%, 0.5), hsl(var(--midi-hue), var(--midi-sat), var(--midi-light)) 50%), hsl(var(--midi-hue), var(--midi-sat), var(--midi-light));
 
     /* Shadow colors */
     --shadow-primary: hsla(var(--theme-hue), var(--theme-sat-strong), 0%, 0.7);
@@ -143,6 +148,11 @@ body {
     stroke-dasharray: 4, 4;
 }
 
+.connection-path.midi {
+    stroke-width: 2px;
+    stroke-dasharray: 2, 4;
+}
+
 /* Hover highlight state for connections */
 .connection-path.highlighted {
     stroke-width: 6px !important;
@@ -164,6 +174,10 @@ body {
 
 #connection-root.theme-wires .connection-path.audio {
     stroke: hsl(var(--audio-hue), calc(var(--audio-sat) * 0.8), calc(var(--audio-light) * 1.1));
+}
+
+#connection-root.theme-wires .connection-path.midi {
+    stroke: hsl(var(--midi-hue), calc(var(--midi-sat) * 0.8), calc(var(--midi-light) * 1.1));
 }
 
 /* ===== CHECKBOXES ===== */

@@ -22,6 +22,11 @@ import './audio/slew.js'
 import './audio/synthout.js'
 import './audio/fourtrack.js'
 import './audio/vca.js'
+import './audio/midiNoteButton.js'
+import './audio/midiGate.js'
+import './audio/midiKeyboard.js'
+import './audio/monosynth.js'
+import './audio/minimono.js'
 
 // Video graph nodes.
 import './video/adsrenvelope.js'

@@ -17,26 +17,26 @@ export const settings = {
 
 // --- Module-level state ---
 let settingsModal
-let mainColorPicker, numberColorPicker, colorColorPicker, eventColorPicker, audioColorPicker
+let mainColorPicker, numberColorPicker, colorColorPicker, eventColorPicker, audioColorPicker, midiColorPicker
 
 // Theme presets
 const themePresets = {
-    vanilla:   {main: '#f52fbcff', number: '#10b981ff', color: '#f59e0bff', event: '#8b5cf6ff', audio: '#38bcdcff', icon: '🍦'},
-    mountain:  {main: '#6f82bcff', number: '#106c48ff', color: '#9b1919ff', event: '#78350fff', audio: '#7dd3fcff', icon: '🏔️'},
-    honey:     {main: '#f59e0bff', number: '#eab308ff', color: '#ea580cff', event: '#a16207ff', audio: '#0d9488ff', icon: '🍯'},
-    vapor:     {main: '#3adfedff', number: '#a43aedff', color: '#ec4899ff', event: '#f5c02cff', audio: '#22d3eeff', icon: '💜'},
-    gothic:    {main: '#6b7280ff', number: '#4b5563ff', color: '#8d0000ff', event: '#1f2937ff', audio: '#94a3b8ff', icon: '🦇'},
-    av:        {main: '#767676ff', number: '#ffffffff', color: '#facc15ff', event: '#fb3232ff', audio: '#06b6d4ff', icon: '👨‍🔧'},
-    graphite:  {main: '#6a7d9aff', number: '#f9fafbff', color: '#06b6d4ff', event: '#ef4444ff', audio: '#fbbf24ff', icon: '✏️'},
-    paprika:   {main: '#f45e2cff', number: '#fde047ff', color: '#10b981ff', event: '#f4723fff', audio: '#0ea5e9ff', icon: '🌶️'},
-    rogue:     {main: '#d63838ff', number: '#f43f5eff', color: '#fde047ff', event: '#0f766eff', audio: '#a855f7ff', icon: '🗡️'},
-    blueprint: {main: '#1266cbff', number: '#fde047ff', color: '#93c5fdff', event: '#7e95c7ff', audio: '#fb923cff', icon: '📐'},
-    hazard:    {main: '#808080ff', number: '#facc15ff', color: '#ef4444ff', event: '#22c55eff', audio: '#3b82f6ff', icon: '⚠️'},
-    aubergine: {main: '#901aebff', number: '#f43f5eff', color: '#34d399ff', event: '#7e95c7ff', audio: '#06b6d4ff', icon: '🍆'},
-    coralreef: {main: '#fb7185ff', number: '#0ea5e9ff', color: '#065f46ff', event: '#7e95c7ff', audio: '#facc15ff', icon: '🪸'},
-    polar:     {main: '#f0f9ffff', number: '#0ea5e9ff', color: '#7e95c7ff', event: '#22c55eff', audio: '#3b82f6ff', icon: '📄'},
-    forest:    {main: '#24a253ff', number: '#a3e635ff', color: '#f97316ff', event: '#10b981ff', audio: '#06b6d4ff', icon: '🌲'},
-    peachy:    {main: '#fb923cff', number: '#b45309ff', color: '#f43f5eff', event: '#10b981ff', audio: '#0ea5e9ff', icon: '🍑'}
+    vanilla:   {main: '#f52fbcff', number: '#10b981ff', color: '#f59e0bff', event: '#8b5cf6ff', audio: '#38bcdcff', midi: '#f9a8d4ff', icon: '🍦'},
+    mountain:  {main: '#6f82bcff', number: '#106c48ff', color: '#9b1919ff', event: '#78350fff', audio: '#7dd3fcff', midi: '#64748bff', icon: '🏔️'},
+    honey:     {main: '#f59e0bff', number: '#eab308ff', color: '#ea580cff', event: '#a16207ff', audio: '#0d9488ff', midi: '#fb7185ff', icon: '🍯'},
+    vapor:     {main: '#3adfedff', number: '#a43aedff', color: '#ec4899ff', event: '#f5c02cff', audio: '#22d3eeff', midi: '#c4b5fdff', icon: '💜'},
+    gothic:    {main: '#6b7280ff', number: '#4b5563ff', color: '#8d0000ff', event: '#1f2937ff', audio: '#94a3b8ff', midi: '#831843ff', icon: '🦇'},
+    av:        {main: '#767676ff', number: '#ffffffff', color: '#facc15ff', event: '#fb3232ff', audio: '#06b6d4ff', midi: '#84cc16ff', icon: '👨‍🔧'},
+    graphite:  {main: '#6a7d9aff', number: '#f9fafbff', color: '#06b6d4ff', event: '#ef4444ff', audio: '#fbbf24ff', midi: '#fb7185ff', icon: '✏️'},
+    paprika:   {main: '#f45e2cff', number: '#fde047ff', color: '#10b981ff', event: '#f4723fff', audio: '#0ea5e9ff', midi: '#fde68aff', icon: '🌶️'},
+    rogue:     {main: '#d63838ff', number: '#f43f5eff', color: '#fde047ff', event: '#0f766eff', audio: '#a855f7ff', midi: '#0d9488ff', icon: '🗡️'},
+    blueprint: {main: '#1266cbff', number: '#fde047ff', color: '#93c5fdff', event: '#7e95c7ff', audio: '#fb923cff', midi: '#fde68aff', icon: '📐'},
+    hazard:    {main: '#808080ff', number: '#facc15ff', color: '#ef4444ff', event: '#22c55eff', audio: '#3b82f6ff', midi: '#f97316ff', icon: '⚠️'},
+    aubergine: {main: '#901aebff', number: '#f43f5eff', color: '#34d399ff', event: '#7e95c7ff', audio: '#06b6d4ff', midi: '#f9a8d4ff', icon: '🍆'},
+    coralreef: {main: '#fb7185ff', number: '#0ea5e9ff', color: '#065f46ff', event: '#7e95c7ff', audio: '#facc15ff', midi: '#a7f3d0ff', icon: '🪸'},
+    polar:     {main: '#f0f9ffff', number: '#0ea5e9ff', color: '#7e95c7ff', event: '#22c55eff', audio: '#3b82f6ff', midi: '#fef3c7ff', icon: '📄'},
+    forest:    {main: '#24a253ff', number: '#a3e635ff', color: '#f97316ff', event: '#10b981ff', audio: '#06b6d4ff', midi: '#854d0eff', icon: '🌲'},
+    peachy:    {main: '#fb923cff', number: '#b45309ff', color: '#f43f5eff', event: '#10b981ff', audio: '#0ea5e9ff', midi: '#fde68aff', icon: '🍑'}
 }
 
 // --- DOM Element creators ---
@@ -68,6 +68,10 @@ function createSettingsModal(){
                     <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">
                         <label style="font-size: 0.9rem; color: var(--text-secondary);">Audio Ports</label>
                         <s-color value="${themeManager.getColor('audio')}" noalpha data-el="audioColorPicker"></s-color>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">
+                        <label style="font-size: 0.9rem; color: var(--text-secondary);">MIDI Ports</label>
+                        <s-color value="${themeManager.getColor('midi')}" noalpha data-el="midiColorPicker"></s-color>
                     </div>
                 </div>
                 <p class="help-text">Customize the color scheme for different interface elements and port types.</p>
@@ -195,6 +199,7 @@ function updateModalUI(){
     if(colorColorPicker) colorColorPicker.value = themeManager.getColor('color')
     if(eventColorPicker) eventColorPicker.value = themeManager.getColor('event')
     if(audioColorPicker) audioColorPicker.value = themeManager.getColor('audio')
+    if(midiColorPicker) midiColorPicker.value = themeManager.getColor('midi')
 }
 
 /**
@@ -208,7 +213,7 @@ export function initSettings(){
     updateGlowStyles()
 
     let closeBtn;
-    ({closeBtn, settingsModal, mainColorPicker, numberColorPicker, colorColorPicker, eventColorPicker, audioColorPicker} = createSettingsModal())
+    ({closeBtn, settingsModal, mainColorPicker, numberColorPicker, colorColorPicker, eventColorPicker, audioColorPicker, midiColorPicker} = createSettingsModal())
 
     const openBtn = document.getElementById('settings-btn')
     if(!openBtn){
@@ -254,6 +259,7 @@ export function initSettings(){
     handleColorChange('color', colorColorPicker)
     handleColorChange('event', eventColorPicker)
     handleColorChange('audio', audioColorPicker)
+    handleColorChange('midi', midiColorPicker)
 
     // Listen for settings changes inside the modal
     settingsModal.addEventListener('change', (e) => {
@@ -326,6 +332,7 @@ function applyThemePreset(presetName){
     themeManager.setColor('color', preset.color)
     themeManager.setColor('event', preset.event)
     if(preset.audio) themeManager.setColor('audio', preset.audio)
+    if(preset.midi) themeManager.setColor('midi', preset.midi)
 }
 
 /**

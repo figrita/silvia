@@ -10,7 +10,14 @@ class MidiManager {
         this.noteMappings = new Map() // Map of note number to Set of action buttons
         this.lastCCValues = new Map() // Store last CC values for smooth updates
         this.lastNoteOnTimes = new Map() // Store timestamps of recent note-on events
-        
+
+        // Raw-event subscribers — nodes that want every MIDI message in
+        // a normalized record shape, independent of the CC/note→DOM
+        // learn-and-map machinery above. The audio-midi-keyboard node
+        // uses this to forward note-on/off into the audio worklet's
+        // per-consumer event queues.
+        this.eventSubscribers = new Set()
+
         this.init()
         
         // Cancel learning on escape
@@ -76,12 +83,12 @@ class MidiManager {
         const [status, data1, data2] = event.data
         const command = status >> 4
         const channel = status & 0xF
-        
+
         // CC message (0xB = 11)
         if (command === 11) {
             const ccNumber = data1
             const value = data2
-            
+
             if (this.isLearning && this.learningTarget) {
                 this.learnCC(ccNumber)
             } else {
@@ -92,7 +99,7 @@ class MidiManager {
         else if (command === 9 && data2 > 0) {
             const note = data1
             const velocity = data2
-            
+
             if (this.isLearning && this.learningTarget) {
                 this.learnNote(note)
             } else {
@@ -104,6 +111,43 @@ class MidiManager {
             const note = data1
             this.handleNoteOff(note)
         }
+
+        // Always broadcast to raw subscribers (audio-graph midi
+        // producer nodes). Learn-mode only affects the DOM-mapping
+        // side above; consumers downstream of a hardware keyboard
+        // should keep receiving notes even mid-learn.
+        if(this.eventSubscribers.size){
+            const record = this._normalizeEvent(command, channel, data1, data2)
+            if(record){
+                for(const sub of this.eventSubscribers){
+                    try { sub(record) } catch(e){ console.error('midi subscriber threw:', e) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Convert a raw MIDI command into the worklet event record shape:
+     *   {mtype, note, velocity, channel}
+     * — with offset added downstream by the caller. Returns null for
+     * commands we don't currently bridge (system real-time, etc.).
+     * mtype matches the high nybble of the status byte (8=off, 9=on,
+     * 11=CC), letting the consumer-side scan use the same numeric
+     * dispatch the worklet body uses.
+     */
+    _normalizeEvent(command, channel, data1, data2){
+        if(command === 9 && data2 === 0) return {mtype: 8, note: data1, velocity: 0, channel}
+        if(command === 8 || command === 9) return {mtype: command, note: data1, velocity: data2, channel}
+        if(command === 11) return {mtype: 11, cc: data1, value: data2, channel}
+        return null
+    }
+
+    /** Subscribe to every normalized MIDI event. Returns an
+     *  unsubscribe thunk so callers don't have to retain the handler
+     *  reference for cleanup. */
+    subscribeRaw(handler){
+        this.eventSubscribers.add(handler)
+        return () => this.eventSubscribers.delete(handler)
     }
     
     handleCC(ccNumber, value) {

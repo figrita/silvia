@@ -292,6 +292,24 @@ class AudioRuntime {
         }
     }
 
+    /**
+     * Mutate fields on a node's worklet state without recompiling.
+     * Broadcasts to every engine — the engine's updateState handler
+     * checks `key in slot` per field, so unknown fields are dropped
+     * silently. This is the bridge midi/event-driven consumer nodes
+     * use to feed events into the audio body (note number, velocity,
+     * gate scalar). Body reads via ctx.state(key) like any other
+     * scalar; the engine writes during a fade go to both programs so
+     * mid-recompile events aren't split.
+     */
+    setNodeState(nodeId, updates){
+        if(!updates) return
+        const nid = `n${nodeId}`
+        for(const entry of this.engines.values()){
+            entry.engine.port.postMessage({type: 'updateState', nid, updates})
+        }
+    }
+
     workletFor(sinkNode){
         return this.engines.get(sinkNode)?.engine || null
     }

@@ -238,8 +238,8 @@ export class CursorWire{
     drawCursorConnection = (left, right) => {
         let pathData
 
-        if(this.port.type === 'action'){
-            // Straight line for action connections
+        if(this.port.type === 'action' || this.port.type === 'midi'){
+            // Straight line for event-style connections (action and midi).
             pathData = `M ${left.x} ${left.y} L ${right.x} ${right.y}`
         } else {
             // Curved connections for data types
@@ -265,7 +265,7 @@ export class CursorWire{
         const strokeAttr = strokeColor ? `stroke="${strokeColor}"` : ''
         let html = `<g id="cursor-connection"><path d="${pathData}" class="connection-path ${this.port.type}" ${strokeAttr}></path>`
 
-        if(settings.stripedWires && this.port.type !== 'action') {
+        if(settings.stripedWires && this.port.type !== 'action' && this.port.type !== 'midi') {
             html += `<path d="${pathData}" class="connection-path connection-shadow" stroke="#000"></path>`
         }
         html += `</g>`
@@ -548,8 +548,11 @@ export class Connection{
         // ALWAYS use phi-spaced color for stroke attribute
         this.color = color || getGoldenRatioColor()
 
-        if(this.type === 'action'){
-            // No need to remove existing connections, actions are many-to-many
+        if(this.type === 'action' || this.type === 'midi'){
+            // No need to remove existing connections — actions and midi
+            // events are many-to-many. One source can fire to any number
+            // of consumers, and a consumer port may receive from
+            // multiple producers (chord layering, merge sequencers).
         } else {
             // Data connection logic: one-to-one on input
             const connectionsToRemove = [...Connection.connections].filter(conn =>
@@ -586,7 +589,7 @@ export class Connection{
         this.updatePortColors()
 
         // Only trigger shader recompiles for data connections
-        if(this.type !== 'action' && this.type !== 'audio'){
+        if(this.type !== 'action' && this.type !== 'audio' && this.type !== 'midi'){
             SNode.refreshDownstreamOutputs(destination.parent)
         }
     }
@@ -619,8 +622,8 @@ export class Connection{
     drawConnection = () => {
         let pathData
 
-        if(this.type === 'action'){
-            // Straight line for action connections
+        if(this.type === 'action' || this.type === 'midi'){
+            // Straight line for event-style connections (action and midi).
             pathData = `M ${this.source.x} ${this.source.y} L ${this.destination.x} ${this.destination.y}`
         } else {
             // Curved connections for data types
@@ -649,7 +652,7 @@ export class Connection{
         const strokeAttr = strokeColor ? `stroke="${strokeColor}"` : ''
         let result = `<path d="${pathData}" class="connection-path ${this.type}" ${strokeAttr} data-connection-id="${connectionId}"></path>`
 
-        if(settings.stripedWires && this.type !== 'action') {
+        if(settings.stripedWires && this.type !== 'action' && this.type !== 'midi') {
             result += `<path d="${pathData}" class="connection-path connection-shadow" stroke="#000" data-connection-id="${connectionId}-shadow"></path>`
         }
 

@@ -370,6 +370,34 @@ export class SNode{
         }
     }
 
+    /**
+     * Fire a MIDI event from one of this node's outputs. Mirrors
+     * triggerAction's many-to-many fan-out, but each event carries a
+     * payload and consumers split on direction via separate
+     * noteOnCallback / noteOffCallback handlers (analogous to
+     * action's down/up). `event` is `{note, velocity, channel}`;
+     * the producer doesn't construct any sample-offset because
+     * cabling lives outside the worklet's per-block timing — events
+     * fire on the main thread the moment they happen, and a consumer
+     * that needs sample-accurate gating bridges its own state into
+     * the worklet via audioRuntime.setNodeState.
+     */
+    fireMidi(outputKey, kind, event){
+        if(!this.output[outputKey] || this.output[outputKey].type !== 'midi') return
+        const cbName = kind === 'on' ? 'noteOnCallback'
+                     : kind === 'off' ? 'noteOffCallback'
+                     : null
+        if(!cbName) return
+        for(const connection of Connection.connections){
+            if(connection.source.parent !== this || connection.source.key !== outputKey) continue
+            const cb = connection.destination[cbName]
+            if(typeof cb === 'function'){
+                try { cb.call(connection.destination.parent, event) }
+                catch(err){ console.error('midi callback threw:', err) }
+            }
+        }
+    }
+
     getOption(key){
         return this.optionValues[key]
     }

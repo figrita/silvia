@@ -5,12 +5,13 @@ import {deepClone} from './utils.js'
  * It contains the JSDoc type definitions that provide rich, inline documentation
  * for the Node-API, enabling autocompletion and helpful tooltips in VS Code.
  *
- * @typedef {'color' | 'float' | 'action' | 'audio'} PortType
+ * @typedef {'color' | 'float' | 'action' | 'audio' | 'midi'} PortType
  * The data type of a port, determining what it can connect to and how its data is handled.
  * - 'color': vec4 RGBA pixels (video workspaces only, compiles to GLSL sampler2D/vec4 uniforms).
  * - 'float': scalar CPU-computed values pushed to GPU as uniforms (video), or audio-graph k-rate CV (audio workspaces).
  * - 'action': gate/trigger events with optional down/up callbacks (both workspace types).
  * - 'audio': stereo a-rate Web Audio `AudioNode` connections (audio workspaces only).
+ * - 'midi': sample-accurate event stream (note-on/off, CC) inside the audio worklet. Connects only to other midi ports.
  *
  * @typedef {'select'} OptionType
  * The type of UI for a node option. Currently only 'select' is supported.

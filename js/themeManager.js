@@ -4,12 +4,13 @@ import {hexToRgba, rgbaToHsla} from './utils.js'
 
 /**
  * Multi-Color Theme Manager
- * Handles a 5-color theming system where users can customize:
+ * Handles a 6-color theming system where users can customize:
  * - Main UI color (general interface elements)
  * - Number color (number ports and connections)
  * - Color color (color ports and connections)
  * - Event color (action/event ports and connections)
  * - Audio color (audio signal ports — used by the entire audio graph)
+ * - MIDI color (midi event ports and connections)
  */
 
 export class ThemeManager {
@@ -26,7 +27,8 @@ export class ThemeManager {
             number: '#10b981ff',  // Green - for number ports
             color: '#f59e0bff',   // Orange - for color ports
             event: '#8b5cf6ff',   // Purple - for action/event ports
-            audio: '#38bcdcff'    // Cyan  - for audio signal ports
+            audio: '#38bcdcff',    // Cyan  - for audio signal ports
+            midi: '#c084fcff'     // Light purple - for midi event ports
         }
         
         this.rootElement = document.documentElement
@@ -42,11 +44,11 @@ export class ThemeManager {
     
     /**
      * Sets a specific theme color
-     * @param {string} colorType - One of: 'main', 'number', 'color', 'event', 'audio'
+     * @param {string} colorType - One of: 'main', 'number', 'color', 'event', 'audio', 'midi'
      * @param {string} hexValue - 8-digit hex color string (e.g., '#ff0000ff')
      */
     setColor(colorType, hexValue) {
-        if (!['main', 'number', 'color', 'event', 'audio'].includes(colorType)) {
+        if (!['main', 'number', 'color', 'event', 'audio', 'midi'].includes(colorType)) {
             console.warn(`Invalid color type: ${colorType}`)
             return
         }
@@ -65,7 +67,7 @@ export class ThemeManager {
     
     /**
      * Gets a specific theme color
-     * @param {string} colorType - One of: 'main', 'number', 'color', 'event', 'audio'
+     * @param {string} colorType - One of: 'main', 'number', 'color', 'event', 'audio', 'midi'
      * @returns {string} The hex color string
      */
     getColor(colorType) {
@@ -167,7 +169,8 @@ export class ThemeManager {
             number: '#10b981ff',  // Green
             color: '#f59e0bff',   // Orange
             event: '#8b5cf6ff',   // Purple
-            audio: '#38bcdcff'    // Cyan
+            audio: '#38bcdcff',    // Cyan
+            midi: '#c084fcff'     // Light purple
         }
         this.applyTheme()
         this.saveTheme()
