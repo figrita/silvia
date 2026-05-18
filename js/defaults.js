@@ -701,13 +701,12 @@ export const defaultPatches = [
             },
             {
                 "id": 95,
-                "slug": "tunnel",
+                "slug": "tunnel3d",
                 "x": 475,
                 "y": 95,
                 "controls": {
-                    "distance": 0.8,
-                    "speed": 0.5,
-                    "rotation": 0
+                    "twist": 0,
+                    "zoom": 0.8
                 }
             },
             {
@@ -808,13 +807,12 @@ export const defaultPatches = [
             },
             {
                 "id": 102,
-                "slug": "tunnel",
+                "slug": "tunnel3d",
                 "x": 2163,
                 "y": 110,
                 "controls": {
-                    "distance": 0.9,
-                    "speed": 0.5,
-                    "rotation": 0
+                    "twist": 0,
+                    "zoom": 0.9
                 }
             },
             {
@@ -1050,7 +1048,7 @@ export const defaultPatches = [
                 "fromNode": 109,
                 "fromPort": "bass",
                 "toNode": 102,
-                "toPort": "distance"
+                "toPort": "zoom"
             }
         ],
         "editorWidth": 3374,
